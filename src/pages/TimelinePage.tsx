@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useAppActions } from '../app/app-context';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { toLocalizedErrorMessage, useI18n } from '../i18n';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
@@ -14,6 +15,7 @@ export function TimelinePage() {
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [restoring, setRestoring] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
 
   const selectedRecord = useMemo(
     () => records.find((item) => item.id === selectedId) ?? records[0],
@@ -43,17 +45,12 @@ export function TimelinePage() {
 
   async function handleRestore() {
     if (!project?.path || !selectedRecord) return;
-    const confirmResult = window.confirm(
-      t('timeline_restore_confirm', {
-        time: dayjs.unix(selectedRecord.timestamp).format('YYYY-MM-DD HH:mm')
-      })
-    );
-    if (!confirmResult) return;
 
     setRestoring(true);
     try {
       await unwrapResult(getBridge().restoreToRecord(project.path, selectedRecord.id));
       setNotice({ type: 'success', text: t('timeline_notice_restored') });
+      setRestoreDialogOpen(false);
       await refreshProject();
       await loadRecords();
     } catch (error) {
@@ -153,7 +150,11 @@ export function TimelinePage() {
                 </ul>
               </div>
               <div className="actions-row">
-                <button className="btn btn-danger" disabled={restoring} onClick={() => void handleRestore()}>
+                <button
+                  className="btn btn-danger"
+                  disabled={restoring}
+                  onClick={() => setRestoreDialogOpen(true)}
+                >
                   {t('timeline_restore_button')}
                 </button>
               </div>
@@ -161,6 +162,28 @@ export function TimelinePage() {
           )}
         </div>
       </section>
+
+      {restoreDialogOpen && selectedRecord ? (
+        <ConfirmDialog
+          title={t('timeline_restore_dialog_title')}
+          description={t('timeline_restore_dialog_description')}
+          details={[
+            t('timeline_restore_dialog_time', {
+              time: dayjs.unix(selectedRecord.timestamp).format('YYYY-MM-DD HH:mm')
+            }),
+            t('timeline_restore_dialog_files', { count: selectedRecord.changedFiles }),
+            config?.settings.autoSnapshotBeforeRestore
+              ? t('timeline_restore_dialog_snapshot_on')
+              : t('timeline_restore_dialog_snapshot_off')
+          ]}
+          cancelLabel={t('common_cancel')}
+          confirmLabel={t('timeline_restore_confirm_button')}
+          confirmKind="danger"
+          busy={restoring}
+          onCancel={() => setRestoreDialogOpen(false)}
+          onConfirm={() => void handleRestore()}
+        />
+      ) : null}
     </div>
   );
 }

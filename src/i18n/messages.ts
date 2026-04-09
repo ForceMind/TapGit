@@ -32,6 +32,7 @@ export const EN_MESSAGES = {
   common_select: 'Select',
   common_file_unit: '{{count}} files',
   common_record_unit: '{{count}} records',
+  common_cancel: 'Cancel',
   common_project_open_required: 'Open a project from Home first.',
   common_protection_required:
     'Version protection is not enabled yet. Click "Enable Version Protection" in the top bar first.',
@@ -99,6 +100,16 @@ export const EN_MESSAGES = {
   timeline_label_changed_files: 'Changed files:',
   timeline_label_files: 'Affected files:',
   timeline_restore_button: 'Restore to This Point',
+  timeline_restore_dialog_title: 'Restore this saved point?',
+  timeline_restore_dialog_description:
+    'Your current project files will move back to the selected time point. Unsaved work may be replaced.',
+  timeline_restore_dialog_snapshot_on:
+    'A safety snapshot will be created first, so you can return if this is not the version you wanted.',
+  timeline_restore_dialog_snapshot_off:
+    'Automatic safety snapshot is currently off. You can turn it back on in Settings for extra recovery protection.',
+  timeline_restore_dialog_time: 'Target time: {{time}}',
+  timeline_restore_dialog_files: 'Affected files in this record: {{count}}',
+  timeline_restore_confirm_button: 'Restore Now',
   timeline_restore_confirm:
     'You are about to restore to {{time}}.\nUnsaved changes may be overwritten.\n\nA safety snapshot will be created first. Continue?',
   timeline_notice_load_failed: 'Failed to load saved records',
@@ -292,6 +303,7 @@ export const ZH_MESSAGES: Record<MessageKey, string> = {
   common_select: '请选择',
   common_file_unit: '{{count}} 个文件',
   common_record_unit: '{{count}} 条',
+  common_cancel: '取消',
   common_project_open_required: '请先在首页打开一个项目。',
   common_protection_required: '这个项目还没开启版本保护，先在顶部点击“开启版本保护”。',
 
@@ -356,6 +368,14 @@ export const ZH_MESSAGES: Record<MessageKey, string> = {
   timeline_label_changed_files: '变更文件数：',
   timeline_label_files: '影响文件：',
   timeline_restore_button: '恢复到这里',
+  timeline_restore_dialog_title: '要恢复到这个保存点吗？',
+  timeline_restore_dialog_description: '当前项目文件会回到这个时间点，尚未保存的内容可能被替换。',
+  timeline_restore_dialog_snapshot_on: '系统会先创建安全快照，如果恢复后发现不对，还可以再回到当前状态。',
+  timeline_restore_dialog_snapshot_off:
+    '当前没有开启自动安全快照。你可以先去设置页打开它，再执行恢复。',
+  timeline_restore_dialog_time: '目标时间：{{time}}',
+  timeline_restore_dialog_files: '这条记录影响文件：{{count}} 个',
+  timeline_restore_confirm_button: '确认恢复',
   timeline_restore_confirm:
     '你将恢复到 {{time}} 的状态。\n当前未保存修改可能被覆盖。\n\n系统会先自动创建安全快照。是否继续？',
   timeline_notice_load_failed: '读取保存记录失败',

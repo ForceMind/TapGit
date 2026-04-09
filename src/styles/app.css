@@ -511,6 +511,80 @@ pre {
   border-color: #b8d8f3;
 }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 28, 39, 0.4);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.dialog-card {
+  width: min(560px, 100%);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background:
+    radial-gradient(circle at top right, rgba(255, 181, 116, 0.22), transparent 34%),
+    linear-gradient(165deg, #ffffff 0%, #f6fbff 100%);
+  box-shadow: 0 28px 60px rgba(17, 37, 53, 0.22);
+  padding: 24px;
+}
+
+.dialog-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #355375;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dialog-card h3 {
+  margin: 14px 0 10px;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.dialog-description {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.dialog-list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dialog-list li {
+  border: 1px solid #dbe5ef;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+
+.dialog-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 84px 1fr;
@@ -532,5 +606,9 @@ pre {
   .conflict-layout,
   .guide-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dialog-card h3 {
+    font-size: 24px;
   }
 }
