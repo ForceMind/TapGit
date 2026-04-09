@@ -1,12 +1,13 @@
 {
   "name": "tapgit",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "TapGit desktop app for saving and restoring code progress",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "generate:icon": "powershell -ExecutionPolicy Bypass -File scripts/generate-icon.ps1",
     "pack:win": "npm run build && electron-builder --win nsis --publish never",
     "pack:mac": "npm run build && electron-builder --mac dmg zip --publish never",
     "pack:dir": "npm run build && electron-builder --dir --publish never",
@@ -34,6 +35,7 @@
   "build": {
     "appId": "com.tapgit.desktop",
     "productName": "TapGit",
+    "icon": "build/icon.png",
     "asar": true,
     "directories": {
       "output": "release"
@@ -47,6 +49,7 @@
       "target": [
         "nsis"
       ],
+      "icon": "build/icon.ico",
       "artifactName": "TapGit-${version}.${ext}",
       "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false
