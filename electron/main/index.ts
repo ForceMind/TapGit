@@ -23,7 +23,7 @@ function createWindow() {
     height: 860,
     minWidth: 1080,
     minHeight: 720,
-    title: chinese ? '码迹 TapGit' : 'TapGit',
+    title: chinese ? '码迹' : 'TapGit',
     backgroundColor: '#f4f8fb',
     webPreferences: {
       preload: preloadPath,

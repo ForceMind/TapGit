@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { toLocalizedConflictContent, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
 import { getBridge, unwrapResult } from '../services/bridge';
@@ -14,15 +15,25 @@ export function PlansPage() {
   const { refreshProject } = useAppActions();
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
+  const [historyCount, setHistoryCount] = useState<number | null>(null);
   const [plans, setPlans] = useState<PlanInfo[]>([]);
-  const [selectedPlanName, setSelectedPlanName] = useState('');
   const [newPlanName, setNewPlanName] = useState('');
   const [working, setWorking] = useState(false);
   const [mergeFrom, setMergeFrom] = useState('');
-  const [mergeTo, setMergeTo] = useState('');
   const [mergeState, setMergeState] = useState<MergeResult | null>(null);
   const [selectedConflictFile, setSelectedConflictFile] = useState('');
   const [manualContent, setManualContent] = useState('');
+
+  const stablePlan = useMemo(
+    () => plans.find((item) => item.isMain) ?? plans.find((item) => item.name === 'main' || item.name === 'master'),
+    [plans]
+  );
+
+  const ideaPlans = useMemo(() => plans.filter((item) => !item.isMain), [plans]);
+  const currentPlan = useMemo(() => plans.find((item) => item.isCurrent) ?? null, [plans]);
+  const needsFirstSave = (historyCount ?? 0) === 0;
+  const hasUnsavedChanges = (project?.pendingChangeCount ?? 0) > 0;
+  const ideasLocked = needsFirstSave || hasUnsavedChanges;
 
   const selectedConflict = useMemo(
     () => mergeState?.conflicts.find((item) => item.filePath === selectedConflictFile) ?? mergeState?.conflicts[0],
@@ -76,15 +87,24 @@ export function PlansPage() {
     if (!project?.path || !project.isProtected) return;
     setLoading(true);
     try {
-      const data = await unwrapResult(getBridge().listPlans(project.path));
-      setPlans(data);
-      const current = data.find((item) => item.isCurrent)?.name ?? '';
-      setSelectedPlanName(current);
+      const [plansData, historyData] = await Promise.all([
+        unwrapResult(getBridge().listPlans(project.path)),
+        unwrapResult(getBridge().listHistory(project.path))
+      ]);
+      setPlans(plansData);
+      setHistoryCount(historyData.length);
 
-      const mainTarget = data.find((item) => item.isMain)?.name ?? current;
-      setMergeTo(mainTarget);
-      const firstSource = data.find((item) => item.name !== mainTarget)?.name ?? '';
-      setMergeFrom(firstSource);
+      const mainTarget = plansData.find((item) => item.isMain)?.name ?? '';
+      const firstIdea = plansData.find((item) => !item.isMain)?.name ?? '';
+      setMergeFrom((current) => {
+        if (plansData.find((item) => item.name === current && !item.isMain)) {
+          return current;
+        }
+        return firstIdea || current || '';
+      });
+      if (!mainTarget && !firstIdea) {
+        setMergeFrom('');
+      }
     } catch (error) {
       setNotice({
         type: 'error',
@@ -100,10 +120,12 @@ export function PlansPage() {
   }, [project?.path, project?.isProtected]);
 
   async function handleCreatePlan() {
-    if (!project?.path || !newPlanName.trim()) return;
+    if (!project?.path || !newPlanName.trim() || ideasLocked) return;
     setWorking(true);
     try {
-      await unwrapResult(getBridge().createPlan(project.path, newPlanName.trim()));
+      await unwrapResult(
+        getBridge().createPlan(project.path, newPlanName.trim(), currentPlan?.name ?? stablePlan?.name)
+      );
       setNotice({ type: 'success', text: t('plans_notice_created', { name: newPlanName.trim() }) });
       setNewPlanName('');
       await refreshProject();
@@ -118,12 +140,12 @@ export function PlansPage() {
     }
   }
 
-  async function handleSwitchPlan() {
-    if (!project?.path || !selectedPlanName) return;
+  async function handleSwitchPlan(planName: string) {
+    if (!project?.path || !planName || ideasLocked) return;
     setWorking(true);
     try {
-      await unwrapResult(getBridge().switchPlan(project.path, selectedPlanName));
-      setNotice({ type: 'success', text: t('plans_notice_switched', { name: selectedPlanName }) });
+      await unwrapResult(getBridge().switchPlan(project.path, planName));
+      setNotice({ type: 'success', text: t('plans_notice_switched', { name: planName }) });
       await refreshProject();
       await loadPlans();
     } catch (error) {
@@ -137,14 +159,10 @@ export function PlansPage() {
   }
 
   async function handleMerge() {
-    if (!project?.path || !mergeFrom || !mergeTo) return;
-    if (mergeFrom === mergeTo) {
-      setNotice({ type: 'info', text: t('plans_notice_same_source_target') });
-      return;
-    }
+    if (!project?.path || !stablePlan?.name || !mergeFrom || ideasLocked) return;
     setWorking(true);
     try {
-      const result = await unwrapResult(getBridge().mergePlan(project.path, mergeFrom, mergeTo));
+      const result = await unwrapResult(getBridge().mergePlan(project.path, mergeFrom, stablePlan.name));
       if (result.status === 'merged') {
         setNotice({ type: 'success', text: t('plans_notice_merged') });
         applyMergeResult(result);
@@ -205,9 +223,7 @@ export function PlansPage() {
       const files = mergeState.conflicts.map((item) => item.filePath);
 
       for (const filePath of files) {
-        latestResult = await unwrapResult(
-          getBridge().resolveCollision(project.path, filePath, strategy)
-        );
+        latestResult = await unwrapResult(getBridge().resolveCollision(project.path, filePath, strategy));
         if (latestResult.status === 'merged') {
           break;
         }
@@ -233,11 +249,14 @@ export function PlansPage() {
   }
 
   async function handleCompleteMerge() {
-    if (!project?.path) return;
+    if (!project?.path || !stablePlan?.name) return;
     setWorking(true);
     try {
       await unwrapResult(
-        getBridge().completeMerge(project.path, t('plans_merge_commit_message', { from: mergeFrom, to: mergeTo }))
+        getBridge().completeMerge(
+          project.path,
+          t('plans_merge_commit_message', { from: mergeFrom, to: stablePlan.name })
+        )
       );
       setMergeState(null);
       setNotice({ type: 'success', text: t('plans_notice_complete_saved') });
@@ -311,94 +330,162 @@ export function PlansPage() {
 
       <section className="panel">
         <div className="section-head">
-          <h2>{t('plans_list')}</h2>
-          <span className="pill">{t('common_record_unit', { count: plans.length })}</span>
+          <div>
+            <h2>{t('plans_ready_title')}</h2>
+            <p className="panel-subtitle">{t('plans_ready_desc')}</p>
+          </div>
         </div>
-        {loading ? (
-          <p className="muted">{t('plans_loading')}</p>
-        ) : (
-          <div className="plan-layout">
-            <ul className="list">
-              {plans.map((plan) => (
-                <li
-                  key={plan.id}
-                  className={`list-item ${selectedPlanName === plan.name ? 'active' : ''}`}
-                  onClick={() => setSelectedPlanName(plan.name)}
-                >
-                  <div className="flex-grow">
-                    <div className="item-title">
-                      {mapPlanLabel(plan, t)}
-                      {plan.isCurrent ? <span className="tag">{t('plans_tag_current')}</span> : null}
-                      {plan.isMain ? <span className="tag tag-main">{t('plans_tag_main')}</span> : null}
-                    </div>
-                    <div className="item-subtle">{plan.lastMessage || t('plans_no_saved_record')}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <div className="plan-actions">
-              <h3>{t('plans_create_title')}</h3>
-              <div className="field-row">
-                <input
-                  className="input-text"
-                  value={newPlanName}
-                  placeholder={t('plans_create_placeholder')}
-                  onChange={(event) => setNewPlanName(event.target.value)}
-                />
-                <button className="btn btn-primary" disabled={working} onClick={() => void handleCreatePlan()}>
-                  {t('plans_create_button')}
-                </button>
-              </div>
-
-              <h3>{t('plans_switch_title')}</h3>
-              <div className="field-row">
-                <select
-                  className="input-select"
-                  value={selectedPlanName}
-                  onChange={(event) => setSelectedPlanName(event.target.value)}
-                >
-                  {plans.map((plan) => (
-                    <option key={plan.name} value={plan.name}>
-                      {mapPlanLabel(plan, t)}
-                    </option>
-                  ))}
-                </select>
-                <button className="btn btn-secondary" disabled={working} onClick={() => void handleSwitchPlan()}>
-                  {t('plans_switch_button')}
-                </button>
-              </div>
+        {needsFirstSave ? (
+          <div className="cloud-auth-callout">
+            <h3>{t('plans_ready_no_history_title')}</h3>
+            <p>{t('plans_ready_no_history_desc')}</p>
+            <div className="actions-row">
+              <Link className="btn btn-primary" to="/changes">
+                {t('plans_ready_go_changes')}
+              </Link>
             </div>
           </div>
+        ) : hasUnsavedChanges ? (
+          <div className="cloud-auth-callout">
+            <h3>{t('plans_ready_unsaved_title')}</h3>
+            <p>{t('plans_ready_unsaved_desc')}</p>
+            <div className="actions-row">
+              <Link className="btn btn-primary" to="/changes">
+                {t('plans_ready_go_changes')}
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <p className="success-text">{t('plans_ready_desc')}</p>
         )}
       </section>
 
       <section className="panel">
-        <h2>{t('plans_merge_title')}</h2>
+        <div className="section-head">
+          <div>
+            <h2>{t('plans_create_title')}</h2>
+            <p className="panel-subtitle">{t('plans_create_help')}</p>
+          </div>
+        </div>
+        <p className="muted">
+          <strong>{t('plans_create_from_label')}</strong>{' '}
+          {currentPlan ? mapPlanLabel(currentPlan, t) : mapPlanLabel(stablePlan ?? { id: '', name: 'main', isCurrent: false, isMain: true, lastSavedAt: null, lastMessage: '' }, t)}
+        </p>
         <div className="field-row">
-          <label>{t('plans_merge_source')}</label>
-          <select className="input-select" value={mergeFrom} onChange={(event) => setMergeFrom(event.target.value)}>
-            <option value="">{t('common_select')}</option>
-            {plans.map((plan) => (
-              <option key={plan.name} value={plan.name}>
-                {mapPlanLabel(plan, t)}
-              </option>
-            ))}
-          </select>
-          <label>{t('plans_merge_target')}</label>
-          <select className="input-select" value={mergeTo} onChange={(event) => setMergeTo(event.target.value)}>
-            <option value="">{t('common_select')}</option>
-            {plans.map((plan) => (
-              <option key={plan.name} value={plan.name}>
-                {mapPlanLabel(plan, t)}
-              </option>
-            ))}
-          </select>
-          <button className="btn btn-primary" disabled={working} onClick={() => void handleMerge()}>
-            {t('plans_merge_button')}
+          <input
+            className="input-text"
+            value={newPlanName}
+            placeholder={t('plans_create_placeholder')}
+            onChange={(event) => setNewPlanName(event.target.value)}
+          />
+          <button className="btn btn-primary" disabled={working || ideasLocked} onClick={() => void handleCreatePlan()}>
+            {t('plans_create_button')}
           </button>
         </div>
-        <p className="muted">{t('plans_merge_hint')}</p>
+      </section>
+
+      <div className="grid-two">
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2>{t('plans_current_stable_title')}</h2>
+              <p className="panel-subtitle">{t('plans_current_stable_desc')}</p>
+            </div>
+          </div>
+          {stablePlan ? (
+            <div className="detail-stack">
+              <div className="item-title">
+                {mapPlanLabel(stablePlan, t)}
+                <span className="tag tag-main">{t('plans_tag_main')}</span>
+                {stablePlan.isCurrent ? <span className="tag">{t('plans_here_now')}</span> : null}
+              </div>
+              <div className="item-subtle">{stablePlan.lastMessage || t('plans_no_saved_record')}</div>
+              {!stablePlan.isCurrent ? (
+                <div className="actions-row">
+                  <button
+                    className="btn btn-secondary"
+                    disabled={working || ideasLocked}
+                    onClick={() => void handleSwitchPlan(stablePlan.name)}
+                  >
+                    {t('plans_switch_button')}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="muted">{t('plans_no_saved_record')}</p>
+          )}
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <div>
+              <h2>{t('plans_ideas_title')}</h2>
+              <p className="panel-subtitle">{t('plans_ideas_desc')}</p>
+            </div>
+            <span className="pill">{t('common_record_unit', { count: ideaPlans.length })}</span>
+          </div>
+          {loading ? (
+            <p className="muted">{t('plans_loading')}</p>
+          ) : ideaPlans.length === 0 ? (
+            <p className="muted">{t('plans_ideas_empty')}</p>
+          ) : (
+            <ul className="list">
+              {ideaPlans.map((plan) => (
+                <li key={plan.id} className={`list-item ${plan.isCurrent ? 'active' : ''}`}>
+                  <div className="flex-grow">
+                    <div className="item-title">
+                      {mapPlanLabel(plan, t)}
+                      {plan.isCurrent ? <span className="tag">{t('plans_here_now')}</span> : null}
+                    </div>
+                    <div className="item-subtle">{plan.lastMessage || t('plans_no_saved_record')}</div>
+                  </div>
+                  {!plan.isCurrent ? (
+                    <button
+                      className="btn btn-secondary"
+                      disabled={working || ideasLocked}
+                      onClick={() => void handleSwitchPlan(plan.name)}
+                    >
+                      {t('plans_switch_button')}
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <section className="panel">
+        <div className="section-head">
+          <div>
+            <h2>{t('plans_back_title')}</h2>
+            <p className="panel-subtitle">{t('plans_back_desc')}</p>
+          </div>
+        </div>
+        {ideaPlans.length === 0 ? (
+          <p className="muted">{t('plans_back_empty')}</p>
+        ) : (
+          <>
+            <div className="field-row">
+              <label>{t('plans_merge_source')}</label>
+              <select className="input-select" value={mergeFrom} onChange={(event) => setMergeFrom(event.target.value)}>
+                <option value="">{t('common_select')}</option>
+                {ideaPlans.map((plan) => (
+                  <option key={plan.name} value={plan.name}>
+                    {mapPlanLabel(plan, t)}
+                  </option>
+                ))}
+              </select>
+              <label>{t('plans_back_target_label')}</label>
+              <span className="pill">{stablePlan ? mapPlanLabel(stablePlan, t) : t('common_main_plan')}</span>
+              <button className="btn btn-primary" disabled={working || ideasLocked || !mergeFrom} onClick={() => void handleMerge()}>
+                {t('plans_merge_button')}
+              </button>
+            </div>
+            <p className="muted">{t('plans_merge_hint')}</p>
+          </>
+        )}
       </section>
 
       {mergeState?.status === 'needs_decision' && mergeState.conflicts.length > 0 ? (
