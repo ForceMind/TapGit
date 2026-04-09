@@ -8,6 +8,7 @@ import { useAppStore } from '../stores/useAppStore';
 
 const defaultActions = {
   openProjectFolder: async () => undefined,
+  openCloneProjectDialog: async () => undefined,
   openProjectByPath: async () => undefined,
   enableProtection: async () => undefined,
   refreshProject: async () => undefined,
@@ -17,7 +18,9 @@ const defaultActions = {
 function createBridgeMock() {
   return {
     chooseProjectFolder: vi.fn(),
+    chooseCloneDestination: vi.fn(),
     openProject: vi.fn(),
+    cloneProjectFromGitHub: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
     saveProgress: vi.fn(),

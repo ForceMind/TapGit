@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppActionsContext } from '../app/app-context';
@@ -8,6 +9,7 @@ import { useAppStore } from '../stores/useAppStore';
 
 const defaultActions = {
   openProjectFolder: async () => undefined,
+  openCloneProjectDialog: async () => undefined,
   openProjectByPath: async () => undefined,
   enableProtection: async () => undefined,
   refreshProject: async () => undefined,
@@ -17,7 +19,9 @@ const defaultActions = {
 function createBridgeMock() {
   return {
     chooseProjectFolder: vi.fn(),
+    chooseCloneDestination: vi.fn(),
     openProject: vi.fn(),
+    cloneProjectFromGitHub: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
     saveProgress: vi.fn(),
@@ -34,12 +38,16 @@ function createBridgeMock() {
     getConfig: vi.fn(),
     updateSettings: vi.fn(),
     checkGitEnvironment: vi.fn(),
+    getGitHubAuthStatus: vi.fn(),
+    loginGitHub: vi.fn(),
+    logoutGitHub: vi.fn(),
     getCloudSyncStatus: vi.fn(),
     testCloudConnection: vi.fn(),
     connectCloud: vi.fn(),
     uploadToCloud: vi.fn(),
     getCloudLatest: vi.fn(),
-    exportLogs: vi.fn()
+    exportLogs: vi.fn(),
+    openExternalUrl: vi.fn()
   };
 }
 
@@ -73,15 +81,15 @@ describe('HomePage', () => {
     window.tapgit = undefined as never;
   });
 
-  it('shows recent projects in Chinese mode', () => {
+  it('shows two clear entry cards in Chinese mode when no project is open', () => {
     useAppStore.setState({
       project: null,
       notice: null,
       config: {
-        recentProjects: ['E:/demo/project-a', 'E:/demo/project-b'],
+        recentProjects: [],
         settings: {
           showAdvancedMode: false,
-          showBeginnerGuide: true,
+          showBeginnerGuide: false,
           autoSnapshotBeforeRestore: true,
           autoSnapshotBeforeMerge: true,
           defaultSaveMessageTemplate: '',
@@ -92,12 +100,16 @@ describe('HomePage', () => {
 
     renderHomePage('zh-CN');
 
+    expect(screen.getByText('先选一个项目开始')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '打开本地项目' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '从 GitHub 获取项目' })).toBeInTheDocument();
     expect(screen.getByText('最近项目')).toBeInTheDocument();
-    expect(screen.getByText('project-a')).toBeInTheDocument();
-    expect(screen.getByText('project-b')).toBeInTheDocument();
   });
 
-  it('shows only one primary open action when no project is open', () => {
+  it('opens the GitHub import flow from the primary entry card', async () => {
+    const user = userEvent.setup();
+    const openCloneProjectDialog = vi.fn(async () => undefined);
+
     useAppStore.setState({
       project: null,
       notice: null,
@@ -114,28 +126,19 @@ describe('HomePage', () => {
       }
     });
 
-    renderHomePage('en-US');
+    renderHomePage('en-US', {
+      ...defaultActions,
+      openCloneProjectDialog
+    });
 
-    expect(screen.getByText('Do This Now')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Open Project' })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Get from GitHub' }));
+
+    expect(openCloneProjectDialog).toHaveBeenCalledTimes(1);
   });
 
-  it('shows next-step cards for a protected project', async () => {
+  it('shows one clear next step after a project is already open', async () => {
     const bridge = createBridgeMock();
     bridge.listHistory.mockResolvedValue({ ok: true, data: [] });
-    bridge.getCloudSyncStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        connected: false,
-        remoteLabel: '',
-        remoteUrl: '',
-        currentPlan: 'main',
-        hasTracking: false,
-        pendingUpload: 0,
-        pendingDownload: 0,
-        statusText: ''
-      }
-    });
     window.tapgit = bridge as never;
 
     useAppStore.setState({
@@ -162,13 +165,10 @@ describe('HomePage', () => {
 
     renderHomePage('en-US');
 
+    expect(screen.getByText('Project is ready')).toBeInTheDocument();
     expect(screen.getByText('What to do next')).toBeInTheDocument();
-    expect(screen.getByText('Do This Now')).toBeInTheDocument();
-    expect(
-      (await screen.findAllByText('You currently have 3 unsaved files. Save once to keep a stable point.')).length
-    ).toBeGreaterThan(0);
-    expect(screen.getByText('Try a new idea safely')).toBeInTheDocument();
-    expect(screen.getByText('This step unlocks after you save your first stable point.')).toBeInTheDocument();
+    expect(screen.getByText('Save a stable point before you keep going')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review Changes' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');

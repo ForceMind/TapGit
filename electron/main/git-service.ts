@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { simpleGit } from 'simple-git';
 import {
   ChangeItem,
+  CloneProjectPayload,
   CloudConnectionTestResult,
   CloudSyncStatus,
   GitEnvironment,
@@ -292,6 +293,22 @@ function parseLogOutput(raw: string): HistoryRecord[] {
 
 function toProjectName(projectPath: string) {
   return path.basename(projectPath);
+}
+
+function sanitizeFolderName(name: string) {
+  return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim();
+}
+
+function suggestFolderNameFromRemote(remoteUrl: string) {
+  const trimmed = remoteUrl.trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    return '';
+  }
+
+  const normalized = trimmed.endsWith('.git') ? trimmed.slice(0, -4) : trimmed;
+  const segments = normalized.split(/[/:]/).filter(Boolean);
+  const rawName = segments[segments.length - 1] ?? '';
+  return sanitizeFolderName(rawName);
 }
 
 function parseCountPair(raw: string) {
@@ -617,6 +634,63 @@ export async function openProject(projectPath: string): Promise<ProjectSummary> 
     currentPlan,
     pendingChangeCount: status.files.length
   };
+}
+
+export async function cloneProjectFromGitHub(
+  payload: CloneProjectPayload
+): Promise<ProjectSummary> {
+  const remoteUrl = payload.remoteUrl.trim();
+  const destinationDirectory = payload.destinationDirectory.trim();
+  const folderName = sanitizeFolderName(
+    (payload.folderName && payload.folderName.trim()) || suggestFolderNameFromRemote(remoteUrl)
+  );
+
+  if (!remoteUrl) {
+    throw new AppError('EMPTY_REMOTE_URL', '请先填写 GitHub 仓库地址');
+  }
+  if (!destinationDirectory) {
+    throw new AppError('EMPTY_DESTINATION', '请先选择项目保存位置');
+  }
+  if (!folderName) {
+    throw new AppError('INVALID_FOLDER_NAME', '请填写本地文件夹名称');
+  }
+
+  const targetPath = path.join(destinationDirectory, folderName);
+  try {
+    const stat = await fs.stat(targetPath);
+    if (stat.isDirectory()) {
+      const entries = await fs.readdir(targetPath);
+      if (entries.length > 0) {
+        throw new AppError(
+          'TARGET_ALREADY_EXISTS',
+          '这个位置已经有同名文件夹了，请换一个位置或名称'
+        );
+      }
+    } else {
+      throw new AppError(
+        'TARGET_ALREADY_EXISTS',
+        '这个位置已经有同名文件夹了，请换一个位置或名称'
+      );
+    }
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+  }
+
+  await fs.mkdir(destinationDirectory, { recursive: true });
+
+  try {
+    await execFileAsync('git', ['clone', remoteUrl, targetPath]);
+  } catch (error) {
+    throw new AppError(
+      'CLONE_PROJECT_FAILED',
+      '获取项目失败，请检查地址、网络或登录状态',
+      String(error)
+    );
+  }
+
+  return openProject(targetPath);
 }
 
 export async function enableProtection(projectPath: string): Promise<ProjectSummary> {

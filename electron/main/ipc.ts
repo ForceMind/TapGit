@@ -7,6 +7,7 @@ import { getGitHubAuthStatus, loginGitHub, logoutGitHub } from './auth-service';
 import { addRecentProject, getConfig, updateSettings } from './config-store';
 import {
   checkGitEnvironment,
+  cloneProjectFromGitHub,
   connectCloud,
   completeMerge,
   createPlan,
@@ -79,12 +80,34 @@ export function registerIpcHandlers() {
     return result.filePaths[0];
   });
 
+  register<[], string | null>(IPC_CHANNELS.CHOOSE_CLONE_DESTINATION, async () => {
+    const chinese = isChineseSystemLocale();
+    const result = await dialog.showOpenDialog({
+      title: chinese ? '选择项目保存位置' : 'Choose Where to Save the Project',
+      properties: ['openDirectory', 'createDirectory']
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
   register<[string], Awaited<ReturnType<typeof openProject>>>(IPC_CHANNELS.OPEN_PROJECT, async (projectPath) => {
     const summary = await openProject(projectPath);
     await addRecentProject(projectPath);
     await logInfo('OPEN_PROJECT', projectPath);
     return summary;
   });
+
+  register<[Parameters<TapGitBridge['cloneProjectFromGitHub']>[0]], Awaited<ReturnType<typeof cloneProjectFromGitHub>>>(
+    IPC_CHANNELS.CLONE_PROJECT_FROM_GITHUB,
+    async (payload) => {
+      const summary = await cloneProjectFromGitHub(payload);
+      await addRecentProject(summary.path);
+      await logInfo('CLONE_PROJECT_FROM_GITHUB', summary.path);
+      return summary;
+    }
+  );
 
   register<[string], Awaited<ReturnType<typeof enableProtection>>>(
     IPC_CHANNELS.ENABLE_PROTECTION,

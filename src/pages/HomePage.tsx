@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { resolveGettingStartedState } from '../app/getting-started';
 import { useProjectHistoryCount } from '../app/use-project-history-count';
-import { toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
-import { getBridge, unwrapResult } from '../services/bridge';
+import { toPlanLabel, useI18n } from '../i18n';
 import { useAppStore } from '../stores/useAppStore';
 
 type JourneyState = 'done' | 'current' | 'upcoming';
@@ -26,8 +25,8 @@ interface JourneyStep {
 }
 
 export function HomePage() {
-  const { project, config, setConfig, setNotice } = useAppStore();
-  const { openProjectFolder, openProjectByPath, enableProtection } = useAppActions();
+  const { project, config } = useAppStore();
+  const { openProjectFolder, openCloneProjectDialog, openProjectByPath, enableProtection } = useAppActions();
   const { t } = useI18n();
   const { historyCount, historyLoading } = useProjectHistoryCount(
     project?.path,
@@ -35,21 +34,6 @@ export function HomePage() {
     `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
   );
   const gettingStarted = resolveGettingStartedState(project, historyCount);
-
-  async function hideBeginnerGuide() {
-    try {
-      const settings = await unwrapResult(getBridge().updateSettings({ showBeginnerGuide: false }));
-      if (config) {
-        setConfig({ ...config, settings });
-      }
-      setNotice({ type: 'success', text: t('home_notice_hide_guide_success') });
-    } catch (error) {
-      setNotice({
-        type: 'error',
-        text: toLocalizedErrorMessage(error, t, 'home_notice_update_settings_failed')
-      });
-    }
-  }
 
   const focusAction = useMemo<FocusAction>(() => {
     if (!project) {
@@ -102,14 +86,6 @@ export function HomePage() {
 
     return [
       {
-        key: 'open',
-        title: t('home_step_open_title'),
-        detail: hasProject
-          ? t('home_step_open_done', { name: project?.name ?? '' })
-          : t('home_step_open_wait'),
-        state: hasProject ? 'done' : gettingStarted.key === 'open' ? 'current' : 'upcoming'
-      },
-      {
         key: 'protect',
         title: t('home_step_protect_title'),
         detail: !hasProject
@@ -138,16 +114,6 @@ export function HomePage() {
                 ? 'current'
                 : 'upcoming'
               : 'done'
-      },
-      {
-        key: 'timeline',
-        title: t('home_step_timeline_title'),
-        detail: !hasHistory
-          ? t('home_step_timeline_wait')
-          : hasPending
-            ? t('home_focus_timeline_later')
-            : t('home_step_timeline_done', { count: historyCount ?? 0 }),
-        state: !hasHistory ? 'upcoming' : hasPending ? 'upcoming' : 'done'
       },
       {
         key: 'ideas',
@@ -189,58 +155,71 @@ export function HomePage() {
     return projectPath.split(/[\\/]/).pop() || projectPath;
   }
 
-  return (
-    <div className="page">
-      <div className="hero-card">
-        <div>
-          <h1>{t('home_title')}</h1>
-          <p>{t('home_subtitle')}</p>
-        </div>
-      </div>
-
-      {config?.settings.showBeginnerGuide ? (
-        <section className="panel guide-card">
-          <div className="section-head">
-            <div>
-              <h2>{t('home_guide_title')}</h2>
-              <p className="panel-subtitle">{t('home_guide_summary')}</p>
-            </div>
-            <button className="btn btn-secondary" onClick={() => void hideBeginnerGuide()}>
-              {t('home_guide_close')}
-            </button>
-          </div>
-          <div className="guide-grid">
-            <div className="guide-step">
-              <span className="guide-index">1</span>
-              <div>
-                <strong>{t('home_guide_step1_title')}</strong>
-                <p>{t('home_guide_step1_desc')}</p>
-              </div>
-            </div>
-            <div className="guide-step">
-              <span className="guide-index">2</span>
-              <div>
-                <strong>{t('home_guide_step2_title')}</strong>
-                <p>{t('home_guide_step2_desc')}</p>
-              </div>
-            </div>
-            <div className="guide-step">
-              <span className="guide-index">3</span>
-              <div>
-                <strong>{t('home_guide_step3_title')}</strong>
-                <p>{t('home_guide_step3_desc')}</p>
-              </div>
-            </div>
-            <div className="guide-step">
-              <span className="guide-index">4</span>
-              <div>
-                <strong>{t('home_guide_step4_title')}</strong>
-                <p>{t('home_guide_step4_desc')}</p>
-              </div>
-            </div>
+  if (!project) {
+    return (
+      <div className="page home-start-page">
+        <section className="hero-card hero-card-compact">
+          <div>
+            <h1>{t('home_start_title')}</h1>
+            <p>{t('home_start_subtitle')}</p>
           </div>
         </section>
-      ) : null}
+
+        <section className="home-entry-grid">
+          <article className="panel entry-card">
+            <div className="entry-card-copy">
+              <span className="pill">{t('home_entry_local_badge')}</span>
+              <h2>{t('home_entry_local_title')}</h2>
+              <p>{t('home_entry_local_desc')}</p>
+            </div>
+            <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
+              {t('home_entry_local_action')}
+            </button>
+          </article>
+
+          <article className="panel entry-card entry-card-accent">
+            <div className="entry-card-copy">
+              <span className="pill">{t('home_entry_github_badge')}</span>
+              <h2>{t('home_entry_github_title')}</h2>
+              <p>{t('home_entry_github_desc')}</p>
+            </div>
+            <button className="btn btn-primary" onClick={() => void openCloneProjectDialog()}>
+              {t('home_entry_github_action')}
+            </button>
+          </article>
+        </section>
+
+        <section className="panel">
+          <h2>{t('home_recent_projects')}</h2>
+          {!config || config.recentProjects.length === 0 ? (
+            <p className="muted">{t('home_recent_projects_empty')}</p>
+          ) : (
+            <ul className="list">
+              {config.recentProjects.map((item) => (
+                <li key={item}>
+                  <button className="list-button list-item" onClick={() => void openProjectByPath(item)}>
+                    <div>
+                      <div className="item-title">{recentProjectName(item)}</div>
+                      <div className="item-subtle">{item}</div>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <section className="hero-card hero-card-compact">
+        <div>
+          <h1>{t('home_project_opened_title')}</h1>
+          <p>{t('home_project_opened_subtitle', { name: project.name })}</p>
+        </div>
+      </section>
 
       <section className="panel">
         <div className="section-head">
@@ -250,31 +229,28 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="current-step-card">
+        <div className="current-step-card current-step-card-compact">
           <div className="section-head">
             <div>
-              <h3>{t('home_now_title')}</h3>
-              <p className="panel-subtitle">{focusAction.title}</p>
+              <h3>{focusAction.title}</h3>
+              <p className="panel-subtitle">{focusAction.detail}</p>
             </div>
             <span className="tone-badge attention">{t('home_step_state_current')}</span>
           </div>
-          <p className="next-card-copy">{focusAction.detail}</p>
           <div className="actions-row">{renderFocusAction()}</div>
         </div>
 
-        <div className="journey-list">
+        <div className="journey-grid">
           {journeySteps.map((step, index) => (
-            <article key={step.key} className={`journey-step ${step.state}`}>
-              <div className="journey-step-index">{index + 1}</div>
-              <div className="journey-step-copy">
-                <div className="section-head">
-                  <h3>{step.title}</h3>
-                  <span className={`tone-badge ${step.state === 'done' ? 'ready' : step.state === 'current' ? 'attention' : 'waiting'}`}>
-                    {toJourneyStateLabel(step.state)}
-                  </span>
-                </div>
-                <p className="next-card-copy">{step.detail}</p>
+            <article key={step.key} className={`journey-card ${step.state}`}>
+              <div className="journey-card-head">
+                <span className="journey-step-index">{index + 1}</span>
+                <span className={`tone-badge ${step.state === 'done' ? 'ready' : step.state === 'current' ? 'attention' : 'waiting'}`}>
+                  {toJourneyStateLabel(step.state)}
+                </span>
               </div>
+              <h3>{step.title}</h3>
+              <p>{step.detail}</p>
             </article>
           ))}
         </div>
@@ -303,38 +279,34 @@ export function HomePage() {
 
         <section className="panel">
           <h2>{t('home_project_status')}</h2>
-          {!project ? (
-            <p className="muted">{t('home_project_status_empty')}</p>
-          ) : (
-            <div className="status-stack">
-              <div>
-                <span className="status-label">{t('home_label_project')}</span>
-                <strong>{project.name}</strong>
-              </div>
-              <div>
-                <span className="status-label">{t('home_label_current_plan')}</span>
-                <strong>
-                  {toPlanLabel(
-                    project.currentPlan,
-                    project.currentPlan === 'main' || project.currentPlan === 'master',
-                    t
-                  )}
-                </strong>
-              </div>
-              <div>
-                <span className="status-label">{t('home_label_unsaved_changes')}</span>
-                <strong>{t('common_file_unit', { count: project.pendingChangeCount })}</strong>
-              </div>
-              <div>
-                <span className="status-label">{t('home_label_saved_records')}</span>
-                <strong>
-                  {historyLoading
-                    ? t('home_history_loading_short')
-                    : t('common_record_unit', { count: historyCount ?? 0 })}
-                </strong>
-              </div>
+          <div className="status-stack">
+            <div>
+              <span className="status-label">{t('home_label_project')}</span>
+              <strong>{project.name}</strong>
             </div>
-          )}
+            <div>
+              <span className="status-label">{t('home_label_current_plan')}</span>
+              <strong>
+                {toPlanLabel(
+                  project.currentPlan,
+                  project.currentPlan === 'main' || project.currentPlan === 'master',
+                  t
+                )}
+              </strong>
+            </div>
+            <div>
+              <span className="status-label">{t('home_label_unsaved_changes')}</span>
+              <strong>{t('common_file_unit', { count: project.pendingChangeCount })}</strong>
+            </div>
+            <div>
+              <span className="status-label">{t('home_label_saved_records')}</span>
+              <strong>
+                {historyLoading
+                  ? t('home_history_loading_short')
+                  : t('common_record_unit', { count: historyCount ?? 0 })}
+              </strong>
+            </div>
+          </div>
         </section>
       </div>
     </div>

@@ -27,6 +27,12 @@ export interface SaveProgressPayload {
   selectedFiles?: string[];
 }
 
+export interface CloneProjectPayload {
+  remoteUrl: string;
+  destinationDirectory: string;
+  folderName?: string;
+}
+
 export interface SaveProgressResult {
   recordId: string;
   savedFiles: number;
@@ -126,7 +132,9 @@ export type CloudConnectionCode =
 
 export interface TapGitBridge {
   chooseProjectFolder(): Promise<Result<string | null>>;
+  chooseCloneDestination(): Promise<Result<string | null>>;
   openProject(projectPath: string): Promise<Result<ProjectSummary>>;
+  cloneProjectFromGitHub(payload: CloneProjectPayload): Promise<Result<ProjectSummary>>;
   enableProtection(projectPath: string): Promise<Result<ProjectSummary>>;
   getCurrentChanges(projectPath: string): Promise<Result<ChangeItem[]>>;
   saveProgress(payload: SaveProgressPayload): Promise<Result<SaveProgressResult>>;
@@ -169,7 +177,9 @@ export interface TapGitBridge {
 
 export const IPC_CHANNELS = {
   CHOOSE_PROJECT_FOLDER: 'tapgit:choose-project-folder',
+  CHOOSE_CLONE_DESTINATION: 'tapgit:choose-clone-destination',
   OPEN_PROJECT: 'tapgit:open-project',
+  CLONE_PROJECT_FROM_GITHUB: 'tapgit:clone-project-from-github',
   ENABLE_PROTECTION: 'tapgit:enable-protection',
   GET_CURRENT_CHANGES: 'tapgit:get-current-changes',
   SAVE_PROGRESS: 'tapgit:save-progress',

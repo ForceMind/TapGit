@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Menu } from 'electron';
-import { APP_EVENTS, AppLanguagePreference, AppLocale } from '../../src/shared/contracts';
+import { AppLanguagePreference, AppLocale } from '../../src/shared/contracts';
 
 function isChineseLanguage(language: string) {
   return language.toLowerCase().startsWith('zh');
@@ -15,13 +15,101 @@ export function resolveMenuLocale(preference: AppLanguagePreference | undefined)
 function sendMenuCommand(command: string) {
   const focused = BrowserWindow.getFocusedWindow();
   if (!focused) return;
-  focused.webContents.send(APP_EVENTS.MENU_COMMAND, command);
+  focused.webContents.send('tapgit:menu-command', command);
 }
 
 export function applyAppMenu(preference: AppLanguagePreference | undefined) {
   const locale = resolveMenuLocale(preference);
   const chinese = locale === 'zh-CN';
   const isMac = process.platform === 'darwin';
+
+  const projectMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? '项目' : 'Project',
+    submenu: [
+      {
+        label: chinese ? '打开本地项目…' : 'Open Local Project...',
+        accelerator: 'CmdOrCtrl+O',
+        click: () => sendMenuCommand('open-project')
+      },
+      {
+        label: chinese ? '从 GitHub 获取项目…' : 'Get Project from GitHub...',
+        accelerator: 'CmdOrCtrl+Shift+O',
+        click: () => sendMenuCommand('clone-project')
+      },
+      { type: 'separator' },
+      {
+        label: chinese ? '回到首页' : 'Go to Home',
+        accelerator: 'CmdOrCtrl+1',
+        click: () => sendMenuCommand('show-home')
+      },
+      { type: 'separator' },
+      isMac
+        ? { role: 'close', label: chinese ? '关闭窗口' : 'Close Window' }
+        : { role: 'quit', label: chinese ? '退出码迹' : 'Quit TapGit' }
+    ]
+  };
+
+  const progressMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? '进度' : 'Progress',
+    submenu: [
+      {
+        label: chinese ? '查看当前修改' : 'Current Changes',
+        accelerator: 'CmdOrCtrl+2',
+        click: () => sendMenuCommand('show-changes')
+      },
+      {
+        label: chinese ? '查看保存记录' : 'Saved Records',
+        accelerator: 'CmdOrCtrl+3',
+        click: () => sendMenuCommand('show-timeline')
+      }
+    ]
+  };
+
+  const ideasMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? '试新想法' : 'Try Ideas',
+    submenu: [
+      {
+        label: chinese ? '打开试新想法页' : 'Open Try Ideas',
+        accelerator: 'CmdOrCtrl+4',
+        click: () => sendMenuCommand('show-plans')
+      },
+      {
+        label: chinese ? '切回稳定版本' : 'Switch to Stable Version',
+        click: () => sendMenuCommand('switch-to-stable')
+      }
+    ]
+  };
+
+  const cloudMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? '云端' : 'Cloud',
+    submenu: [
+      {
+        label: chinese ? '打开云端设置' : 'Open Cloud Settings',
+        accelerator: 'CmdOrCtrl+5',
+        click: () => sendMenuCommand('show-cloud')
+      },
+      {
+        label: chinese ? 'GitHub 登录' : 'GitHub Sign In',
+        click: () => sendMenuCommand('clone-project')
+      }
+    ]
+  };
+
+  const helpMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? '帮助' : 'Help',
+    submenu: [
+      {
+        label: chinese ? '问题诊断与设置' : 'Help and Settings',
+        click: () => sendMenuCommand('show-settings')
+      },
+      {
+        label: chinese ? '导出日志' : 'Export Logs',
+        click: () => sendMenuCommand('export-logs')
+      },
+      { type: 'separator' },
+      { role: 'about', label: chinese ? '关于码迹' : 'About TapGit' }
+    ]
+  };
 
   const template: Electron.MenuItemConstructorOptions[] = [];
 
@@ -30,8 +118,6 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
       label: chinese ? '码迹' : 'TapGit',
       submenu: [
         { role: 'about', label: chinese ? '关于码迹' : 'About TapGit' },
-        { type: 'separator' },
-        { role: 'services', label: chinese ? '服务' : 'Services' },
         { type: 'separator' },
         { role: 'hide', label: chinese ? '隐藏码迹' : 'Hide TapGit' },
         { role: 'hideOthers', label: chinese ? '隐藏其他' : 'Hide Others' },
@@ -42,63 +128,7 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
     });
   }
 
-  template.push(
-    {
-      label: chinese ? '文件' : 'File',
-      submenu: [
-        {
-          label: chinese ? '打开项目…' : 'Open Project...',
-          accelerator: 'CmdOrCtrl+O',
-          click: () => sendMenuCommand('open-project')
-        },
-        { type: 'separator' },
-        isMac
-          ? { role: 'close', label: chinese ? '关闭窗口' : 'Close Window' }
-          : { role: 'quit', label: chinese ? '退出' : 'Quit' }
-      ]
-    },
-    {
-      label: chinese ? '编辑' : 'Edit',
-      submenu: [
-        { role: 'undo', label: chinese ? '撤销' : 'Undo' },
-        { role: 'redo', label: chinese ? '重做' : 'Redo' },
-        { type: 'separator' },
-        { role: 'cut', label: chinese ? '剪切' : 'Cut' },
-        { role: 'copy', label: chinese ? '复制' : 'Copy' },
-        { role: 'paste', label: chinese ? '粘贴' : 'Paste' },
-        { role: 'selectAll', label: chinese ? '全选' : 'Select All' }
-      ]
-    },
-    {
-      label: chinese ? '查看' : 'View',
-      submenu: [
-        { role: 'reload', label: chinese ? '重新加载' : 'Reload' },
-        { role: 'forceReload', label: chinese ? '强制重新加载' : 'Force Reload' },
-        { type: 'separator' },
-        { role: 'resetZoom', label: chinese ? '恢复默认缩放' : 'Actual Size' },
-        { role: 'zoomIn', label: chinese ? '放大' : 'Zoom In' },
-        { role: 'zoomOut', label: chinese ? '缩小' : 'Zoom Out' },
-        { type: 'separator' },
-        { role: 'togglefullscreen', label: chinese ? '切换全屏' : 'Toggle Full Screen' }
-      ]
-    },
-    {
-      label: chinese ? '窗口' : 'Window',
-      submenu: [
-        { role: 'minimize', label: chinese ? '最小化' : 'Minimize' },
-        { role: 'zoom', label: chinese ? '缩放窗口' : 'Zoom' }
-      ]
-    },
-    {
-      label: chinese ? '帮助' : 'Help',
-      submenu: [
-        {
-          label: chinese ? '打开项目' : 'Open Project',
-          click: () => sendMenuCommand('open-project')
-        }
-      ]
-    }
-  );
+  template.push(projectMenu, progressMenu, ideasMenu, cloudMenu, helpMenu);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

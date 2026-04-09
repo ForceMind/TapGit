@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppActionsContext } from './app/app-context';
 import { resolveGettingStartedState } from './app/getting-started';
-import { resolveSidebarNavState, SidebarNavKey } from './app/navigation-state';
+import { resolveSidebarNavState } from './app/navigation-state';
 import { useProjectHistoryCount } from './app/use-project-history-count';
 import {
   I18nProvider,
@@ -12,14 +12,30 @@ import {
   toPlanLabel,
   useI18n
 } from './i18n';
+import { ProjectImportDialog } from './components/ProjectImportDialog';
 import { ChangesPage } from './pages/ChangesPage';
 import { HomePage } from './pages/HomePage';
 import { PlansPage } from './pages/PlansPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { getBridge, unwrapResult } from './services/bridge';
-import { APP_EVENTS } from './shared/contracts';
+import { APP_EVENTS, GitHubAuthStatus } from './shared/contracts';
 import { useAppStore } from './stores/useAppStore';
+
+function toParentDirectory(projectPath: string) {
+  return projectPath.replace(/[\\/][^\\/]+$/, '');
+}
+
+function toSuggestedFolderName(remoteUrl: string) {
+  const trimmed = remoteUrl.trim().replace(/\/+$/, '');
+  if (!trimmed) {
+    return '';
+  }
+
+  const normalized = trimmed.endsWith('.git') ? trimmed.slice(0, -4) : trimmed;
+  const segments = normalized.split(/[/:]/).filter(Boolean);
+  return (segments[segments.length - 1] ?? '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-');
+}
 
 function AppContent() {
   const { project, config, notice, setNotice, setProject, setConfig } = useAppStore();
@@ -27,6 +43,14 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [cloudQuickStatus, setCloudQuickStatus] = useState(t('app_cloud_quick_no_project'));
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [cloneRemoteUrl, setCloneRemoteUrl] = useState('');
+  const [cloneDestinationDirectory, setCloneDestinationDirectory] = useState('');
+  const [cloneFolderName, setCloneFolderName] = useState('');
+  const [cloneFolderNameTouched, setCloneFolderNameTouched] = useState(false);
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const [githubAuthStatus, setGitHubAuthStatus] = useState<GitHubAuthStatus | null>(null);
+  const [githubAuthLoading, setGitHubAuthLoading] = useState(false);
   const { historyCount, historyLoading } = useProjectHistoryCount(
     project?.path,
     project?.isProtected,
@@ -34,16 +58,13 @@ function AppContent() {
   );
   const gettingStarted = resolveGettingStartedState(project, historyCount);
 
-  const navItems = useMemo(
-    () => [
-      { key: 'home' as const, to: '/', label: t('app_nav_home') },
-      { key: 'changes' as const, to: '/changes', label: t('app_nav_changes') },
-      { key: 'timeline' as const, to: '/timeline', label: t('app_nav_timeline') },
-      { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
-      { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
-    ],
-    [t]
-  );
+  const navItems = [
+    { key: 'home' as const, to: '/', label: t('app_nav_home') },
+    { key: 'changes' as const, to: '/changes', label: t('app_nav_changes') },
+    { key: 'timeline' as const, to: '/timeline', label: t('app_nav_timeline') },
+    { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
+    { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
+  ];
 
   async function refreshConfig() {
     const nextConfig = await unwrapResult(getBridge().getConfig());
@@ -68,6 +89,78 @@ function AppContent() {
         type: 'error',
         text: toLocalizedErrorMessage(error, t, 'app_notice_open_project_failed')
       });
+    }
+  }
+
+  async function refreshGitHubAuthStatus() {
+    setGitHubAuthLoading(true);
+    try {
+      const status = await unwrapResult(getBridge().getGitHubAuthStatus());
+      setGitHubAuthStatus(status);
+    } catch {
+      setGitHubAuthStatus(null);
+    } finally {
+      setGitHubAuthLoading(false);
+    }
+  }
+
+  async function openCloneProjectDialog() {
+    setCloneRemoteUrl('');
+    setCloneFolderName('');
+    setCloneFolderNameTouched(false);
+    setCloneDestinationDirectory(project?.path ? toParentDirectory(project.path) : '');
+    setCloneDialogOpen(true);
+    await refreshGitHubAuthStatus();
+  }
+
+  async function chooseCloneDestination() {
+    try {
+      const selectedPath = await unwrapResult(getBridge().chooseCloneDestination());
+      if (!selectedPath) return;
+      setCloneDestinationDirectory(selectedPath);
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'home_import_notice_destination_failed')
+      });
+    }
+  }
+
+  async function loginGitHubForImport() {
+    try {
+      const status = await unwrapResult(getBridge().loginGitHub());
+      setGitHubAuthStatus(status);
+      setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_github_login_failed')
+      });
+    }
+  }
+
+  async function cloneProjectFromGitHub() {
+    setCloneBusy(true);
+    try {
+      const summary = await unwrapResult(
+        getBridge().cloneProjectFromGitHub({
+          remoteUrl: cloneRemoteUrl,
+          destinationDirectory: cloneDestinationDirectory,
+          folderName: cloneFolderName
+        })
+      );
+      setProject(summary);
+      await refreshConfig();
+      setCloneDialogOpen(false);
+      navigate('/');
+      setNotice({ type: 'success', text: t('home_import_notice_success', { name: summary.name }) });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'home_import_notice_failed')
+      });
+    } finally {
+      setCloneBusy(false);
     }
   }
 
@@ -109,6 +202,65 @@ function AppContent() {
     }
   }
 
+  async function handleExportLogs() {
+    try {
+      const output = await unwrapResult(getBridge().exportLogs());
+      if (output) {
+        setNotice({ type: 'success', text: t('settings_notice_log_exported', { path: output }) });
+      }
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_log_export_failed')
+      });
+    }
+  }
+
+  async function switchToStableVersion() {
+    if (!project?.path || !project.isProtected) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+
+    try {
+      const plans = await unwrapResult(getBridge().listPlans(project.path));
+      const stablePlan = plans.find((item) => item.isMain) ?? plans.find((item) => item.name === 'main' || item.name === 'master');
+      if (!stablePlan) {
+        setNotice({ type: 'info', text: t('app_menu_no_stable_version') });
+        navigate('/plans');
+        return;
+      }
+
+      await unwrapResult(getBridge().switchPlan(project.path, stablePlan.name));
+      await refreshProject();
+      navigate('/plans');
+      setNotice({
+        type: 'success',
+        text: t('plans_notice_switched', {
+          name: toPlanLabel(stablePlan.name, true, t)
+        })
+      });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'plans_notice_switch_failed')
+      });
+    }
+  }
+
+  function openPageOrRedirect(
+    target: '/' | '/changes' | '/timeline' | '/plans' | '/settings',
+    needProject: boolean
+  ) {
+    if (needProject && !project) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+    navigate(target);
+  }
+
   useEffect(() => {
     void refreshConfig().catch((error) => {
       setNotice({
@@ -131,27 +283,55 @@ function AppContent() {
   useEffect(() => {
     function handleMenuCommand(event: Event) {
       const detail = (event as CustomEvent<string>).detail;
-      if (detail === 'open-project') {
-        void openProjectFolder();
+
+      switch (detail) {
+        case 'open-project':
+          void openProjectFolder();
+          return;
+        case 'clone-project':
+          void openCloneProjectDialog();
+          return;
+        case 'show-home':
+          navigate('/');
+          return;
+        case 'show-changes':
+          openPageOrRedirect('/changes', true);
+          return;
+        case 'show-timeline':
+          openPageOrRedirect('/timeline', true);
+          return;
+        case 'show-plans':
+          openPageOrRedirect('/plans', true);
+          return;
+        case 'show-settings':
+        case 'show-cloud':
+          navigate('/settings');
+          return;
+        case 'switch-to-stable':
+          void switchToStableVersion();
+          return;
+        case 'export-logs':
+          void handleExportLogs();
+          return;
+        default:
+          return;
       }
     }
 
     window.addEventListener(APP_EVENTS.MENU_COMMAND, handleMenuCommand as EventListener);
     return () => window.removeEventListener(APP_EVENTS.MENU_COMMAND, handleMenuCommand as EventListener);
-  }, [openProjectFolder]);
+  }, [navigate, project, setNotice, t]);
 
-  const actions = useMemo(
-    () => ({
-      openProjectFolder,
-      openProjectByPath,
-      enableProtection,
-      refreshProject,
-      refreshConfig
-    }),
-    [project?.path, t]
-  );
+  const actions = {
+    openProjectFolder,
+    openCloneProjectDialog,
+    openProjectByPath,
+    enableProtection,
+    refreshProject,
+    refreshConfig
+  };
 
-  const gettingStartedBanner = useMemo(() => {
+  const gettingStartedBanner = (() => {
     if (!gettingStarted.isActive) {
       return null;
     }
@@ -192,7 +372,7 @@ function AppContent() {
       default:
         return null;
     }
-  }, [enableProtection, historyLoading, navigate, openProjectFolder, project, t, gettingStarted]);
+  })();
 
   function renderGettingStartedAction() {
     if (!gettingStartedBanner) {
@@ -275,6 +455,13 @@ function AppContent() {
     );
   }
 
+  function handleCloneRemoteUrlChange(value: string) {
+    setCloneRemoteUrl(value);
+    if (!cloneFolderNameTouched || !cloneFolderName.trim()) {
+      setCloneFolderName(toSuggestedFolderName(value));
+    }
+  }
+
   return (
     <AppActionsContext.Provider value={actions}>
       <div className="shell">
@@ -307,11 +494,12 @@ function AppContent() {
               <div className="project-meta">{t('app_cloud_status_label', { status: cloudQuickStatus })}</div>
             </div>
             <div className="top-actions">
-              {project ? (
-                <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
-                  {t('app_switch_project')}
-                </button>
-              ) : null}
+              <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
+                {project ? t('app_switch_project') : t('app_open_project')}
+              </button>
+              <button className="btn btn-secondary" onClick={() => void openCloneProjectDialog()}>
+                {t('app_get_from_github')}
+              </button>
               {project && !project.isProtected ? (
                 <button className="btn btn-primary" onClick={() => void enableProtection()}>
                   {t('app_enable_protection')}
@@ -368,6 +556,30 @@ function AppContent() {
           </footer>
         </main>
       </div>
+
+      {cloneDialogOpen ? (
+        <ProjectImportDialog
+          remoteUrl={cloneRemoteUrl}
+          folderName={cloneFolderName}
+          destinationDirectory={cloneDestinationDirectory}
+          authStatus={githubAuthStatus}
+          authLoading={githubAuthLoading}
+          busy={cloneBusy}
+          onRemoteUrlChange={handleCloneRemoteUrlChange}
+          onFolderNameChange={(value) => {
+            setCloneFolderNameTouched(true);
+            setCloneFolderName(value);
+          }}
+          onPickDestination={() => void chooseCloneDestination()}
+          onLoginGitHub={() => void loginGitHubForImport()}
+          onCancel={() => {
+            if (!cloneBusy) {
+              setCloneDialogOpen(false);
+            }
+          }}
+          onConfirm={() => void cloneProjectFromGitHub()}
+        />
+      ) : null}
     </AppActionsContext.Provider>
   );
 }

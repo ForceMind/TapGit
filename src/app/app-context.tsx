@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 export interface AppActionsContextValue {
   openProjectFolder: () => Promise<void>;
+  openCloneProjectDialog: () => Promise<void>;
   openProjectByPath: (projectPath: string) => Promise<void>;
   enableProtection: () => Promise<void>;
   refreshProject: () => Promise<void>;
