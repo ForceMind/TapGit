@@ -67,3 +67,4 @@
 - [x] 生成 `release/win-unpacked/`
 - [x] `win-unpacked/TapGit.exe` 可启动
 - [x] 安装包启动后主进程无 `require("fs")` 相关启动错误
+- [ ] Push `v*` Tag 后 GitHub Release 自动生成并附带安装包资产

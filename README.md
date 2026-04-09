@@ -61,6 +61,13 @@ npm run pack:win
 - `release/TapGit-1.0.0.exe`（安装包）
 - `release/win-unpacked/`（免安装目录）
 
+## GitHub 打包与发布
+- Push 到 `main` 后，GitHub Actions 会自动运行 Windows 打包、测试并上传构建产物
+- Push `v*` Tag（例如 `v1.0.1`）后，Actions 会额外创建 GitHub Release，并附带：
+- `TapGit-*.exe`
+- `TapGit-*.exe.blockmap`
+- `TapGit-win-unpacked.zip`
+
 ## 项目结构
 ```text
 docs/                 产品文档、设计文档、测试与发布文档
