@@ -22,6 +22,9 @@ const bridge: TapGitBridge = {
   getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.GET_CONFIG),
   updateSettings: (settings) => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_SETTINGS, settings),
   checkGitEnvironment: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_GIT_ENVIRONMENT),
+  getGitHubAuthStatus: () => ipcRenderer.invoke(IPC_CHANNELS.GET_GITHUB_AUTH_STATUS),
+  loginGitHub: () => ipcRenderer.invoke(IPC_CHANNELS.LOGIN_GITHUB),
+  logoutGitHub: (account) => ipcRenderer.invoke(IPC_CHANNELS.LOGOUT_GITHUB, account),
   getCloudSyncStatus: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CLOUD_SYNC_STATUS, projectPath),
   testCloudConnection: (projectPath, remoteUrl) =>
     ipcRenderer.invoke(IPC_CHANNELS.TEST_CLOUD_CONNECTION, projectPath, remoteUrl),

@@ -40,6 +40,8 @@ const ERROR_KEY_MAP: Partial<Record<string, MessageKey>> = {
   COMPLETE_MERGE_FAILED: 'error_complete_merge_failed',
   EMPTY_REMOTE_URL: 'error_empty_remote_url',
   CONNECT_CLOUD_FAILED: 'error_connect_cloud_failed',
+  GITHUB_LOGIN_FAILED: 'error_github_login_failed',
+  GITHUB_LOGOUT_FAILED: 'error_github_logout_failed',
   CLOUD_NOT_CONNECTED: 'error_cloud_not_connected',
   NO_REMOTE_RECORD: 'error_no_remote_record',
   UPLOAD_FAILED: 'error_upload_failed',

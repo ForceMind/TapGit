@@ -13,6 +13,7 @@ import {
   AppLanguagePreference,
   CloudConnectionTestResult,
   CloudSyncStatus,
+  GitHubAuthStatus,
   GitEnvironment
 } from '../shared/contracts';
 
@@ -45,6 +46,8 @@ export function SettingsPage() {
   const [cloudAdvice, setCloudAdvice] = useState('');
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [authWorking, setAuthWorking] = useState(false);
+  const [githubAuthStatus, setGitHubAuthStatus] = useState<GitHubAuthStatus | null>(null);
 
   const providerLinks: CloudProviderLinks = (() => {
     const repoName = cloudRepo.trim().replace(/\.git$/i, '');
@@ -167,6 +170,24 @@ export function SettingsPage() {
     }
   }
 
+  async function loadGitHubAuthStatus() {
+    if (cloudPlatform !== 'github') {
+      setGitHubAuthStatus(null);
+      return;
+    }
+
+    try {
+      const status = await unwrapResult(getBridge().getGitHubAuthStatus());
+      setGitHubAuthStatus(status);
+    } catch {
+      setGitHubAuthStatus({
+        available: false,
+        accounts: [],
+        activeAccount: null
+      });
+    }
+  }
+
   function buildCloudUrl(platform: CloudPlatform, owner: string, repo: string) {
     const o = owner.trim();
     const r = repo.trim().replace(/\.git$/i, '');
@@ -215,6 +236,10 @@ export function SettingsPage() {
   useEffect(() => {
     void loadCloudStatus();
   }, [project?.path, project?.isProtected]);
+
+  useEffect(() => {
+    void loadGitHubAuthStatus();
+  }, [cloudPlatform]);
 
   async function patchSettings(
     patch: Partial<{
@@ -333,6 +358,38 @@ export function SettingsPage() {
       });
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleGitHubLogin() {
+    setAuthWorking(true);
+    try {
+      const status = await unwrapResult(getBridge().loginGitHub());
+      setGitHubAuthStatus(status);
+      setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_github_login_failed')
+      });
+    } finally {
+      setAuthWorking(false);
+    }
+  }
+
+  async function handleGitHubLogout(account: string) {
+    setAuthWorking(true);
+    try {
+      const status = await unwrapResult(getBridge().logoutGitHub(account));
+      setGitHubAuthStatus(status);
+      setNotice({ type: 'success', text: t('settings_notice_github_logout_success') });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_github_logout_failed')
+      });
+    } finally {
+      setAuthWorking(false);
     }
   }
 
@@ -461,6 +518,58 @@ export function SettingsPage() {
                 </span>
               </div>
 
+              {cloudPlatform === 'github' ? (
+                <div className="cloud-account-card">
+                  <div className="section-head">
+                    <div>
+                      <h4>{t('settings_cloud_account_title')}</h4>
+                      <p className="panel-subtitle">{t('settings_cloud_account_desc')}</p>
+                    </div>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={authWorking}
+                      onClick={() => void loadGitHubAuthStatus()}
+                    >
+                      {t('settings_cloud_account_refresh')}
+                    </button>
+                  </div>
+                  {!githubAuthStatus ? (
+                    <p className="muted">{t('settings_cloud_account_loading')}</p>
+                  ) : !githubAuthStatus.available ? (
+                    <p className="muted">{t('settings_cloud_account_unavailable')}</p>
+                  ) : githubAuthStatus.accounts.length === 0 ? (
+                    <div className="detail-stack">
+                      <p className="muted">{t('settings_cloud_account_none')}</p>
+                      <div className="actions-row">
+                        <button className="btn btn-primary" disabled={authWorking} onClick={() => void handleGitHubLogin()}>
+                          {t('settings_cloud_account_sign_in')}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="detail-stack">
+                      <p>
+                        <strong>{t('settings_cloud_account_signed_in')}</strong>
+                      </p>
+                      <div className="cloud-account-list">
+                        {githubAuthStatus.accounts.map((account) => (
+                          <div key={account} className="cloud-account-row">
+                            <span className="cloud-account-name">{account}</span>
+                            <button
+                              className="btn btn-secondary"
+                              disabled={authWorking}
+                              onClick={() => void handleGitHubLogout(account)}
+                            >
+                              {t('settings_cloud_account_sign_out')}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               {cloudPlatform === 'custom' ? (
                 <div className="cloud-assistant-note">
                   <strong>{t('settings_cloud_helper_custom_title')}</strong>
@@ -471,21 +580,27 @@ export function SettingsPage() {
                   <div className="actions-row">
                     <button
                       className="btn btn-secondary"
-                      disabled={syncing || !providerLinks.signInUrl}
-                      onClick={() => void openExternalUrl(providerLinks.signInUrl)}
+                      disabled={syncing || authWorking || !providerLinks.signInUrl}
+                      onClick={() =>
+                        void (cloudPlatform === 'github'
+                          ? handleGitHubLogin()
+                          : openExternalUrl(providerLinks.signInUrl))
+                      }
                     >
-                      {t('settings_cloud_helper_sign_in')}
+                      {cloudPlatform === 'github'
+                        ? t('settings_cloud_account_sign_in')
+                        : t('settings_cloud_helper_sign_in')}
                     </button>
                     <button
                       className="btn btn-secondary"
-                      disabled={syncing || !providerLinks.createRepoUrl}
+                      disabled={syncing || authWorking || !providerLinks.createRepoUrl}
                       onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}
                     >
                       {t('settings_cloud_helper_create_repo')}
                     </button>
                     <button
                       className="btn btn-secondary"
-                      disabled={syncing || !providerLinks.repoPageUrl}
+                      disabled={syncing || authWorking || !providerLinks.repoPageUrl}
                       onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}
                     >
                       {t('settings_cloud_helper_open_repo')}
@@ -502,14 +617,20 @@ export function SettingsPage() {
                   <div className="actions-row">
                     <button
                       className="btn btn-secondary"
-                      disabled={syncing || !providerLinks.signInUrl}
-                      onClick={() => void openExternalUrl(providerLinks.signInUrl)}
+                      disabled={syncing || authWorking || !providerLinks.signInUrl}
+                      onClick={() =>
+                        void (cloudPlatform === 'github'
+                          ? handleGitHubLogin()
+                          : openExternalUrl(providerLinks.signInUrl))
+                      }
                     >
-                      {t('settings_cloud_helper_sign_in')}
+                      {cloudPlatform === 'github'
+                        ? t('settings_cloud_account_sign_in')
+                        : t('settings_cloud_helper_sign_in')}
                     </button>
                     <button
                       className="btn btn-primary"
-                      disabled={syncing || !remoteUrlInput.trim()}
+                      disabled={syncing || authWorking || !remoteUrlInput.trim()}
                       onClick={() => void handleTestCloudConnection()}
                     >
                       {t('settings_cloud_helper_retry')}

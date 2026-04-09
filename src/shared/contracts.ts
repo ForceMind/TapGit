@@ -83,6 +83,12 @@ export interface GitEnvironment {
   version: string;
 }
 
+export interface GitHubAuthStatus {
+  available: boolean;
+  accounts: string[];
+  activeAccount: string | null;
+}
+
 export interface CloudSyncStatus {
   connected: boolean;
   remoteLabel: string;
@@ -136,6 +142,9 @@ export interface TapGitBridge {
   getConfig(): Promise<Result<AppConfig>>;
   updateSettings(settings: Partial<AppSettings>): Promise<Result<AppSettings>>;
   checkGitEnvironment(): Promise<Result<GitEnvironment>>;
+  getGitHubAuthStatus(): Promise<Result<GitHubAuthStatus>>;
+  loginGitHub(): Promise<Result<GitHubAuthStatus>>;
+  logoutGitHub(account: string): Promise<Result<GitHubAuthStatus>>;
   getCloudSyncStatus(projectPath: string): Promise<Result<CloudSyncStatus>>;
   testCloudConnection(
     projectPath: string,
@@ -165,6 +174,9 @@ export const IPC_CHANNELS = {
   GET_CONFIG: 'tapgit:get-config',
   UPDATE_SETTINGS: 'tapgit:update-settings',
   CHECK_GIT_ENVIRONMENT: 'tapgit:check-git-environment',
+  GET_GITHUB_AUTH_STATUS: 'tapgit:get-github-auth-status',
+  LOGIN_GITHUB: 'tapgit:login-github',
+  LOGOUT_GITHUB: 'tapgit:logout-github',
   GET_CLOUD_SYNC_STATUS: 'tapgit:get-cloud-sync-status',
   TEST_CLOUD_CONNECTION: 'tapgit:test-cloud-connection',
   CONNECT_CLOUD: 'tapgit:connect-cloud',

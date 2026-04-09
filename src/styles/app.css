@@ -765,6 +765,36 @@ pre {
   padding: 16px;
 }
 
+.cloud-account-card {
+  margin: 14px 0 12px;
+  border: 1px solid #d5e0e9;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 14px;
+}
+
+.cloud-account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cloud-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dbe6ee;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.cloud-account-name {
+  font-weight: 600;
+  word-break: break-all;
+}
+
 .cloud-assistant-note,
 .cloud-auth-callout {
   margin-top: 12px;

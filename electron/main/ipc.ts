@@ -3,6 +3,7 @@ import path from 'node:path';
 import { app, dialog, ipcMain, shell } from 'electron';
 import { IPC_CHANNELS, Result, TapGitBridge } from '../../src/shared/contracts';
 import { normalizeUnknownError } from './app-error';
+import { getGitHubAuthStatus, loginGitHub, logoutGitHub } from './auth-service';
 import { addRecentProject, getConfig, updateSettings } from './config-store';
 import {
   checkGitEnvironment,
@@ -133,6 +134,15 @@ export function registerIpcHandlers() {
   register<[], Awaited<ReturnType<typeof checkGitEnvironment>>>(
     IPC_CHANNELS.CHECK_GIT_ENVIRONMENT,
     checkGitEnvironment
+  );
+  register<[], Awaited<ReturnType<typeof getGitHubAuthStatus>>>(
+    IPC_CHANNELS.GET_GITHUB_AUTH_STATUS,
+    getGitHubAuthStatus
+  );
+  register<[], Awaited<ReturnType<typeof loginGitHub>>>(IPC_CHANNELS.LOGIN_GITHUB, loginGitHub);
+  register<[string], Awaited<ReturnType<typeof logoutGitHub>>>(
+    IPC_CHANNELS.LOGOUT_GITHUB,
+    logoutGitHub
   );
   register<[string], Awaited<ReturnType<typeof getCloudSyncStatus>>>(
     IPC_CHANNELS.GET_CLOUD_SYNC_STATUS,
