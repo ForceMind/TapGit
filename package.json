@@ -1,0 +1,87 @@
+{
+  "name": "tapgit",
+  "version": "1.0.0",
+  "description": "TapGit - 给普通人的代码进度保存与恢复桌面应用",
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "pack:win": "npm run build && electron-builder --win nsis",
+    "pack:dir": "npm run build && electron-builder --dir",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ForceMind/TapGit.git"
+  },
+  "keywords": [
+    "electron",
+    "react",
+    "git",
+    "desktop",
+    "windows"
+  ],
+  "author": "TapGit Team",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ForceMind/TapGit/issues"
+  },
+  "homepage": "https://github.com/ForceMind/TapGit#readme",
+  "build": {
+    "appId": "com.tapgit.desktop",
+    "productName": "TapGit",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "TapGit-${version}.${ext}",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.96.2",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.20",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^6.30.1",
+    "simple-git": "^3.35.2",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.2.0",
+    "jsdom": "^29.0.2",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.7",
+    "vite-plugin-electron": "^0.29.1",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^4.1.3"
+  }
+}

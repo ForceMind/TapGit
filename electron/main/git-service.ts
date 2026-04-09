@@ -1,0 +1,843 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { simpleGit } from 'simple-git';
+import {
+  ChangeItem,
+  CloudConnectionTestResult,
+  CloudSyncStatus,
+  GitEnvironment,
+  HistoryRecord,
+  MergeConflict,
+  MergeResult,
+  PlanInfo,
+  ProjectSummary,
+  ResolveStrategy,
+  SaveProgressPayload,
+  SaveProgressResult
+} from '../../src/shared/contracts';
+import { AppError } from './app-error';
+
+const execFileAsync = promisify(execFile);
+
+function createGit(projectPath: string) {
+  return simpleGit({
+    baseDir: projectPath,
+    binary: 'git',
+    maxConcurrentProcesses: 6,
+    trimmed: false
+  });
+}
+
+function mapChangeType(index: string, workingDir: string): ChangeItem['changeType'] {
+  if (index === '?' || workingDir === '?') {
+    return 'added';
+  }
+  if (index === 'D' || workingDir === 'D') {
+    return 'deleted';
+  }
+  if (index === 'R' || workingDir === 'R') {
+    return 'renamed';
+  }
+  return 'modified';
+}
+
+function mapStatusLabel(changeType: ChangeItem['changeType']) {
+  switch (changeType) {
+    case 'added':
+      return 'Added';
+    case 'modified':
+      return 'Modified';
+    case 'deleted':
+      return 'Deleted';
+    case 'renamed':
+      return 'Renamed';
+    default:
+      return 'Modified';
+  }
+}
+
+function formatSnapshotName() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const sec = String(now.getSeconds()).padStart(2, '0');
+  return `safety/${yyyy}${mm}${dd}-${hh}${min}${sec}`;
+}
+
+function countLines(text: string) {
+  if (!text) return 0;
+  return text.split(/\r?\n/).length;
+}
+
+function parseNumstat(output: string) {
+  let additions = 0;
+  let deletions = 0;
+  const lines = output.split(/\r?\n/).filter(Boolean);
+  for (const line of lines) {
+    const [addRaw, delRaw] = line.split('\t');
+    const add = Number(addRaw);
+    const del = Number(delRaw);
+    if (!Number.isNaN(add)) additions += add;
+    if (!Number.isNaN(del)) deletions += del;
+  }
+  return { additions, deletions };
+}
+
+async function getDiffText(projectPath: string, filePath: string, changeType: ChangeItem['changeType']) {
+  const git = createGit(projectPath);
+
+  if (changeType === 'added') {
+    const absolutePath = path.join(projectPath, filePath);
+    try {
+      const text = await fs.readFile(absolutePath, 'utf8');
+      const preview = text
+        .split(/\r?\n/)
+        .slice(0, 300)
+        .map((line) => `+ ${line}`)
+        .join('\n');
+      return preview || '__TAPGIT_EMPTY_FILE__';
+    } catch {
+      // continue to git diff fallback
+    }
+  }
+
+  const unstagedDiff = await git.diff(['--', filePath]);
+  const stagedDiff = await git.diff(['--cached', '--', filePath]);
+
+  if (unstagedDiff.trim() && stagedDiff.trim()) {
+    return `${stagedDiff}\n\n# __TAPGIT_UNSTAGED_CHANGES__\n\n${unstagedDiff}`;
+  }
+  if (stagedDiff.trim()) {
+    return stagedDiff;
+  }
+  if (unstagedDiff.trim()) {
+    return unstagedDiff;
+  }
+
+  return '__TAPGIT_NO_DIFF_DETAIL__';
+}
+
+async function getFileStats(projectPath: string, filePath: string, changeType: ChangeItem['changeType']) {
+  if (changeType === 'added') {
+    const absolutePath = path.join(projectPath, filePath);
+    try {
+      const text = await fs.readFile(absolutePath, 'utf8');
+      return { additions: countLines(text), deletions: 0 };
+    } catch {
+      return { additions: 1, deletions: 0 };
+    }
+  }
+
+  const git = createGit(projectPath);
+  const staged = parseNumstat(await git.raw(['diff', '--cached', '--numstat', '--', filePath]));
+  const unstaged = parseNumstat(await git.raw(['diff', '--numstat', '--', filePath]));
+  return {
+    additions: staged.additions + unstaged.additions,
+    deletions: staged.deletions + unstaged.deletions
+  };
+}
+
+async function hasCommits(projectPath: string) {
+  const git = createGit(projectPath);
+  try {
+    await git.revparse(['--verify', 'HEAD']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getCurrentPlan(projectPath: string) {
+  const git = createGit(projectPath);
+  const raw = await git.raw(['branch', '--show-current']);
+  const branch = raw.trim();
+  return branch || 'main';
+}
+
+async function getConflicts(projectPath: string): Promise<MergeConflict[]> {
+  const git = createGit(projectPath);
+  const raw = await git.raw(['diff', '--name-only', '--diff-filter=U']);
+  const conflictFiles = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const conflicts: MergeConflict[] = [];
+  for (const filePath of conflictFiles) {
+    const currentContent = await git
+      .raw(['show', `:2:${filePath}`])
+      .catch(() => '__TAPGIT_UNREADABLE_CURRENT__');
+    const incomingContent = await git
+      .raw(['show', `:3:${filePath}`])
+      .catch(() => '__TAPGIT_UNREADABLE_INCOMING__');
+    conflicts.push({
+      filePath,
+      currentContent,
+      incomingContent
+    });
+  }
+  return conflicts;
+}
+
+async function ensureIdentity(projectPath: string) {
+  const git = createGit(projectPath);
+  const name = (await git.raw(['config', '--get', 'user.name'])).trim();
+  const email = (await git.raw(['config', '--get', 'user.email'])).trim();
+  if (!name) {
+    await git.raw(['config', 'user.name', 'TapGit User']);
+  }
+  if (!email) {
+    await git.raw(['config', 'user.email', 'tapgit@local.dev']);
+  }
+}
+
+function parseLogOutput(raw: string): HistoryRecord[] {
+  const lines = raw.split(/\r?\n/);
+  const records: HistoryRecord[] = [];
+  let current: { id: string; message: string; timestamp: number; files: string[] } | null = null;
+
+  for (const line of lines) {
+    if (/^[0-9a-f]{40}\t\d+\t/.test(line)) {
+      if (current) {
+        const uniqueFiles = Array.from(new Set(current.files));
+        records.push({
+          id: current.id,
+          message: current.message,
+          timestamp: current.timestamp,
+          changedFiles: uniqueFiles.length,
+          files: uniqueFiles
+        });
+      }
+      const [id, ts, ...messageParts] = line.split('\t');
+      current = {
+        id,
+        timestamp: Number(ts),
+        message: messageParts.join('\t'),
+        files: []
+      };
+      continue;
+    }
+
+    const file = line.trim();
+    if (file && current) {
+      current.files.push(file);
+    }
+  }
+
+  if (current) {
+    const uniqueFiles = Array.from(new Set(current.files));
+    records.push({
+      id: current.id,
+      message: current.message,
+      timestamp: current.timestamp,
+      changedFiles: uniqueFiles.length,
+      files: uniqueFiles
+    });
+  }
+  return records;
+}
+
+function toProjectName(projectPath: string) {
+  return path.basename(projectPath);
+}
+
+function parseCountPair(raw: string) {
+  const parts = raw
+    .trim()
+    .split(/\s+/)
+    .map((item) => Number(item));
+  if (parts.length < 2 || parts.some((item) => Number.isNaN(item))) {
+    return { pendingDownload: 0, pendingUpload: 0 };
+  }
+  return {
+    pendingDownload: parts[0],
+    pendingUpload: parts[1]
+  };
+}
+
+async function ensureProtectedProject(projectPath: string) {
+  const git = createGit(projectPath);
+  const isProtected = await git.checkIsRepo();
+  if (!isProtected) {
+    throw new AppError('PROTECTION_NOT_ENABLED', '当前项目还未开启版本保护');
+  }
+}
+
+async function ensureNoPendingChanges(projectPath: string, actionText: string) {
+  const git = createGit(projectPath);
+  const status = await git.status();
+  if (status.files.length > 0) {
+    throw new AppError(
+      'PENDING_CHANGES',
+      `你还有未保存修改，请先完成“保存进度”再${actionText}`
+    );
+  }
+}
+
+function buildCloudStatusText(params: {
+  connected: boolean;
+  hasTracking: boolean;
+  pendingUpload: number;
+  pendingDownload: number;
+}) {
+  const { connected, hasTracking, pendingUpload, pendingDownload } = params;
+  if (!connected) {
+    return 'Not connected to cloud';
+  }
+  if (!hasTracking) {
+    return 'Cloud connected, upload once to establish tracking';
+  }
+  if (pendingUpload === 0 && pendingDownload === 0) {
+    return 'Local and cloud are in sync';
+  }
+  if (pendingUpload > 0 && pendingDownload > 0) {
+    return `${pendingUpload} pending upload, ${pendingDownload} pending download`;
+  }
+  if (pendingUpload > 0) {
+    return `${pendingUpload} pending upload`;
+  }
+  return `${pendingDownload} pending download`;
+}
+
+async function getTrackingStatus(projectPath: string) {
+  const git = createGit(projectPath);
+  try {
+    const tracking = (await git.raw(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'])).trim();
+    return tracking;
+  } catch {
+    return '';
+  }
+}
+
+async function resolveRemote(projectPath: string) {
+  const git = createGit(projectPath);
+  const remotes = await git.getRemotes(true);
+  if (remotes.length === 0) {
+    return { remoteLabel: '', remoteUrl: '' };
+  }
+  const preferred = remotes.find((item) => item.name === 'origin') ?? remotes[0];
+  const remoteUrl = preferred.refs.fetch || preferred.refs.push || '';
+  return {
+    remoteLabel: preferred.name,
+    remoteUrl
+  };
+}
+
+function parseCloudConnectionError(detail: string): CloudConnectionTestResult {
+  const lower = detail.toLowerCase();
+  if (
+    lower.includes('authentication failed') ||
+    lower.includes('could not read username') ||
+    lower.includes('permission denied') ||
+    lower.includes('access denied') ||
+    lower.includes('terminal prompts disabled')
+  ) {
+    return {
+      code: 'auth_required',
+      reachable: false,
+      requiresAuth: true,
+      message: 'Credentials are required for this cloud URL.'
+    };
+  }
+
+  if (lower.includes('repository not found') || lower.includes('not found')) {
+    return {
+      code: 'not_found',
+      reachable: false,
+      requiresAuth: false,
+      message: 'Repository not found.'
+    };
+  }
+
+  if (
+    lower.includes('could not resolve host') ||
+    lower.includes('failed to connect') ||
+    lower.includes('timed out')
+  ) {
+    return {
+      code: 'network_error',
+      reachable: false,
+      requiresAuth: false,
+      message: 'Cannot reach the cloud URL.'
+    };
+  }
+
+  return {
+    code: 'unknown_error',
+    reachable: false,
+    requiresAuth: false,
+    message: 'Cloud connection test failed.'
+  };
+}
+
+export async function checkGitEnvironment(): Promise<GitEnvironment> {
+  try {
+    const { stdout } = await execFileAsync('git', ['--version']);
+    return {
+      available: true,
+      version: stdout.trim()
+    };
+  } catch {
+    return {
+      available: false,
+      version: ''
+    };
+  }
+}
+
+export async function getCloudSyncStatus(projectPath: string): Promise<CloudSyncStatus> {
+  await ensureProtectedProject(projectPath);
+  const git = createGit(projectPath);
+  const currentPlan = await getCurrentPlan(projectPath);
+  const remote = await resolveRemote(projectPath);
+
+  if (!remote.remoteLabel) {
+    return {
+      connected: false,
+      remoteLabel: '',
+      remoteUrl: '',
+      currentPlan,
+      hasTracking: false,
+      pendingUpload: 0,
+      pendingDownload: 0,
+      statusText: buildCloudStatusText({
+        connected: false,
+        hasTracking: false,
+        pendingUpload: 0,
+        pendingDownload: 0
+      })
+    };
+  }
+
+  const tracking = await getTrackingStatus(projectPath);
+  let pendingUpload = 0;
+  let pendingDownload = 0;
+
+  if (tracking) {
+    const countRaw = await git
+      .raw(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'])
+      .catch(() => '0\t0');
+    const parsed = parseCountPair(countRaw);
+    pendingUpload = parsed.pendingUpload;
+    pendingDownload = parsed.pendingDownload;
+  }
+
+  const hasTracking = Boolean(tracking);
+  return {
+    connected: true,
+    remoteLabel: remote.remoteLabel,
+    remoteUrl: remote.remoteUrl,
+    currentPlan,
+    hasTracking,
+    pendingUpload,
+    pendingDownload,
+    statusText: buildCloudStatusText({
+      connected: true,
+      hasTracking,
+      pendingUpload,
+      pendingDownload
+    })
+  };
+}
+
+export async function testCloudConnection(
+  projectPath: string,
+  remoteUrl: string
+): Promise<CloudConnectionTestResult> {
+  await ensureProtectedProject(projectPath);
+  const url = remoteUrl.trim();
+  if (!url) {
+    throw new AppError('EMPTY_REMOTE_URL', '请先填写云端地址');
+  }
+
+  const git = createGit(projectPath);
+  try {
+    await git.raw(['ls-remote', '--heads', url]);
+    return {
+      code: 'ok',
+      reachable: true,
+      requiresAuth: false,
+      message: 'Connection test passed.'
+    };
+  } catch (error) {
+    return parseCloudConnectionError(String(error));
+  }
+}
+
+export async function connectCloud(projectPath: string, remoteUrl: string): Promise<CloudSyncStatus> {
+  await ensureProtectedProject(projectPath);
+  const url = remoteUrl.trim();
+  if (!url) {
+    throw new AppError('EMPTY_REMOTE_URL', '请先填写云端地址');
+  }
+
+  const git = createGit(projectPath);
+  const remote = await resolveRemote(projectPath);
+  if (remote.remoteLabel) {
+    await git.raw(['remote', 'set-url', remote.remoteLabel, url]).catch((error) => {
+      throw new AppError('CONNECT_CLOUD_FAILED', '连接云端失败，请检查地址是否正确', String(error));
+    });
+  } else {
+    await git.raw(['remote', 'add', 'origin', url]).catch((error) => {
+      throw new AppError('CONNECT_CLOUD_FAILED', '连接云端失败，请检查地址是否正确', String(error));
+    });
+  }
+
+  return getCloudSyncStatus(projectPath);
+}
+
+export async function uploadToCloud(projectPath: string): Promise<CloudSyncStatus> {
+  await ensureProtectedProject(projectPath);
+  if (!(await hasCommits(projectPath))) {
+    throw new AppError('NO_HISTORY', '还没有可上传的保存记录，请先保存进度');
+  }
+
+  const before = await getCloudSyncStatus(projectPath);
+  if (!before.connected || !before.remoteLabel) {
+    throw new AppError('CLOUD_NOT_CONNECTED', '请先连接云端地址');
+  }
+
+  const git = createGit(projectPath);
+  const currentPlan = await getCurrentPlan(projectPath);
+  const pushArgs = before.hasTracking
+    ? ['push', before.remoteLabel, currentPlan]
+    : ['push', '-u', before.remoteLabel, currentPlan];
+
+  await git.raw(pushArgs).catch((error) => {
+    throw new AppError('UPLOAD_FAILED', '上传到云端失败，请检查网络和权限', String(error));
+  });
+
+  return getCloudSyncStatus(projectPath);
+}
+
+export async function getCloudLatest(projectPath: string): Promise<CloudSyncStatus> {
+  await ensureProtectedProject(projectPath);
+  await ensureNoPendingChanges(projectPath, '获取云端最新内容');
+  const before = await getCloudSyncStatus(projectPath);
+  if (!before.connected || !before.remoteLabel) {
+    throw new AppError('CLOUD_NOT_CONNECTED', '请先连接云端地址');
+  }
+
+  const git = createGit(projectPath);
+  const currentPlan = await getCurrentPlan(projectPath);
+
+  if (!before.hasTracking) {
+    await git.raw(['fetch', before.remoteLabel, currentPlan]).catch((error) => {
+      const details = String(error);
+      if (details.includes("couldn't find remote ref")) {
+        throw new AppError('NO_REMOTE_RECORD', '云端还没有这个方案的记录，请先上传一次');
+      }
+      throw new AppError('GET_LATEST_FAILED', '获取云端最新内容失败', details);
+    });
+
+    await git
+      .raw(['branch', '--set-upstream-to', `${before.remoteLabel}/${currentPlan}`, currentPlan])
+      .catch(() => undefined);
+  }
+
+  await git.raw(['pull', '--ff-only', before.remoteLabel, currentPlan]).catch((error) => {
+    throw new AppError('GET_LATEST_FAILED', '获取云端最新内容失败，请先处理本地修改后重试', String(error));
+  });
+
+  return getCloudSyncStatus(projectPath);
+}
+
+export async function openProject(projectPath: string): Promise<ProjectSummary> {
+  const git = createGit(projectPath);
+  const isProtected = await git.checkIsRepo();
+  if (!isProtected) {
+    return {
+      path: projectPath,
+      name: toProjectName(projectPath),
+      isProtected: false,
+      currentPlan: 'main',
+      pendingChangeCount: 0
+    };
+  }
+
+  const status = await git.status();
+  const currentPlan = await getCurrentPlan(projectPath);
+  return {
+    path: projectPath,
+    name: toProjectName(projectPath),
+    isProtected: true,
+    currentPlan,
+    pendingChangeCount: status.files.length
+  };
+}
+
+export async function enableProtection(projectPath: string): Promise<ProjectSummary> {
+  const git = createGit(projectPath);
+  const isProtected = await git.checkIsRepo();
+  if (!isProtected) {
+    await git.init();
+  }
+  return openProject(projectPath);
+}
+
+export async function getCurrentChanges(projectPath: string): Promise<ChangeItem[]> {
+  const git = createGit(projectPath);
+  const isProtected = await git.checkIsRepo();
+  if (!isProtected) {
+    throw new AppError('PROTECTION_NOT_ENABLED', '当前项目还未开启版本保护');
+  }
+
+  const status = await git.status();
+  const items: ChangeItem[] = [];
+
+  for (const file of status.files) {
+    const changeType = mapChangeType(file.index, file.working_dir);
+    const stats = await getFileStats(projectPath, file.path, changeType);
+    const diffText = await getDiffText(projectPath, file.path, changeType);
+    items.push({
+      path: file.path,
+      changeType,
+      statusLabel: mapStatusLabel(changeType),
+      additions: stats.additions,
+      deletions: stats.deletions,
+      diffText
+    });
+  }
+
+  return items.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+export async function saveProgress(payload: SaveProgressPayload): Promise<SaveProgressResult> {
+  const { projectPath, message, selectedFiles } = payload;
+  const git = createGit(projectPath);
+  const isProtected = await git.checkIsRepo();
+  if (!isProtected) {
+    throw new AppError('PROTECTION_NOT_ENABLED', '当前项目还未开启版本保护');
+  }
+
+  if (!message.trim()) {
+    throw new AppError('EMPTY_MESSAGE', '请填写这次保存的说明');
+  }
+
+  await ensureIdentity(projectPath);
+
+  if (selectedFiles && selectedFiles.length > 0) {
+    await git.add(selectedFiles);
+  } else {
+    await git.add(['-A']);
+  }
+
+  try {
+    const commitResult = await git.commit(message.trim());
+    if (!commitResult.commit) {
+      throw new AppError('NOTHING_TO_SAVE', '当前没有可保存的修改');
+    }
+    return {
+      recordId: commitResult.commit,
+      savedFiles: commitResult.summary.changes || selectedFiles?.length || 0,
+      message: 'Saved'
+    };
+  } catch (error) {
+    const text = String(error);
+    if (text.includes('nothing to commit')) {
+      throw new AppError('NOTHING_TO_SAVE', '当前没有可保存的修改');
+    }
+    throw new AppError('SAVE_FAILED', '这次保存没有成功，请稍后重试', text);
+  }
+}
+
+export async function listHistory(projectPath: string): Promise<HistoryRecord[]> {
+  if (!(await hasCommits(projectPath))) {
+    return [];
+  }
+
+  const git = createGit(projectPath);
+  const raw = await git.raw([
+    'log',
+    '--date=unix',
+    '--pretty=format:%H%x09%ct%x09%s',
+    '--name-only',
+    '-n',
+    '120'
+  ]);
+  return parseLogOutput(raw);
+}
+
+export async function restoreToRecord(
+  projectPath: string,
+  recordId: string,
+  autoSnapshotBeforeRestore: boolean
+) {
+  const git = createGit(projectPath);
+  if (!(await hasCommits(projectPath))) {
+    throw new AppError('NO_HISTORY', '还没有历史记录，暂时无法恢复');
+  }
+
+  if (autoSnapshotBeforeRestore) {
+    const snapshotBranch = formatSnapshotName();
+    await git.raw(['branch', snapshotBranch]).catch(() => undefined);
+  }
+
+  await git.raw(['reset', '--hard', recordId]).catch((error) => {
+    throw new AppError('RESTORE_FAILED', '恢复失败，请稍后重试', String(error));
+  });
+}
+
+export async function listPlans(projectPath: string): Promise<PlanInfo[]> {
+  const git = createGit(projectPath);
+  const isProtected = await git.checkIsRepo();
+  if (!isProtected) {
+    return [];
+  }
+
+  const current = await getCurrentPlan(projectPath);
+  const raw = await git.raw([
+    'for-each-ref',
+    'refs/heads',
+    '--format=%(refname:short)%x09%(committerdate:unix)%x09%(subject)'
+  ]);
+
+  const list = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, tsRaw, ...subjectParts] = line.split('\t');
+      const timestamp = Number(tsRaw);
+      return {
+        id: name,
+        name,
+        isCurrent: name === current,
+        isMain: name === 'main' || name === 'master',
+        lastSavedAt: Number.isNaN(timestamp) ? null : timestamp,
+        lastMessage: subjectParts.join('\t')
+      } satisfies PlanInfo;
+    });
+
+  if (list.length === 0 && current) {
+    return [
+      {
+        id: current,
+        name: current,
+        isCurrent: true,
+        isMain: true,
+        lastSavedAt: null,
+        lastMessage: ''
+      }
+    ];
+  }
+
+  return list.sort((a, b) => {
+    if (a.isMain && !b.isMain) return -1;
+    if (!a.isMain && b.isMain) return 1;
+    if (a.isCurrent && !b.isCurrent) return -1;
+    if (!a.isCurrent && b.isCurrent) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export async function createPlan(projectPath: string, planName: string, fromPlan?: string) {
+  const git = createGit(projectPath);
+  const name = planName.trim();
+  if (!name) {
+    throw new AppError('INVALID_PLAN_NAME', '方案名称不能为空');
+  }
+  await git
+    .raw(['switch', '-c', name, ...(fromPlan ? [fromPlan] : [])])
+    .catch((error) => {
+      throw new AppError('CREATE_PLAN_FAILED', '创建新方案失败', String(error));
+    });
+}
+
+export async function switchPlan(projectPath: string, planName: string) {
+  const git = createGit(projectPath);
+  await git.raw(['switch', planName]).catch((error) => {
+    throw new AppError('SWITCH_PLAN_FAILED', '切换方案失败，请先保存当前修改', String(error));
+  });
+}
+
+export async function mergePlan(
+  projectPath: string,
+  fromPlan: string,
+  toPlan: string,
+  autoSnapshotBeforeMerge: boolean
+): Promise<MergeResult> {
+  const git = createGit(projectPath);
+  const current = await getCurrentPlan(projectPath);
+  if (current !== toPlan) {
+    await git.raw(['switch', toPlan]);
+  }
+
+  if (autoSnapshotBeforeMerge) {
+    const snapshotBranch = formatSnapshotName();
+    await git.raw(['branch', snapshotBranch]).catch(() => undefined);
+  }
+
+  try {
+    await git.raw(['merge', '--no-ff', '--no-edit', fromPlan]);
+    return {
+      status: 'merged',
+      message: 'Merge completed',
+      conflicts: []
+    };
+  } catch (error) {
+    const conflicts = await getConflicts(projectPath);
+    if (conflicts.length > 0) {
+      return {
+        status: 'needs_decision',
+        message: 'Both sides changed the same section. Decide which version to keep.',
+        conflicts
+      };
+    }
+    throw new AppError('MERGE_FAILED', '合并失败，请稍后重试', String(error));
+  }
+}
+
+export async function resolveCollision(
+  projectPath: string,
+  filePath: string,
+  strategy: ResolveStrategy,
+  manualContent?: string
+): Promise<MergeResult> {
+  const git = createGit(projectPath);
+  if (strategy === 'keepCurrent') {
+    await git.raw(['checkout', '--ours', '--', filePath]);
+  } else if (strategy === 'keepIncoming') {
+    await git.raw(['checkout', '--theirs', '--', filePath]);
+  } else {
+    if (typeof manualContent !== 'string') {
+      throw new AppError('MANUAL_CONTENT_REQUIRED', '请填写手动处理后的内容');
+    }
+    await fs.writeFile(path.join(projectPath, filePath), manualContent, 'utf8');
+  }
+  await git.add(filePath);
+
+  const conflicts = await getConflicts(projectPath);
+  if (conflicts.length > 0) {
+    return {
+      status: 'needs_decision',
+      message: `${conflicts.length} files still need decisions`,
+      conflicts
+    };
+  }
+  return {
+    status: 'merged',
+    message: 'All overlaps resolved. Click "Finish Merge" to save.',
+    conflicts: []
+  };
+}
+
+export async function completeMerge(projectPath: string, message?: string) {
+  const git = createGit(projectPath);
+  const commitMessage = message?.trim() || '合并方案';
+  try {
+    await ensureIdentity(projectPath);
+    await git.commit(commitMessage);
+  } catch (error) {
+    const text = String(error);
+    if (text.includes('nothing to commit')) {
+      return;
+    }
+    throw new AppError('COMPLETE_MERGE_FAILED', '完成合并失败，请稍后重试', text);
+  }
+}
