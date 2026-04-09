@@ -1,82 +1,115 @@
-# 码迹 TapGit（Windows MVP）
+# 码迹 TapGit
 
 码迹是一个面向普通人的代码进度保存与恢复桌面应用。  
-目标是让不懂 Git 的用户也能完成：`保存进度`、`查看历史`、`切换方案`、`恢复版本`。
+它把底层版本控制能力包装成更容易理解的动作：保存进度、查看历史、切换方案、恢复到之前可用的状态。
 
-## 当前实现状态
+## 当前交付
+
 - 桌面壳：Electron + React + TypeScript
-- 平台：Windows 10 / 11
-- 交付形态：开发模式、可构建产物、可生成 Windows 安装包
-- 语言：中英文双语（默认英文；系统语言为中文时自动显示中文；可在设置中手动切换）
+- 主要语言：中文 / English
+- 默认语言：英文；系统语言为中文时自动显示中文
+- 当前可打包平台：Windows、macOS
+- 当前主要定位：本地优先，云端同步为基础版
 
-## 已完成 MVP 功能
-- 打开本地项目，检测是否开启版本保护
-- 一键开启版本保护（底层 Git 初始化）
-- 当前修改列表与变化详情
-- 保存进度（支持全部保存、选中文件保存）
-- 保存记录时间线与详情
-- 恢复到历史保存点（恢复前自动安全快照）
-- 新方案创建与切换
-- 合并方案回主线
-- 两边改到同一部分时的可视化决策界面
-- 设置页（环境检测、高级模式、安全快照开关、日志导出）
-- 设置页语言切换（自动/English/中文），中文模式覆盖导航、顶栏与页面主文案
-- 云端同步基础版（连接向导、连接测试、上传到云端、获取最新内容、同步状态显示）
-- 首页新手引导卡（可在设置中关闭）
+## MVP 功能
 
-## 本地运行
-前置要求：
+- 打开本地项目并检测是否已开启版本保护
+- 一键开启版本保护
+- 查看当前修改列表和变化详情
+- 保存全部修改或只保存选中文件
+- 查看保存记录时间线
+- 恢复到历史保存点，并带安全确认
+- 创建、切换、合并“方案”
+- 冲突处理界面，支持逐个处理和批量保留一侧
+- 设置页支持语言切换、日志导出、云端连接助手
+- 应用内 GitHub 登录状态查看、登录与退出
+
+## 环境要求
+
 - Node.js 22+
 - npm 10+
-- Git for Windows（建议已加入 PATH）
+- Git
+
+## 本地运行
 
 安装依赖：
+
 ```bash
 npm install
 ```
 
-开发运行（会启动 Vite + Electron）：
+开发运行：
+
 ```bash
 npm run dev
 ```
 
 ## 测试与构建
-运行单元测试：
+
+运行测试：
+
 ```bash
 npm run test
 ```
 
-构建产物：
+构建应用：
+
 ```bash
 npm run build
 ```
 
-## 打包说明（Windows）
-生成可安装包（NSIS）：
+## 打包
+
+Windows 安装包：
+
 ```bash
 npm run pack:win
 ```
 
-输出目录：
-- `release/TapGit-1.0.0.exe`（安装包）
-- `release/win-unpacked/`（免安装目录）
+macOS 安装包：
 
-## GitHub 打包与发布
-- Push 到 `main` 后，GitHub Actions 会自动运行 Windows 打包、测试并上传构建产物
-- Push `v*` Tag（例如 `v1.0.1`）后，Actions 会额外创建 GitHub Release，并附带：
-- `TapGit-*.exe`
-- `TapGit-*.exe.blockmap`
-- `TapGit-win-unpacked.zip`
-
-## 项目结构
-```text
-docs/                 产品文档、设计文档、测试与发布文档
-electron/             主进程与预加载（IPC、Git 封装、配置、日志）
-src/                  React 前端（页面、状态、样式、共享协议）
-release/              打包输出（运行打包命令后生成）
+```bash
+npm run pack:mac
 ```
 
-## 设计与规格文档
+目录包：
+
+```bash
+npm run pack:dir
+```
+
+常见输出目录：
+
+- `release/TapGit-*.exe`
+- `release/win-unpacked/`
+- `release/TapGit-*.dmg`
+- `release/TapGit-*.zip`
+
+说明：
+
+- Windows 机器上可以本地打 `Windows` 包。
+- macOS 安装包建议在 macOS 或 GitHub Actions 的 macOS runner 上生成。
+- 当前 macOS 包默认是未签名构建，适合测试和内部分发。
+
+## GitHub Actions
+
+仓库已配置自动桌面打包：
+
+- Push 到 `main`：自动运行 Windows 和 macOS 构建、测试并上传产物
+- Push `v*` tag：额外自动创建 GitHub Release，并附带 Windows / macOS 安装包
+
+## 主要目录
+
+```text
+docs/                 产品和设计文档
+electron/             主进程、预加载、Git/认证/日志封装
+src/                  React 前端
+release/              本地打包输出
+.github/workflows/    CI 打包流水线
+```
+
+## 设计文档
+
 - `docs/product-overview.md`
 - `docs/information-architecture.md`
 - `docs/terminology-mapping.md`
@@ -85,8 +118,11 @@ release/              打包输出（运行打包命令后生成）
 - `docs/ui-wireframes.md`
 - `docs/design-guidelines.md`
 - `docs/microcopy.md`
+- `docs/testing-checklist.md`
+- `docs/release-notes-mvp.md`
 
-## 已知问题
-- 构建输出含第三方插件警告（不影响当前打包与运行）
-- 目前未提供自定义应用图标，安装包使用默认 Electron 图标
-- 云端同步暂不包含 OAuth 登录流程，当前使用手动填写云端地址方式
+## 当前限制
+
+- GitLab 仍是浏览器引导式连接，尚未做应用内账号登录管理
+- macOS 当前为基础打包支持，未接入签名与 notarization
+- 构建日志里仍有 Vite / Rollup 插件警告，但不影响当前构建和打包

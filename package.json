@@ -1,13 +1,14 @@
 {
   "name": "tapgit",
   "version": "1.0.0",
-  "description": "TapGit - 给普通人的代码进度保存与恢复桌面应用",
+  "description": "TapGit desktop app for saving and restoring code progress",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "pack:win": "npm run build && electron-builder --win nsis",
+    "pack:mac": "npm run build && electron-builder --mac dmg zip",
     "pack:dir": "npm run build && electron-builder --dir",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -21,7 +22,8 @@
     "react",
     "git",
     "desktop",
-    "windows"
+    "windows",
+    "macos"
   ],
   "author": "TapGit Team",
   "license": "ISC",
@@ -48,6 +50,16 @@
       "artifactName": "TapGit-${version}.${ext}",
       "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "TapGit-${version}-${arch}.${ext}",
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "nsis": {
       "oneClick": false,

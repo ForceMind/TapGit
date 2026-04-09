@@ -1,4 +1,4 @@
-name: Build Windows Package
+name: Build Desktop Packages
 
 on:
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
       - name: Run tests
         run: npm run test
 
-      - name: Build installer
+      - name: Build Windows installer
         run: npm run pack:win
 
       - name: Archive portable app
@@ -52,25 +52,69 @@ jobs:
             release/builder-effective-config.yaml
           if-no-files-found: error
 
+  build-macos:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build macOS packages
+        run: npm run pack:mac
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tapgit-macos-package-${{ github.run_number }}
+          path: |
+            release/TapGit-*.dmg
+            release/TapGit-*.zip
+            release/builder-effective-config.yaml
+          if-no-files-found: error
+
   publish-release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     needs:
       - build-windows
+      - build-macos
 
     steps:
-      - name: Download packaged artifacts
+      - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
           name: tapgit-windows-package-${{ github.run_number }}
-          path: release-artifacts
+          path: release-artifacts/windows
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tapgit-macos-package-${{ github.run_number }}
+          path: release-artifacts/macos
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-artifacts/TapGit-*.exe
-            release-artifacts/TapGit-*.exe.blockmap
-            release-artifacts/TapGit-win-unpacked.zip
+            release-artifacts/windows/TapGit-*.exe
+            release-artifacts/windows/TapGit-*.exe.blockmap
+            release-artifacts/windows/TapGit-win-unpacked.zip
+            release-artifacts/macos/TapGit-*.dmg
+            release-artifacts/macos/TapGit-*.zip
           generate_release_notes: true
           fail_on_unmatched_files: true
