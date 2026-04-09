@@ -13,7 +13,7 @@ function mapPlanLabel(plan: PlanInfo, t: ReturnType<typeof useI18n>['t']) {
 export function PlansPage() {
   const { project, setNotice } = useAppStore();
   const { openProjectFolder, enableProtection, refreshProject } = useAppActions();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [historyCount, setHistoryCount] = useState<number | null>(null);
   const [plans, setPlans] = useState<PlanInfo[]>([]);
@@ -34,6 +34,7 @@ export function PlansPage() {
   const needsFirstSave = (historyCount ?? 0) === 0;
   const hasUnsavedChanges = (project?.pendingChangeCount ?? 0) > 0;
   const ideasLocked = needsFirstSave || hasUnsavedChanges;
+  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   const selectedConflict = useMemo(
     () => mergeState?.conflicts.find((item) => item.filePath === selectedConflictFile) ?? mergeState?.conflicts[0],
@@ -312,109 +313,85 @@ export function PlansPage() {
 
   return (
     <div className="page">
-      <section className="panel guide-card">
-        <div className="section-head">
-          <div>
-            <h2>{t('plans_intro_title')}</h2>
-            <p className="panel-subtitle">{t('plans_intro_desc')}</p>
-          </div>
+      <section className="panel lab-hero">
+        <div className="lab-hero-copy">
+          <span className="pill">{copy('安全实验区', 'Safe Workspace')}</span>
+          <h1>{copy('试验区', 'Idea Lab')}</h1>
+          <p>
+            {ideasLocked
+              ? copy(
+                  '先把当前项目整理到稳定状态，再来这里试新想法。',
+                  'First bring this project to a stable point, then use this page for risky ideas.'
+                )
+              : copy(
+                  '这里专门用来开试验副本，不会直接打乱你当前的稳定版本。',
+                  'Use this page to try ideas in separate copies without disturbing the stable version.'
+                )}
+          </p>
         </div>
-        <div className="guide-grid">
-          <div className="guide-step">
-            <span className="guide-index">1</span>
-            <div>
-              <strong>{t('plans_intro_point_1_title')}</strong>
-              <p>{t('plans_intro_point_1_desc')}</p>
-            </div>
-          </div>
-          <div className="guide-step">
-            <span className="guide-index">2</span>
-            <div>
-              <strong>{t('plans_intro_point_2_title')}</strong>
-              <p>{t('plans_intro_point_2_desc')}</p>
-            </div>
-          </div>
-          <div className="guide-step">
-            <span className="guide-index">3</span>
-            <div>
-              <strong>{t('plans_intro_point_3_title')}</strong>
-              <p>{t('plans_intro_point_3_desc')}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>{t('plans_ready_title')}</h2>
-            <p className="panel-subtitle">{t('plans_ready_desc')}</p>
-          </div>
-        </div>
-        {needsFirstSave ? (
-          <div className="cloud-auth-callout">
-            <h3>{t('plans_ready_no_history_title')}</h3>
-            <p>{t('plans_ready_no_history_desc')}</p>
-            <div className="actions-row">
-              <Link className="btn btn-primary" to="/changes">
-                {t('plans_ready_go_changes')}
-              </Link>
-            </div>
-          </div>
-        ) : hasUnsavedChanges ? (
-          <div className="cloud-auth-callout">
-            <h3>{t('plans_ready_unsaved_title')}</h3>
-            <p>{t('plans_ready_unsaved_desc')}</p>
-            <div className="actions-row">
-              <Link className="btn btn-primary" to="/changes">
-                {t('plans_ready_go_changes')}
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <p className="success-text">{t('plans_ready_desc')}</p>
-        )}
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>{t('plans_create_title')}</h2>
-            <p className="panel-subtitle">{t('plans_create_help')}</p>
-          </div>
-        </div>
-        <p className="muted">
-          <strong>{t('plans_create_from_label')}</strong>{' '}
-          {currentPlan ? mapPlanLabel(currentPlan, t) : mapPlanLabel(stablePlan ?? { id: '', name: 'main', isCurrent: false, isMain: true, lastSavedAt: null, lastMessage: '' }, t)}
-        </p>
-        <div className="field-row">
-          <input
-            className="input-text"
-            value={newPlanName}
-            placeholder={t('plans_create_placeholder')}
-            onChange={(event) => setNewPlanName(event.target.value)}
-          />
-          <button className="btn btn-primary" disabled={working || ideasLocked} onClick={() => void handleCreatePlan()}>
-            {t('plans_create_button')}
-          </button>
+        <div className="lab-hero-metrics">
+          <article className="lab-metric-card">
+            <span>{copy('当前副本', 'Current copy')}</span>
+            <strong>{currentPlan ? mapPlanLabel(currentPlan, t) : mapPlanLabel(stablePlan ?? { id: '', name: 'main', isCurrent: false, isMain: true, lastSavedAt: null, lastMessage: '' }, t)}</strong>
+          </article>
+          <article className="lab-metric-card">
+            <span>{copy('试验副本', 'Idea copies')}</span>
+            <strong>{ideaPlans.length}</strong>
+          </article>
+          <article className="lab-metric-card">
+            <span>{copy('当前状态', 'Current state')}</span>
+            <strong>{ideasLocked ? copy('先处理当前项目', 'Needs one step first') : copy('可以开始试验', 'Ready to experiment')}</strong>
+          </article>
         </div>
       </section>
 
-      <div className="grid-two">
-        <section className="panel">
+      {ideasLocked ? (
+        <section className="panel lab-blocker-card">
           <div className="section-head">
             <div>
-              <h2>{t('plans_current_stable_title')}</h2>
-              <p className="panel-subtitle">{t('plans_current_stable_desc')}</p>
+              <h2>
+                {needsFirstSave
+                  ? copy('先保存一个稳定版本', 'Save one stable version first')
+                  : copy('先保存当前修改', 'Save current changes first')}
+              </h2>
+              <p className="panel-subtitle">
+                {needsFirstSave
+                  ? copy(
+                      '没有稳定保存点之前，试验副本没有意义。先去“修改”页保存一次。',
+                      'An idea copy only helps after you have one stable saved point. Save once in Changes first.'
+                    )
+                  : copy(
+                      '当前还有未保存修改。先把这次改动保存下来，再开始试验。',
+                      'There are still unsaved changes. Save this work first, then start an experiment.'
+                    )}
+              </p>
             </div>
+            <span className="tone-badge attention">{copy('现在先做这个', 'Do this first')}</span>
+          </div>
+          <div className="actions-row">
+            <Link className="btn btn-primary" to="/changes">
+              {copy('去保存当前修改', 'Go Save Current Work')}
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      <div className="lab-grid">
+        <section className="panel lab-card">
+          <div className="section-head">
+            <div>
+              <h2>{copy('稳定版本', 'Stable Version')}</h2>
+              <p className="panel-subtitle">
+                {copy('这是你随时可以回来的安全版本。', 'This is the version you can always come back to.')}
+              </p>
+            </div>
+            <span className="tag tag-main">
+              {stablePlan?.isCurrent ? copy('当前就在这里', 'You are here') : copy('稳定版本', 'Stable')}
+            </span>
           </div>
           {stablePlan ? (
-            <div className="detail-stack">
-              <div className="item-title">
-                {mapPlanLabel(stablePlan, t)}
-                <span className="tag tag-main">{t('plans_tag_main')}</span>
-                {stablePlan.isCurrent ? <span className="tag">{t('plans_here_now')}</span> : null}
-              </div>
+            <div className="lab-stack">
+              <div className="item-title">{mapPlanLabel(stablePlan, t)}</div>
               <div className="item-subtle">{stablePlan.lastMessage || t('plans_no_saved_record')}</div>
               {!stablePlan.isCurrent ? (
                 <div className="actions-row">
@@ -423,7 +400,7 @@ export function PlansPage() {
                     disabled={working || ideasLocked}
                     onClick={() => void handleSwitchPlan(stablePlan.name)}
                   >
-                    {t('plans_switch_button')}
+                    {copy('回到这个版本', 'Open this version')}
                   </button>
                 </div>
               ) : null}
@@ -433,26 +410,39 @@ export function PlansPage() {
           )}
         </section>
 
-        <section className="panel">
+        <section className="panel lab-card">
           <div className="section-head">
             <div>
-              <h2>{t('plans_ideas_title')}</h2>
-              <p className="panel-subtitle">{t('plans_ideas_desc')}</p>
+              <h2>{copy('试验副本', 'Idea Copies')}</h2>
+              <p className="panel-subtitle">
+                {copy(
+                  '每个试验副本都单独放着，满意后再带回稳定版本。',
+                  'Each idea copy stays separate until you decide to bring it back.'
+                )}
+              </p>
             </div>
-            <span className="pill">{t('common_record_unit', { count: ideaPlans.length })}</span>
+            <span className="pill">{ideaPlans.length}</span>
           </div>
           {loading ? (
             <p className="muted">{t('plans_loading')}</p>
           ) : ideaPlans.length === 0 ? (
-            <p className="muted">{t('plans_ideas_empty')}</p>
+            <div className="lab-empty-state">
+              <strong>{copy('还没有试验副本', 'No idea copies yet')}</strong>
+              <p>
+                {copy(
+                  '等你准备试一个新想法时，在下面输入名字，马上开一个单独副本。',
+                  'When you are ready to try something new, create a separate copy below.'
+                )}
+              </p>
+            </div>
           ) : (
-            <ul className="list">
+            <ul className="list lab-plan-list">
               {ideaPlans.map((plan) => (
-                <li key={plan.id} className={`list-item ${plan.isCurrent ? 'active' : ''}`}>
+                <li key={plan.id} className={`list-item lab-plan-row ${plan.isCurrent ? 'active' : ''}`}>
                   <div className="flex-grow">
                     <div className="item-title">
                       {mapPlanLabel(plan, t)}
-                      {plan.isCurrent ? <span className="tag">{t('plans_here_now')}</span> : null}
+                      {plan.isCurrent ? <span className="tag">{copy('当前在这里', 'You are here')}</span> : null}
                     </div>
                     <div className="item-subtle">{plan.lastMessage || t('plans_no_saved_record')}</div>
                   </div>
@@ -462,7 +452,7 @@ export function PlansPage() {
                       disabled={working || ideasLocked}
                       onClick={() => void handleSwitchPlan(plan.name)}
                     >
-                      {t('plans_switch_button')}
+                      {copy('打开这个副本', 'Open this copy')}
                     </button>
                   ) : null}
                 </li>
@@ -472,56 +462,103 @@ export function PlansPage() {
         </section>
       </div>
 
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>{t('plans_back_title')}</h2>
-            <p className="panel-subtitle">{t('plans_back_desc')}</p>
+      <div className="lab-grid">
+        <section className="panel lab-card">
+          <div className="section-head">
+            <div>
+              <h2>{copy('开始一个新试验', 'Start a New Experiment')}</h2>
+              <p className="panel-subtitle">
+                {copy(
+                  '系统会从你当前看到的副本复制一份，稳定版本不会被直接改动。',
+                  'We will create a separate copy from what you are looking at now.'
+                )}
+              </p>
+            </div>
           </div>
-        </div>
-        {ideaPlans.length === 0 ? (
-          <p className="muted">{t('plans_back_empty')}</p>
-        ) : (
-          <>
+          <p className="muted">
+            <strong>{copy('将从这里开始：', 'Starting from:')}</strong>{' '}
+            {currentPlan
+              ? mapPlanLabel(currentPlan, t)
+              : mapPlanLabel(
+                  stablePlan ?? { id: '', name: 'main', isCurrent: false, isMain: true, lastSavedAt: null, lastMessage: '' },
+                  t
+                )}
+          </p>
+          <div className="field-row">
+            <input
+              className="input-text"
+              value={newPlanName}
+              placeholder={copy('例如：登录页新样式', 'Example: new login layout')}
+              onChange={(event) => setNewPlanName(event.target.value)}
+            />
+            <button className="btn btn-primary" disabled={working || ideasLocked} onClick={() => void handleCreatePlan()}>
+              {copy('开始试验', 'Start This Idea')}
+            </button>
+          </div>
+        </section>
+
+        <section className="panel lab-card">
+          <div className="section-head">
+            <div>
+              <h2>{copy('带回稳定版本', 'Bring Back to Stable')}</h2>
+              <p className="panel-subtitle">
+                {copy(
+                  '当某个试验已经满意了，再把它带回稳定版本。',
+                  'When an idea copy looks right, bring it back into the stable version.'
+                )}
+              </p>
+            </div>
+          </div>
+          {ideaPlans.length === 0 ? (
+            <p className="muted">{copy('先创建一个试验副本，这里才会有可选内容。', 'Create one idea copy first.')}</p>
+          ) : (
             <div className="field-row">
-              <label>{t('plans_merge_source')}</label>
+              <label>{copy('选择要带回的试验', 'Choose an idea copy')}</label>
               <select className="input-select" value={mergeFrom} onChange={(event) => setMergeFrom(event.target.value)}>
-                <option value="">{t('common_select')}</option>
+                <option value="">{copy('请选择', 'Select')}</option>
                 {ideaPlans.map((plan) => (
                   <option key={plan.name} value={plan.name}>
                     {mapPlanLabel(plan, t)}
                   </option>
                 ))}
               </select>
-              <label>{t('plans_back_target_label')}</label>
-              <span className="pill">{stablePlan ? mapPlanLabel(stablePlan, t) : t('common_main_plan')}</span>
+              <span className="lab-merge-summary">
+                {copy('会带回到：', 'Will be added into:')}{' '}
+                <strong>{stablePlan ? mapPlanLabel(stablePlan, t) : t('common_main_plan')}</strong>
+              </span>
               <button className="btn btn-primary" disabled={working || ideasLocked || !mergeFrom} onClick={() => void handleMerge()}>
-                {t('plans_merge_button')}
+                {copy('带回稳定版本', 'Bring It Back')}
               </button>
             </div>
-            <p className="muted">{t('plans_merge_hint')}</p>
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      </div>
 
       {mergeState?.status === 'needs_decision' && mergeState.conflicts.length > 0 ? (
         <section className="panel">
           <div className="section-head">
-            <h2>{t('plans_conflict_title')}</h2>
-            <span className="pill">{t('plans_conflict_files', { count: mergeState.conflicts.length })}</span>
+            <h2>{copy('两边改到了同一部分', 'Both copies changed the same part')}</h2>
+            <span className="pill">
+              {copy(`${mergeState.conflicts.length} 个文件待处理`, `${mergeState.conflicts.length} files to decide`)}
+            </span>
           </div>
 
           <div className="conflict-summary-card">
             <div className="section-head">
               <div>
-                <h3>{t('plans_conflict_helper_title')}</h3>
-                <p className="panel-subtitle">{t('plans_conflict_helper_desc')}</p>
+                <h3>{copy('先做一个简单决定', 'Pick one side first')}</h3>
+                <p className="panel-subtitle">
+                  {copy(
+                    '如果大部分文件都想保留同一边，可以直接批量处理。',
+                    'If most files should keep the same side, use a bulk decision.'
+                  )}
+                </p>
               </div>
               <span className="tone-badge attention">
-                {t('plans_conflict_progress', {
-                  current: selectedConflictIndex + 1,
-                  total: mergeState.conflicts.length
-                })}
+                {copy(
+                  `正在处理第 ${selectedConflictIndex + 1} / ${mergeState.conflicts.length} 个`,
+                  `Working on ${selectedConflictIndex + 1} / ${mergeState.conflicts.length}`
+                )}
               </span>
             </div>
             <div className="conflict-progress-track" aria-hidden="true">
@@ -533,20 +570,20 @@ export function PlansPage() {
                 disabled={working}
                 onClick={() => void handleResolveAll('keepCurrent')}
               >
-                {t('plans_conflict_keep_all_current')}
+                {copy('全部保留稳定版本', 'Keep stable version for all')}
               </button>
               <button
                 className="btn btn-secondary"
                 disabled={working}
                 onClick={() => void handleResolveAll('keepIncoming')}
               >
-                {t('plans_conflict_keep_all_incoming')}
+                {copy('全部保留试验副本', 'Keep idea copy for all')}
               </button>
             </div>
           </div>
 
           <div className="field-row">
-            <label>{t('plans_conflict_selected_file')}</label>
+            <label>{copy('当前文件', 'Current file')}</label>
             <select
               className="input-select"
               value={selectedConflict?.filePath}
@@ -568,29 +605,29 @@ export function PlansPage() {
           {selectedConflict ? (
             <div className="conflict-layout">
               <div className="conflict-col">
-                <h4>{t('plans_conflict_current')}</h4>
+                <h4>{copy('稳定版本这一边', 'Stable version')}</h4>
                 <pre>{toLocalizedConflictContent(selectedConflict.currentContent, 'current', t)}</pre>
                 <button
                   className="btn btn-secondary"
                   disabled={working}
                   onClick={() => void handleResolve('keepCurrent')}
                 >
-                  {t('plans_conflict_keep_current')}
+                  {copy('保留这一边', 'Keep this side')}
                 </button>
               </div>
               <div className="conflict-col">
-                <h4>{t('plans_conflict_incoming')}</h4>
+                <h4>{copy('试验副本这一边', 'Idea copy')}</h4>
                 <pre>{toLocalizedConflictContent(selectedConflict.incomingContent, 'incoming', t)}</pre>
                 <button
                   className="btn btn-secondary"
                   disabled={working}
                   onClick={() => void handleResolve('keepIncoming')}
                 >
-                  {t('plans_conflict_keep_incoming')}
+                  {copy('保留这一边', 'Keep this side')}
                 </button>
               </div>
               <div className="conflict-col">
-                <h4>{t('plans_conflict_manual')}</h4>
+                <h4>{copy('自己整理后再保存', 'Edit it yourself')}</h4>
                 <textarea
                   className="input-textarea"
                   value={manualContent}
@@ -602,7 +639,7 @@ export function PlansPage() {
                   disabled={working}
                   onClick={() => void handleResolve('manual')}
                 >
-                  {t('plans_conflict_use_manual')}
+                  {copy('使用这份整理后的内容', 'Use this edited content')}
                 </button>
               </div>
             </div>
@@ -612,10 +649,10 @@ export function PlansPage() {
 
       {mergeState?.status === 'merged' ? (
         <section className="panel">
-          <h3>{t('plans_notice_merged')}</h3>
+          <h3>{copy('这个试验已经带回稳定版本', 'This idea copy is ready to save into the stable version')}</h3>
           <div className="actions-row">
             <button className="btn btn-primary" onClick={() => void handleCompleteMerge()}>
-              {t('plans_complete_merge')}
+              {copy('保存这次带回结果', 'Save This Merge')}
             </button>
           </div>
         </section>

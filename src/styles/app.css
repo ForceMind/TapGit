@@ -999,6 +999,106 @@ pre {
   overflow: auto;
 }
 
+.lab-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 18px;
+  align-items: start;
+}
+
+.lab-hero-copy h1 {
+  margin: 14px 0 10px;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.lab-hero-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.75;
+  max-width: 760px;
+}
+
+.lab-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.lab-metric-card {
+  border-radius: 16px;
+  border: 1px solid #dbe6ef;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lab-metric-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.lab-metric-card strong {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.lab-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.lab-card {
+  min-width: 0;
+}
+
+.lab-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lab-plan-list {
+  gap: 10px;
+}
+
+.lab-plan-row {
+  align-items: center;
+}
+
+.lab-empty-state {
+  border-radius: 16px;
+  border: 1px dashed #d3dee8;
+  background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
+  padding: 16px;
+}
+
+.lab-empty-state strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.lab-empty-state p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.lab-blocker-card {
+  border-color: #ead7b9;
+  background:
+    radial-gradient(circle at top right, rgba(255, 177, 104, 0.16), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #fff9f0 100%);
+}
+
+.lab-merge-summary {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 .plan-layout {
   display: grid;
   grid-template-columns: 1fr minmax(320px, 40%);
@@ -1388,6 +1488,8 @@ pre {
   .next-grid,
   .split-panel,
   .plan-layout,
+  .lab-grid,
+  .lab-hero,
   .conflict-layout,
   .guide-grid,
   .home-entry-grid,
@@ -1420,7 +1522,8 @@ pre {
 
   .hero-summary,
   .workspace-grid,
-  .project-stats-row {
+  .project-stats-row,
+  .lab-hero-metrics {
     width: 100%;
     grid-template-columns: 1fr;
   }
