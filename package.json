@@ -1,6 +1,6 @@
 {
   "name": "tapgit",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "TapGit desktop app for saving and restoring code progress",
   "main": "dist-electron/main/index.js",
   "scripts": {
@@ -35,7 +35,6 @@
   "build": {
     "appId": "com.tapgit.desktop",
     "productName": "TapGit",
-    "icon": "build/icon.png",
     "asar": true,
     "directories": {
       "output": "release"
