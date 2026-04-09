@@ -287,6 +287,15 @@ body {
   gap: 10px;
 }
 
+.section-head > div {
+  min-width: 0;
+}
+
+.section-head h2,
+.section-head h3 {
+  margin: 0;
+}
+
 .pill {
   font-size: 12px;
   padding: 4px 8px;

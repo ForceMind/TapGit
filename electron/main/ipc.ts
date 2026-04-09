@@ -15,10 +15,12 @@ import {
   getCloudSyncStatus,
   getCurrentChanges,
   listHistory,
+  listSafetyBackups,
   listPlans,
   mergePlan,
   openProject,
   resolveCollision,
+  restoreToSafetyBackup,
   restoreToRecord,
   saveProgress,
   switchPlan,
@@ -102,10 +104,18 @@ export function registerIpcHandlers() {
     saveProgress
   );
   register<[string], Awaited<ReturnType<typeof listHistory>>>(IPC_CHANNELS.LIST_HISTORY, listHistory);
+  register<[string], Awaited<ReturnType<typeof listSafetyBackups>>>(
+    IPC_CHANNELS.LIST_SAFETY_BACKUPS,
+    listSafetyBackups
+  );
 
   register<[string, string], void>(IPC_CHANNELS.RESTORE_TO_RECORD, async (projectPath, recordId) => {
     const config = await getConfig();
     await restoreToRecord(projectPath, recordId, config.settings.autoSnapshotBeforeRestore);
+  });
+  register<[string, string], void>(IPC_CHANNELS.RESTORE_TO_SAFETY_BACKUP, async (projectPath, backupId) => {
+    const config = await getConfig();
+    await restoreToSafetyBackup(projectPath, backupId, config.settings.autoSnapshotBeforeRestore);
   });
 
   register<[string], Awaited<ReturnType<typeof listPlans>>>(IPC_CHANNELS.LIST_PLANS, listPlans);

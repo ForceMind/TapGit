@@ -14,12 +14,14 @@ import {
   PlanInfo,
   ProjectSummary,
   ResolveStrategy,
+  SafetyBackup,
   SaveProgressPayload,
   SaveProgressResult
 } from '../../src/shared/contracts';
 import { AppError } from './app-error';
 
 const execFileAsync = promisify(execFile);
+const SAFETY_PREFIX = 'safety/';
 
 function createGit(projectPath: string) {
   return simpleGit({
@@ -58,7 +60,7 @@ function mapStatusLabel(changeType: ChangeItem['changeType']) {
   }
 }
 
-function formatSnapshotName() {
+function formatSnapshotName(source: SafetyBackup['source']) {
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -66,7 +68,53 @@ function formatSnapshotName() {
   const hh = String(now.getHours()).padStart(2, '0');
   const min = String(now.getMinutes()).padStart(2, '0');
   const sec = String(now.getSeconds()).padStart(2, '0');
-  return `safety/${yyyy}${mm}${dd}-${hh}${min}${sec}`;
+  return `${SAFETY_PREFIX}${source}-${yyyy}${mm}${dd}-${hh}${min}${sec}`;
+}
+
+function isSafetyBackupRef(name: string) {
+  return name.startsWith(SAFETY_PREFIX);
+}
+
+function parseSafetyBackupSource(name: string): SafetyBackup['source'] {
+  const raw = name.slice(SAFETY_PREFIX.length);
+  if (raw.startsWith('restore-')) return 'restore';
+  if (raw.startsWith('merge-')) return 'merge';
+  return 'unknown';
+}
+
+function parseSafetyBackupCreatedAt(name: string, fallbackTimestamp: number | null) {
+  const raw = name.slice(SAFETY_PREFIX.length);
+  const match = raw.match(/(?:restore-|merge-)?(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
+  if (!match) {
+    return fallbackTimestamp;
+  }
+
+  const [, year, month, day, hour, minute, second] = match;
+  const createdAt = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  );
+  return Number.isNaN(createdAt) ? fallbackTimestamp : Math.floor(createdAt / 1000);
+}
+
+function toSafetyBackup(line: string): SafetyBackup | null {
+  const [name, tsRaw, ...subjectParts] = line.split('\t');
+  if (!name || !isSafetyBackupRef(name)) {
+    return null;
+  }
+
+  const fallbackTimestamp = Number.isNaN(Number(tsRaw)) ? null : Number(tsRaw);
+  return {
+    id: name,
+    name,
+    createdAt: parseSafetyBackupCreatedAt(name, fallbackTimestamp),
+    lastMessage: subjectParts.join('\t'),
+    source: parseSafetyBackupSource(name)
+  };
 }
 
 function countLines(text: string) {
@@ -663,10 +711,30 @@ export async function listHistory(projectPath: string): Promise<HistoryRecord[]>
   return parseLogOutput(raw);
 }
 
-export async function restoreToRecord(
+export async function listSafetyBackups(projectPath: string): Promise<SafetyBackup[]> {
+  await ensureProtectedProject(projectPath);
+
+  const git = createGit(projectPath);
+  const raw = await git.raw([
+    'for-each-ref',
+    'refs/heads/safety',
+    '--format=%(refname:short)%x09%(committerdate:unix)%x09%(subject)'
+  ]);
+
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => toSafetyBackup(line))
+    .filter((item): item is SafetyBackup => Boolean(item))
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+async function restoreToRef(
   projectPath: string,
-  recordId: string,
-  autoSnapshotBeforeRestore: boolean
+  ref: string,
+  autoSnapshotBeforeRestore: boolean,
+  snapshotSource: SafetyBackup['source']
 ) {
   const git = createGit(projectPath);
   if (!(await hasCommits(projectPath))) {
@@ -674,13 +742,33 @@ export async function restoreToRecord(
   }
 
   if (autoSnapshotBeforeRestore) {
-    const snapshotBranch = formatSnapshotName();
+    const snapshotBranch = formatSnapshotName(snapshotSource);
     await git.raw(['branch', snapshotBranch]).catch(() => undefined);
   }
 
-  await git.raw(['reset', '--hard', recordId]).catch((error) => {
+  await git.raw(['reset', '--hard', ref]).catch((error) => {
     throw new AppError('RESTORE_FAILED', '恢复失败，请稍后重试', String(error));
   });
+}
+
+export async function restoreToRecord(
+  projectPath: string,
+  recordId: string,
+  autoSnapshotBeforeRestore: boolean
+) {
+  await restoreToRef(projectPath, recordId, autoSnapshotBeforeRestore, 'restore');
+}
+
+export async function restoreToSafetyBackup(
+  projectPath: string,
+  backupId: string,
+  autoSnapshotBeforeRestore: boolean
+) {
+  if (!isSafetyBackupRef(backupId)) {
+    throw new AppError('RESTORE_FAILED', '恢复失败，请稍后重试');
+  }
+
+  await restoreToRef(projectPath, backupId, autoSnapshotBeforeRestore, 'restore');
 }
 
 export async function listPlans(projectPath: string): Promise<PlanInfo[]> {
@@ -712,7 +800,8 @@ export async function listPlans(projectPath: string): Promise<PlanInfo[]> {
         lastSavedAt: Number.isNaN(timestamp) ? null : timestamp,
         lastMessage: subjectParts.join('\t')
       } satisfies PlanInfo;
-    });
+    })
+    .filter((plan) => !isSafetyBackupRef(plan.name));
 
   if (list.length === 0 && current) {
     return [
@@ -769,7 +858,7 @@ export async function mergePlan(
   }
 
   if (autoSnapshotBeforeMerge) {
-    const snapshotBranch = formatSnapshotName();
+    const snapshotBranch = formatSnapshotName('merge');
     await git.raw(['branch', snapshotBranch]).catch(() => undefined);
   }
 

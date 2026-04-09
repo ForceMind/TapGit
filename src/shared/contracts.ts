@@ -41,6 +41,14 @@ export interface HistoryRecord {
   files: string[];
 }
 
+export interface SafetyBackup {
+  id: string;
+  name: string;
+  createdAt: number | null;
+  lastMessage: string;
+  source: 'restore' | 'merge' | 'unknown';
+}
+
 export interface PlanInfo {
   id: string;
   name: string;
@@ -123,7 +131,9 @@ export interface TapGitBridge {
   getCurrentChanges(projectPath: string): Promise<Result<ChangeItem[]>>;
   saveProgress(payload: SaveProgressPayload): Promise<Result<SaveProgressResult>>;
   listHistory(projectPath: string): Promise<Result<HistoryRecord[]>>;
+  listSafetyBackups(projectPath: string): Promise<Result<SafetyBackup[]>>;
   restoreToRecord(projectPath: string, recordId: string): Promise<Result<void>>;
+  restoreToSafetyBackup(projectPath: string, backupId: string): Promise<Result<void>>;
   listPlans(projectPath: string): Promise<Result<PlanInfo[]>>;
   createPlan(
     projectPath: string,
@@ -164,7 +174,9 @@ export const IPC_CHANNELS = {
   GET_CURRENT_CHANGES: 'tapgit:get-current-changes',
   SAVE_PROGRESS: 'tapgit:save-progress',
   LIST_HISTORY: 'tapgit:list-history',
+  LIST_SAFETY_BACKUPS: 'tapgit:list-safety-backups',
   RESTORE_TO_RECORD: 'tapgit:restore-to-record',
+  RESTORE_TO_SAFETY_BACKUP: 'tapgit:restore-to-safety-backup',
   LIST_PLANS: 'tapgit:list-plans',
   CREATE_PLAN: 'tapgit:create-plan',
   SWITCH_PLAN: 'tapgit:switch-plan',

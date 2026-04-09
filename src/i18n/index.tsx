@@ -5,7 +5,8 @@ import {
   AppLocale,
   CloudConnectionCode,
   CloudConnectionTestResult,
-  CloudSyncStatus
+  CloudSyncStatus,
+  SafetyBackup
 } from '../shared/contracts';
 import { EN_MESSAGES, MessageKey, ZH_MESSAGES } from './messages';
 
@@ -140,6 +141,17 @@ export function toPlanLabel(planName: string, isMain: boolean, t: Translator) {
     return t('common_main_plan');
   }
   return planName;
+}
+
+export function toSafetyBackupSourceLabel(source: SafetyBackup['source'], t: Translator) {
+  switch (source) {
+    case 'restore':
+      return t('timeline_backup_source_restore');
+    case 'merge':
+      return t('timeline_backup_source_merge');
+    default:
+      return t('timeline_backup_source_unknown');
+  }
 }
 
 export function toCloudStatusText(status: CloudSyncStatus, t: Translator) {

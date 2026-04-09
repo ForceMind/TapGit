@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppActionsContext } from '../app/app-context';
 import { I18nProvider } from '../i18n';
-import { HomePage } from '../pages/HomePage';
+import { TimelinePage } from '../pages/TimelinePage';
 import { useAppStore } from '../stores/useAppStore';
 
 const defaultActions = {
@@ -34,91 +34,40 @@ function createBridgeMock() {
     getConfig: vi.fn(),
     updateSettings: vi.fn(),
     checkGitEnvironment: vi.fn(),
+    getGitHubAuthStatus: vi.fn(),
+    loginGitHub: vi.fn(),
+    logoutGitHub: vi.fn(),
     getCloudSyncStatus: vi.fn(),
     testCloudConnection: vi.fn(),
     connectCloud: vi.fn(),
     uploadToCloud: vi.fn(),
     getCloudLatest: vi.fn(),
-    exportLogs: vi.fn()
+    exportLogs: vi.fn(),
+    openExternalUrl: vi.fn()
   };
 }
 
-function renderHomePage(locale: 'en-US' | 'zh-CN') {
+function renderTimelinePage(locale: 'en-US' | 'zh-CN') {
   render(
     <MemoryRouter>
       <I18nProvider locale={locale}>
         <AppActionsContext.Provider value={defaultActions}>
-          <HomePage />
+          <TimelinePage />
         </AppActionsContext.Provider>
       </I18nProvider>
     </MemoryRouter>
   );
 }
 
-describe('HomePage', () => {
+describe('TimelinePage', () => {
   beforeEach(() => {
-    useAppStore.setState({
-      project: null,
-      notice: null,
-      config: null
-    });
-    window.tapgit = undefined as never;
-  });
-
-  afterEach(() => {
-    cleanup();
-    window.tapgit = undefined as never;
-  });
-
-  it('shows recent projects in Chinese mode', () => {
-    useAppStore.setState({
-      project: null,
-      notice: null,
-      config: {
-        recentProjects: ['E:/demo/project-a', 'E:/demo/project-b'],
-        settings: {
-          showAdvancedMode: false,
-          showBeginnerGuide: true,
-          autoSnapshotBeforeRestore: true,
-          autoSnapshotBeforeMerge: true,
-          defaultSaveMessageTemplate: '',
-          language: 'zh-CN'
-        }
-      }
-    });
-
-    renderHomePage('zh-CN');
-
-    expect(screen.getByText('最近项目')).toBeInTheDocument();
-    expect(screen.getByText('project-a')).toBeInTheDocument();
-    expect(screen.getByText('project-b')).toBeInTheDocument();
-  });
-
-  it('shows next-step cards for a protected project', async () => {
-    const bridge = createBridgeMock();
-    bridge.listHistory.mockResolvedValue({ ok: true, data: [] });
-    bridge.getCloudSyncStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        connected: false,
-        remoteLabel: '',
-        remoteUrl: '',
-        currentPlan: 'main',
-        hasTracking: false,
-        pendingUpload: 0,
-        pendingDownload: 0,
-        statusText: ''
-      }
-    });
-    window.tapgit = bridge as never;
-
     useAppStore.setState({
       project: {
         path: 'E:/demo/project-a',
         name: 'project-a',
         isProtected: true,
         currentPlan: 'main',
-        pendingChangeCount: 3
+        pendingChangeCount: 0
       },
       notice: null,
       config: {
@@ -133,20 +82,52 @@ describe('HomePage', () => {
         }
       }
     });
+    window.tapgit = undefined as never;
+  });
 
-    renderHomePage('en-US');
+  afterEach(() => {
+    cleanup();
+    window.tapgit = undefined as never;
+  });
 
-    expect(screen.getByText('What to do next')).toBeInTheDocument();
-    expect(
-      await screen.findByText('You currently have 3 unsaved files. Save once to keep a stable point.')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Connect a cloud address when you want a backup outside this device.')
-    ).toBeInTheDocument();
+  it('shows automatic safety backups separately from saved records', async () => {
+    const bridge = createBridgeMock();
+    bridge.listHistory.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: 'record-1',
+          message: 'Fix login save flow',
+          timestamp: 1712636100,
+          changedFiles: 3,
+          files: ['src/login.tsx', 'src/auth.ts', 'src/api.ts']
+        }
+      ]
+    });
+    bridge.listSafetyBackups.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: 'safety/restore-20260409-123000',
+          name: 'safety/restore-20260409-123000',
+          createdAt: 1712637000,
+          lastMessage: 'Before trying the older version',
+          source: 'restore'
+        }
+      ]
+    });
+    window.tapgit = bridge as never;
+
+    renderTimelinePage('en-US');
+
+    expect(await screen.findByText('Safety Backups')).toBeInTheDocument();
+    expect(screen.getAllByText('Created before restore').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Before trying the older version').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Return to This Backup' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
-      expect(bridge.getCloudSyncStatus).toHaveBeenCalledWith('E:/demo/project-a');
+      expect(bridge.listSafetyBackups).toHaveBeenCalledWith('E:/demo/project-a');
     });
   });
 });
