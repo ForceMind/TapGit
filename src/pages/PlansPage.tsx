@@ -29,6 +29,49 @@ export function PlansPage() {
     [mergeState, selectedConflictFile]
   );
 
+  const selectedConflictIndex = useMemo(() => {
+    if (!mergeState?.conflicts.length || !selectedConflict) {
+      return 0;
+    }
+    return Math.max(
+      0,
+      mergeState.conflicts.findIndex((item) => item.filePath === selectedConflict.filePath)
+    );
+  }, [mergeState, selectedConflict]);
+
+  const conflictProgress = useMemo(() => {
+    if (!mergeState?.conflicts.length) {
+      return 0;
+    }
+    return ((selectedConflictIndex + 1) / mergeState.conflicts.length) * 100;
+  }, [mergeState, selectedConflictIndex]);
+
+  function pickNextConflictFile(conflicts: MergeResult['conflicts'], previousFile: string) {
+    if (conflicts.length === 0) return '';
+    const sameFile = conflicts.find((item) => item.filePath === previousFile);
+    if (sameFile) return sameFile.filePath;
+
+    const previousIndex = mergeState?.conflicts.findIndex((item) => item.filePath === previousFile) ?? -1;
+    if (previousIndex >= 0) {
+      return conflicts[Math.min(previousIndex, conflicts.length - 1)]?.filePath ?? conflicts[0].filePath;
+    }
+    return conflicts[0].filePath;
+  }
+
+  function applyMergeResult(result: MergeResult, preferredFile = '') {
+    setMergeState(result);
+    if (result.status === 'needs_decision') {
+      const nextFile = pickNextConflictFile(result.conflicts, preferredFile);
+      const nextConflict = result.conflicts.find((item) => item.filePath === nextFile) ?? result.conflicts[0];
+      setSelectedConflictFile(nextConflict?.filePath ?? '');
+      setManualContent(nextConflict?.currentContent ?? '');
+      return;
+    }
+
+    setSelectedConflictFile('');
+    setManualContent('');
+  }
+
   async function loadPlans() {
     if (!project?.path || !project.isProtected) return;
     setLoading(true);
@@ -104,12 +147,10 @@ export function PlansPage() {
       const result = await unwrapResult(getBridge().mergePlan(project.path, mergeFrom, mergeTo));
       if (result.status === 'merged') {
         setNotice({ type: 'success', text: t('plans_notice_merged') });
-        setMergeState(null);
+        applyMergeResult(result);
       } else {
         setNotice({ type: 'info', text: t('plans_notice_need_decision') });
-        setMergeState(result);
-        setSelectedConflictFile(result.conflicts[0]?.filePath ?? '');
-        setManualContent(result.conflicts[0]?.currentContent ?? '');
+        applyMergeResult(result, result.conflicts[0]?.filePath ?? '');
       }
       await refreshProject();
       await loadPlans();
@@ -136,16 +177,49 @@ export function PlansPage() {
         )
       );
       if (result.status === 'needs_decision') {
-        setMergeState(result);
-        setSelectedConflictFile(result.conflicts[0]?.filePath ?? '');
-        setManualContent(result.conflicts[0]?.currentContent ?? '');
+        applyMergeResult(result, selectedConflict.filePath);
         setNotice({
           type: 'info',
           text: t('plans_notice_remaining_conflicts', { count: result.conflicts.length })
         });
       } else {
-        setMergeState(result);
-        setSelectedConflictFile('');
+        applyMergeResult(result);
+        setNotice({ type: 'info', text: t('plans_notice_conflicts_resolved') });
+      }
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'plans_notice_resolve_failed')
+      });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleResolveAll(strategy: 'keepCurrent' | 'keepIncoming') {
+    if (!project?.path || !mergeState?.conflicts.length) return;
+
+    setWorking(true);
+    try {
+      let latestResult: MergeResult = mergeState;
+      const files = mergeState.conflicts.map((item) => item.filePath);
+
+      for (const filePath of files) {
+        latestResult = await unwrapResult(
+          getBridge().resolveCollision(project.path, filePath, strategy)
+        );
+        if (latestResult.status === 'merged') {
+          break;
+        }
+      }
+
+      applyMergeResult(latestResult);
+      if (latestResult.status === 'needs_decision') {
+        setNotice({
+          type: 'info',
+          text: t('plans_notice_remaining_conflicts', { count: latestResult.conflicts.length })
+        });
+      } else {
         setNotice({ type: 'info', text: t('plans_notice_conflicts_resolved') });
       }
     } catch (error) {
@@ -302,7 +376,42 @@ export function PlansPage() {
             <span className="pill">{t('plans_conflict_files', { count: mergeState.conflicts.length })}</span>
           </div>
 
+          <div className="conflict-summary-card">
+            <div className="section-head">
+              <div>
+                <h3>{t('plans_conflict_helper_title')}</h3>
+                <p className="panel-subtitle">{t('plans_conflict_helper_desc')}</p>
+              </div>
+              <span className="tone-badge attention">
+                {t('plans_conflict_progress', {
+                  current: selectedConflictIndex + 1,
+                  total: mergeState.conflicts.length
+                })}
+              </span>
+            </div>
+            <div className="conflict-progress-track" aria-hidden="true">
+              <div className="conflict-progress-fill" style={{ width: `${conflictProgress}%` }} />
+            </div>
+            <div className="actions-row">
+              <button
+                className="btn btn-secondary"
+                disabled={working}
+                onClick={() => void handleResolveAll('keepCurrent')}
+              >
+                {t('plans_conflict_keep_all_current')}
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={working}
+                onClick={() => void handleResolveAll('keepIncoming')}
+              >
+                {t('plans_conflict_keep_all_incoming')}
+              </button>
+            </div>
+          </div>
+
           <div className="field-row">
+            <label>{t('plans_conflict_selected_file')}</label>
             <select
               className="input-select"
               value={selectedConflict?.filePath}
@@ -326,14 +435,22 @@ export function PlansPage() {
               <div className="conflict-col">
                 <h4>{t('plans_conflict_current')}</h4>
                 <pre>{toLocalizedConflictContent(selectedConflict.currentContent, 'current', t)}</pre>
-                <button className="btn btn-secondary" onClick={() => void handleResolve('keepCurrent')}>
+                <button
+                  className="btn btn-secondary"
+                  disabled={working}
+                  onClick={() => void handleResolve('keepCurrent')}
+                >
                   {t('plans_conflict_keep_current')}
                 </button>
               </div>
               <div className="conflict-col">
                 <h4>{t('plans_conflict_incoming')}</h4>
                 <pre>{toLocalizedConflictContent(selectedConflict.incomingContent, 'incoming', t)}</pre>
-                <button className="btn btn-secondary" onClick={() => void handleResolve('keepIncoming')}>
+                <button
+                  className="btn btn-secondary"
+                  disabled={working}
+                  onClick={() => void handleResolve('keepIncoming')}
+                >
                   {t('plans_conflict_keep_incoming')}
                 </button>
               </div>
@@ -345,7 +462,11 @@ export function PlansPage() {
                   rows={18}
                   onChange={(event) => setManualContent(event.target.value)}
                 />
-                <button className="btn btn-secondary" onClick={() => void handleResolve('manual')}>
+                <button
+                  className="btn btn-secondary"
+                  disabled={working}
+                  onClick={() => void handleResolve('manual')}
+                >
                   {t('plans_conflict_use_manual')}
                 </button>
               </div>
