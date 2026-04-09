@@ -10,6 +10,10 @@ function toProjectLabel(projectPath: string) {
   return path.basename(projectPath) || projectPath;
 }
 
+function zh(text: string) {
+  return text;
+}
+
 export function resolveMenuLocale(preference: AppLanguagePreference | undefined): AppLocale {
   if (preference === 'zh-CN' || preference === 'en-US') {
     return preference;
@@ -36,60 +40,60 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
         }))
       : [
           {
-            label: chinese ? '还没有最近项目' : 'No recent projects yet',
+            label: chinese ? zh('还没有最近项目') : 'No recent projects yet',
             enabled: false
           }
         ];
 
   const projectMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? '项目' : 'Project',
+    label: chinese ? zh('项目') : 'Project',
     submenu: [
       {
-        label: chinese ? '打开本地项目…' : 'Open Local Project...',
+        label: chinese ? zh('打开本地项目...') : 'Open Local Project...',
         accelerator: 'CmdOrCtrl+O',
         click: () => sendMenuCommand('open-project')
       },
       {
-        label: chinese ? '从 GitHub 获取项目…' : 'Get Project from GitHub...',
+        label: chinese ? zh('从 GitHub 获取项目...') : 'Get Project from GitHub...',
         accelerator: 'CmdOrCtrl+Shift+O',
         click: () => sendMenuCommand('clone-project')
       },
       {
-        label: chinese ? '最近项目' : 'Recent Projects',
+        label: chinese ? zh('最近项目') : 'Recent Projects',
         submenu: recentProjectSubmenu
       },
       {
-        label: chinese ? '打开当前项目位置' : 'Show Current Project in Folder',
+        label: chinese ? zh('在文件夹中查看项目') : 'Show Project in Folder',
         click: () => sendMenuCommand('show-project-in-folder')
       },
       { type: 'separator' },
       {
-        label: chinese ? '回到首页' : 'Go to Home',
+        label: chinese ? zh('项目概览') : 'Project Overview',
         accelerator: 'CmdOrCtrl+1',
         click: () => sendMenuCommand('show-home')
       },
       { type: 'separator' },
       isMac
-        ? { role: 'close', label: chinese ? '关闭窗口' : 'Close Window' }
-        : { role: 'quit', label: chinese ? '退出码迹' : 'Quit TapGit' }
+        ? { role: 'close', label: chinese ? zh('关闭窗口') : 'Close Window' }
+        : { role: 'quit', label: chinese ? zh('退出码迹') : 'Quit TapGit' }
     ]
   };
 
-  const progressMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? '进度' : 'Progress',
+  const changesMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? zh('修改') : 'Changes',
     submenu: [
       {
-        label: chinese ? '查看当前修改' : 'Current Changes',
+        label: chinese ? zh('打开当前修改') : 'Open Changes',
         accelerator: 'CmdOrCtrl+2',
         click: () => sendMenuCommand('show-changes')
       },
       {
-        label: chinese ? '保存全部修改' : 'Save All Changes',
+        label: chinese ? zh('保存这次进度') : 'Save Current Progress',
         accelerator: 'CmdOrCtrl+S',
         click: () => sendMenuCommand('save-all')
       },
       {
-        label: chinese ? '查看保存记录' : 'Saved Records',
+        label: chinese ? zh('打开历史') : 'Open History',
         accelerator: 'CmdOrCtrl+3',
         click: () => sendMenuCommand('show-timeline')
       }
@@ -97,57 +101,57 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
   };
 
   const ideasMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? '试新想法' : 'Try Ideas',
+    label: chinese ? zh('试验区') : 'Idea Lab',
     submenu: [
       {
-        label: chinese ? '开一个想法副本…' : 'Start a New Idea Copy...',
+        label: chinese ? zh('新建试验副本...') : 'Start New Idea Copy...',
         accelerator: 'CmdOrCtrl+Shift+N',
         click: () => sendMenuCommand('create-idea-copy')
       },
       {
-        label: chinese ? '打开试新想法页' : 'Open Try Ideas',
+        label: chinese ? zh('打开试验区') : 'Open Idea Lab',
         accelerator: 'CmdOrCtrl+4',
         click: () => sendMenuCommand('show-plans')
       },
       {
-        label: chinese ? '切回稳定版本' : 'Switch to Stable Version',
+        label: chinese ? zh('回到稳定版本') : 'Return to Stable Version',
         click: () => sendMenuCommand('switch-to-stable')
       }
     ]
   };
 
   const cloudMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? '云端' : 'Cloud',
+    label: chinese ? zh('云端') : 'Cloud',
     submenu: [
       {
-        label: chinese ? '打开云端设置' : 'Open Cloud Settings',
+        label: chinese ? zh('打开云端设置') : 'Open Cloud Settings',
         accelerator: 'CmdOrCtrl+5',
         click: () => sendMenuCommand('show-cloud')
       },
       {
-        label: chinese ? '上传到云端' : 'Upload to Cloud',
+        label: chinese ? zh('上传到云端') : 'Upload to Cloud',
         click: () => sendMenuCommand('upload-cloud')
       },
       {
-        label: chinese ? '获取最新内容' : 'Get Latest from Cloud',
+        label: chinese ? zh('获取云端最新内容') : 'Get Latest from Cloud',
         click: () => sendMenuCommand('download-cloud')
       }
     ]
   };
 
-  const helpMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? '帮助' : 'Help',
+  const moreMenu: Electron.MenuItemConstructorOptions = {
+    label: chinese ? zh('更多') : 'More',
     submenu: [
       {
-        label: chinese ? '设置与问题诊断' : 'Settings and Troubleshooting',
+        label: chinese ? zh('设置与问题诊断') : 'Settings and Troubleshooting',
         click: () => sendMenuCommand('show-settings')
       },
       {
-        label: chinese ? '导出日志' : 'Export Logs',
+        label: chinese ? zh('导出日志') : 'Export Logs',
         click: () => sendMenuCommand('export-logs')
       },
       { type: 'separator' },
-      { role: 'about', label: chinese ? '关于码迹' : 'About TapGit' }
+      { role: 'about', label: chinese ? zh('关于码迹') : 'About TapGit' }
     ]
   };
 
@@ -155,20 +159,20 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
 
   if (isMac) {
     template.push({
-      label: chinese ? '码迹' : 'TapGit',
+      label: chinese ? zh('码迹') : 'TapGit',
       submenu: [
-        { role: 'about', label: chinese ? '关于码迹' : 'About TapGit' },
+        { role: 'about', label: chinese ? zh('关于码迹') : 'About TapGit' },
         { type: 'separator' },
-        { role: 'hide', label: chinese ? '隐藏码迹' : 'Hide TapGit' },
-        { role: 'hideOthers', label: chinese ? '隐藏其他' : 'Hide Others' },
-        { role: 'unhide', label: chinese ? '全部显示' : 'Show All' },
+        { role: 'hide', label: chinese ? zh('隐藏码迹') : 'Hide TapGit' },
+        { role: 'hideOthers', label: chinese ? zh('隐藏其他') : 'Hide Others' },
+        { role: 'unhide', label: chinese ? zh('全部显示') : 'Show All' },
         { type: 'separator' },
-        { role: 'quit', label: chinese ? '退出码迹' : 'Quit TapGit' }
+        { role: 'quit', label: chinese ? zh('退出码迹') : 'Quit TapGit' }
       ]
     });
   }
 
-  template.push(projectMenu, progressMenu, ideasMenu, cloudMenu, helpMenu);
+  template.push(projectMenu, changesMenu, ideasMenu, cloudMenu, moreMenu);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

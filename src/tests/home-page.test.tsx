@@ -165,10 +165,14 @@ describe('HomePage', () => {
 
     renderHomePage('en-US');
 
-    expect(screen.getByText('Project is ready')).toBeInTheDocument();
-    expect(screen.getByText('What to do next')).toBeInTheDocument();
+    expect(screen.getByText('project-a')).toBeInTheDocument();
     expect(screen.getByText('Save a stable point before you keep going')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review Changes' })).toBeInTheDocument();
+    expect(screen.getByText('Changes')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
+    expect(screen.getByText('Idea Lab')).toBeInTheDocument();
+    expect(screen.queryByText('What to do next')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recent Projects')).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');

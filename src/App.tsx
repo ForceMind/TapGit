@@ -9,7 +9,6 @@ import { useProjectHistoryCount } from './app/use-project-history-count';
 import {
   I18nProvider,
   resolveLocale,
-  toCloudStatusText,
   toLocalizedErrorMessage,
   toPlanLabel,
   useI18n
@@ -42,10 +41,9 @@ function toSuggestedFolderName(remoteUrl: string) {
 
 function AppContent() {
   const { project, config, notice, setNotice, setProject, setConfig } = useAppStore();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
-  const [cloudQuickStatus, setCloudQuickStatus] = useState(t('app_cloud_quick_no_project'));
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneRemoteUrl, setCloneRemoteUrl] = useState('');
   const [cloneDestinationDirectory, setCloneDestinationDirectory] = useState('');
@@ -64,12 +62,13 @@ function AppContent() {
   );
   const gettingStarted = resolveGettingStartedState(project, historyCount);
   const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
+  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   const navItems = [
-    { key: 'home' as const, to: '/', label: t('app_nav_home') },
-    { key: 'changes' as const, to: '/changes', label: t('app_nav_changes') },
-    { key: 'timeline' as const, to: '/timeline', label: t('app_nav_timeline') },
-    { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
+    { key: 'home' as const, to: '/', label: copy('项目', 'Project') },
+    { key: 'changes' as const, to: '/changes', label: copy('修改', 'Changes') },
+    { key: 'timeline' as const, to: '/timeline', label: copy('历史', 'History') },
+    { key: 'plans' as const, to: '/plans', label: copy('试验区', 'Idea Lab') },
     { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
   ];
 
@@ -201,23 +200,6 @@ function AppContent() {
     if (!project?.path) return;
     const summary = await unwrapResult(getBridge().openProject(project.path));
     setProject(summary);
-  }
-
-  async function refreshCloudQuickStatus() {
-    if (!project?.path) {
-      setCloudQuickStatus(t('app_cloud_quick_no_project'));
-      return;
-    }
-    if (!project.isProtected) {
-      setCloudQuickStatus(t('app_cloud_quick_need_protection'));
-      return;
-    }
-    try {
-      const status = await unwrapResult(getBridge().getCloudSyncStatus(project.path));
-      setCloudQuickStatus(toCloudStatusText(status, t));
-    } catch {
-      setCloudQuickStatus(t('app_cloud_quick_unavailable'));
-    }
   }
 
   async function handleExportLogs() {
@@ -384,7 +366,6 @@ function AppContent() {
 
     try {
       await unwrapResult(getBridge().uploadToCloud(project.path));
-      await refreshCloudQuickStatus();
       setNotice({ type: 'success', text: t('settings_notice_upload_success') });
     } catch (error) {
       setNotice({
@@ -411,7 +392,6 @@ function AppContent() {
     try {
       await unwrapResult(getBridge().getCloudLatest(project.path));
       await refreshProject();
-      await refreshCloudQuickStatus();
       setNotice({ type: 'success', text: t('settings_notice_get_latest_success') });
     } catch (error) {
       setNotice({
@@ -448,10 +428,6 @@ function AppContent() {
     const timer = window.setTimeout(() => setNotice(null), 2600);
     return () => window.clearTimeout(timer);
   }, [notice, setNotice]);
-
-  useEffect(() => {
-    void refreshCloudQuickStatus();
-  }, [project?.path, project?.isProtected, project?.currentPlan, project?.pendingChangeCount, t]);
 
   useEffect(() => {
     function handleMenuCommand(event: Event) {
@@ -591,17 +567,6 @@ function AppContent() {
     );
   }
 
-  function toSidebarToneLabel(tone: 'ready' | 'next' | 'locked') {
-    switch (tone) {
-      case 'next':
-        return t('app_nav_status_next');
-      case 'locked':
-        return t('app_nav_status_locked');
-      default:
-        return t('app_nav_status_ready');
-    }
-  }
-
   function renderNavItem(item: (typeof navItems)[number]) {
     const state = resolveSidebarNavState(item.key, project, historyCount, historyLoading);
     const hint = t(state.hintKey as never);
@@ -614,13 +579,7 @@ function AppContent() {
           end={item.to === '/'}
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >
-          <span className="nav-link-copy">
-            <span className="nav-link-title">{item.label}</span>
-            <span className="nav-link-sub">{hint}</span>
-          </span>
-          {item.key !== 'home' && item.key !== 'settings' ? (
-            <span className={`sidebar-pill ${state.tone}`}>{toSidebarToneLabel(state.tone)}</span>
-          ) : null}
+          <span className="nav-link-title">{item.label}</span>
         </NavLink>
       );
     }
@@ -638,11 +597,7 @@ function AppContent() {
           }
         }}
       >
-        <span className="nav-link-copy">
-          <span className="nav-link-title">{item.label}</span>
-          <span className="nav-link-sub">{hint}</span>
-        </span>
-        <span className={`sidebar-pill ${state.tone}`}>{toSidebarToneLabel(state.tone)}</span>
+        <span className="nav-link-title">{item.label}</span>
       </button>
     );
   }
@@ -696,20 +651,37 @@ function AppContent() {
         <main className="main">
           <header className="topbar">
             <div className="project-info">
-              <div className="project-title">{project?.name ?? t('app_project_not_opened')}</div>
-              <div className="project-meta">
-                {project
-                  ? t('app_project_meta', {
-                      plan: toPlanLabel(
-                        project.currentPlan,
-                        project.currentPlan === 'main' || project.currentPlan === 'master',
-                        t
-                      ),
-                      count: project.pendingChangeCount
-                    })
-                  : t('app_project_meta_empty')}
+              <div className="project-title-row">
+                <div className="project-title">{project?.name ?? t('app_project_not_opened')}</div>
+                {project ? (
+                  <button className="link-quiet" onClick={() => void handleShowProjectInFolder()}>
+                    {t('app_show_in_folder')}
+                  </button>
+                ) : null}
               </div>
-              <div className="project-meta">{t('app_cloud_status_label', { status: cloudQuickStatus })}</div>
+              {project ? (
+                <div className="project-pills">
+                  <span className="project-pill">
+                    {toPlanLabel(
+                      project.currentPlan,
+                      project.currentPlan === 'main' || project.currentPlan === 'master',
+                      t
+                    )}
+                  </span>
+                  {project.pendingChangeCount > 0 ? (
+                    <span className="project-pill attention">
+                      {copy(`${project.pendingChangeCount} 个未保存`, `${project.pendingChangeCount} unsaved`)}
+                    </span>
+                  ) : null}
+                  <span className="project-pill">
+                    {historyLoading
+                      ? t('home_history_loading_short')
+                      : t('common_record_unit', { count: historyCount ?? 0 })}
+                  </span>
+                </div>
+              ) : (
+                <div className="project-meta">{t('app_project_meta_empty')}</div>
+              )}
             </div>
             <div className="top-actions">
               {project ? (
@@ -719,9 +691,6 @@ function AppContent() {
                       {topbarPrimaryAction.label}
                     </button>
                   ) : null}
-                  <button className="btn btn-secondary" onClick={() => void handleShowProjectInFolder()}>
-                    {t('app_show_in_folder')}
-                  </button>
                   <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
                     {t('app_switch_project')}
                   </button>

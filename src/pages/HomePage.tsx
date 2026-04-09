@@ -1,14 +1,12 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
-import { resolveGettingStartedState } from '../app/getting-started';
-import { resolveSidebarNavState } from '../app/navigation-state';
 import { resolvePrimaryTaskKey } from '../app/primary-task';
 import { useProjectHistoryCount } from '../app/use-project-history-count';
 import { toPlanLabel, useI18n } from '../i18n';
 import { useAppStore } from '../stores/useAppStore';
 
-type JourneyState = 'done' | 'current' | 'upcoming';
+type WorkspaceCardTone = 'ready' | 'attention' | 'locked';
 
 interface FocusAction {
   title: string;
@@ -19,24 +17,59 @@ interface FocusAction {
   onAction?: () => Promise<void>;
 }
 
-interface JourneyStep {
-  key: string;
+interface WorkspaceCard {
+  key: 'changes' | 'timeline' | 'plans';
   title: string;
+  metric?: string;
   detail: string;
-  state: JourneyState;
+  actionLabel?: string;
+  actionTo?: string;
+  tone: WorkspaceCardTone;
 }
 
 export function HomePage() {
   const { project, config } = useAppStore();
   const { openProjectFolder, openCloneProjectDialog, openProjectByPath, enableProtection } = useAppActions();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { historyCount, historyLoading } = useProjectHistoryCount(
     project?.path,
     project?.isProtected,
     `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
   );
-  const gettingStarted = resolveGettingStartedState(project, historyCount);
   const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
+  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
+  const projectStats = useMemo(() => {
+    if (!project) {
+      return [];
+    }
+
+    return [
+      {
+        key: 'plan',
+        label: t('home_label_current_plan'),
+        value: toPlanLabel(
+          project.currentPlan,
+          project.currentPlan === 'main' || project.currentPlan === 'master',
+          t
+        )
+      },
+      {
+        key: 'changes',
+        label: t('home_label_unsaved_changes'),
+        value:
+          project.pendingChangeCount > 0
+            ? t('common_file_unit', { count: project.pendingChangeCount })
+            : copy('当前很干净', 'Clean')
+      },
+      {
+        key: 'history',
+        label: t('home_label_saved_records'),
+        value: historyLoading
+          ? t('home_history_loading_short')
+          : t('common_record_unit', { count: historyCount ?? 0 })
+      }
+    ];
+  }, [historyCount, historyLoading, project, t]);
 
   const focusAction = useMemo<FocusAction>(() => {
     switch (primaryTaskKey) {
@@ -78,51 +111,58 @@ export function HomePage() {
     }
   }, [enableProtection, openProjectFolder, primaryTaskKey, project?.pendingChangeCount, t]);
 
-  const journeySteps = useMemo<JourneyStep[]>(() => {
-    const hasProject = Boolean(project);
-    const isProtected = Boolean(project?.isProtected);
+  const workspaceCards = useMemo<WorkspaceCard[]>(() => {
+    if (!project) {
+      return [];
+    }
+
     const hasHistory = (historyCount ?? 0) > 0;
-    const hasPending = (project?.pendingChangeCount ?? 0) > 0;
+    const pendingCount = project.pendingChangeCount;
 
     return [
       {
-        key: 'protect',
-        title: t('home_step_protect_title'),
-        detail: !hasProject
-          ? t('home_step_protect_wait')
-          : isProtected
-            ? t('home_step_protect_done')
-            : t('home_step_protect_current'),
-        state:
-          !hasProject ? 'upcoming' : isProtected ? 'done' : gettingStarted.key === 'protect' ? 'current' : 'upcoming'
+        key: 'changes',
+        title: copy('修改', 'Changes'),
+        metric: t('common_file_unit', { count: pendingCount }),
+        detail: !project.isProtected
+          ? copy('先开启版本保护。', 'Turn on protection first.')
+          : pendingCount > 0
+            ? copy(`${pendingCount} 个文件正在等你处理。`, `${pendingCount} files are waiting for you.`)
+            : copy('现在没有要保存的修改。', 'Nothing to save right now.'),
+        actionLabel: project.isProtected ? copy('打开修改', 'Open Changes') : undefined,
+        actionTo: project.isProtected ? '/changes' : undefined,
+        tone: !project.isProtected ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
       },
       {
-        key: 'save',
-        title: t('home_step_save_title'),
-        detail: !isProtected
-          ? t('home_step_save_wait')
-          : hasPending
-            ? t('home_next_save_attention', { count: project?.pendingChangeCount ?? 0 })
-            : hasHistory
-              ? t('home_step_save_done')
-              : t('home_focus_save_desc'),
-        state:
-          !isProtected
-            ? 'upcoming'
-            : hasPending || !hasHistory
-              ? gettingStarted.key === 'save'
-                ? 'current'
-                : 'upcoming'
-              : 'done'
+        key: 'timeline',
+        title: copy('历史', 'History'),
+        metric: historyLoading
+          ? t('home_history_loading_short')
+          : t('common_record_unit', { count: historyCount ?? 0 }),
+        detail: historyLoading
+          ? copy('正在检查保存记录。', 'Checking your saved points.')
+          : hasHistory
+            ? copy('你的保存记录都在这里。', 'Review or restore any saved point.')
+            : copy('先保存一次，再来看历史。', 'Save once to unlock history.'),
+        actionLabel: hasHistory ? copy('打开历史', 'Open History') : undefined,
+        actionTo: hasHistory ? '/timeline' : undefined,
+        tone: historyLoading ? 'locked' : hasHistory ? 'ready' : 'locked'
       },
       {
-        key: 'ideas',
-        title: t('home_step_ideas_title'),
-        detail: hasHistory ? t('home_step_ideas_ready') : t('home_step_ideas_wait'),
-        state: hasHistory ? 'done' : 'upcoming'
+        key: 'plans',
+        title: copy('试验区', 'Idea Lab'),
+        metric: pendingCount > 0 ? t('common_file_unit', { count: pendingCount }) : undefined,
+        detail: !hasHistory
+          ? copy('先有一个稳定保存点，再开启试验区。', 'Save once before opening the idea lab.')
+          : pendingCount > 0
+            ? copy('先保存当前修改，再开始试验。', 'Save current changes before starting an idea copy.')
+            : copy('在单独副本里安全试新想法。', 'Use a separate copy for risky edits.'),
+        actionLabel: hasHistory && pendingCount === 0 ? copy('打开试验区', 'Open Idea Lab') : undefined,
+        actionTo: hasHistory && pendingCount === 0 ? '/plans' : undefined,
+        tone: !hasHistory ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
       }
     ];
-  }, [gettingStarted.key, historyCount, project, t]);
+  }, [copy, historyCount, historyLoading, project, t]);
 
   function renderFocusAction() {
     if (focusAction.actionType === 'button') {
@@ -140,46 +180,36 @@ export function HomePage() {
     );
   }
 
-  function toJourneyStateLabel(state: JourneyState) {
-    switch (state) {
-      case 'done':
-        return t('home_step_state_done');
-      case 'current':
-        return t('home_step_state_current');
-      default:
-        return t('home_step_state_upcoming');
-    }
-  }
-
   function recentProjectName(projectPath: string) {
     return projectPath.split(/[\\/]/).pop() || projectPath;
   }
 
-  const availableAreas = project
-    ? [
-        {
-          key: 'changes' as const,
-          title: t('app_nav_changes'),
-          actionLabel: t('home_action_view_changes'),
-          actionTo: '/changes'
-        },
-        {
-          key: 'timeline' as const,
-          title: t('app_nav_timeline'),
-          actionLabel: t('home_action_view_timeline'),
-          actionTo: '/timeline'
-        },
-        {
-          key: 'plans' as const,
-          title: t('app_nav_plans'),
-          actionLabel: t('home_action_manage_plans'),
-          actionTo: '/plans'
-        }
-      ].map((item) => ({
-        ...item,
-        state: resolveSidebarNavState(item.key, project, historyCount, historyLoading)
-      }))
-    : [];
+  function renderWorkspaceCard(card: WorkspaceCard) {
+    const content = (
+      <>
+        <div className="workspace-card-head">
+          <h3>{card.title}</h3>
+          {card.metric ? <span className={`workspace-card-metric ${card.tone}`}>{card.metric}</span> : null}
+        </div>
+        <p>{card.detail}</p>
+        {card.actionLabel ? <span className="workspace-card-action">{card.actionLabel}</span> : null}
+      </>
+    );
+
+    if (card.actionTo) {
+      return (
+        <Link key={card.key} className={`workspace-card ${card.tone}`} to={card.actionTo}>
+          {content}
+        </Link>
+      );
+    }
+
+    return (
+      <article key={card.key} className={`workspace-card ${card.tone} is-disabled`}>
+        {content}
+      </article>
+    );
+  }
 
   if (!project) {
     return (
@@ -239,144 +269,33 @@ export function HomePage() {
   }
 
   return (
-    <div className="page">
-      <section className="hero-card hero-card-compact">
-        <div>
-          <h1>{t('home_project_opened_title')}</h1>
-          <p>{t('home_project_opened_subtitle', { name: project.name })}</p>
-        </div>
-        <div className="hero-summary">
-          <div>
-            <span className="status-label">{t('home_label_current_plan')}</span>
-            <strong>
-              {toPlanLabel(
-                project.currentPlan,
-                project.currentPlan === 'main' || project.currentPlan === 'master',
-                t
-              )}
-            </strong>
+    <div className="page project-home-page">
+      <section className="panel project-overview-panel">
+        <div className="project-overview-head">
+          <div className="project-overview-copy">
+            <h1 className="project-overview-title">{project.name}</h1>
+            <p className="project-overview-path">{project.path}</p>
           </div>
-          <div>
-            <span className="status-label">{t('home_label_unsaved_changes')}</span>
-            <strong>{t('common_file_unit', { count: project.pendingChangeCount })}</strong>
-          </div>
-          <div>
-            <span className="status-label">{t('home_label_saved_records')}</span>
-            <strong>
-              {historyLoading
-                ? t('home_history_loading_short')
-                : t('common_record_unit', { count: historyCount ?? 0 })}
-            </strong>
+          <div className="project-primary-card">
+            <span className="project-primary-label">{t('home_now_title')}</span>
+            <h2>{focusAction.title}</h2>
+            <p>{focusAction.detail}</p>
+            <div className="actions-row">{renderFocusAction()}</div>
           </div>
         </div>
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <div>
-            <h2>{t('home_next_title')}</h2>
-            <p className="panel-subtitle">{t('home_next_subtitle')}</p>
-          </div>
-        </div>
-
-        <div className="current-step-card current-step-card-compact">
-          <div className="section-head">
-            <div>
-              <h3>{focusAction.title}</h3>
-              <p className="panel-subtitle">{focusAction.detail}</p>
-            </div>
-            <span className="tone-badge attention">{t('home_step_state_current')}</span>
-          </div>
-          <div className="actions-row">{renderFocusAction()}</div>
-        </div>
-
-        <div className="journey-grid">
-          {journeySteps.map((step, index) => (
-            <article key={step.key} className={`journey-card ${step.state}`}>
-              <div className="journey-card-head">
-                <span className="journey-step-index">{index + 1}</span>
-                <span className={`tone-badge ${step.state === 'done' ? 'ready' : step.state === 'current' ? 'attention' : 'waiting'}`}>
-                  {toJourneyStateLabel(step.state)}
-                </span>
-              </div>
-              <h3>{step.title}</h3>
-              <p>{step.detail}</p>
+        <div className="project-stats-row">
+          {projectStats.map((item) => (
+            <article key={item.key} className="project-stat-card">
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
             </article>
           ))}
         </div>
       </section>
 
-      <div className="grid-two">
-        <section className="panel">
-          <h2>{t('home_project_status')}</h2>
-          <div className="status-stack">
-            <div>
-              <span className="status-label">{t('home_label_project')}</span>
-              <strong>{project.name}</strong>
-            </div>
-            <div>
-              <span className="status-label">{t('home_label_current_plan')}</span>
-              <strong>
-                {toPlanLabel(
-                  project.currentPlan,
-                  project.currentPlan === 'main' || project.currentPlan === 'master',
-                  t
-                )}
-              </strong>
-            </div>
-            <div>
-              <span className="status-label">{t('home_label_unsaved_changes')}</span>
-              <strong>{t('common_file_unit', { count: project.pendingChangeCount })}</strong>
-            </div>
-            <div>
-              <span className="status-label">{t('home_label_saved_records')}</span>
-              <strong>
-                {historyLoading
-                  ? t('home_history_loading_short')
-                  : t('common_record_unit', { count: historyCount ?? 0 })}
-              </strong>
-            </div>
-            <div>
-              <span className="status-label">{t('home_label_path')}</span>
-              <strong className="project-path">{project.path}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <h2>{t('home_available_title')}</h2>
-          <p className="panel-subtitle">{t('home_available_subtitle')}</p>
-          <div className="next-grid availability-grid">
-            {availableAreas.map((item) => {
-              const badgeState: JourneyState =
-                item.state.tone === 'ready'
-                  ? 'done'
-                  : item.state.tone === 'next'
-                    ? 'current'
-                    : 'upcoming';
-              const toneClass =
-                badgeState === 'done' ? 'ready' : badgeState === 'current' ? 'attention' : 'waiting';
-
-              return (
-                <article key={item.key} className={`next-card ${toneClass}`}>
-                  <div className="section-head">
-                    <h3>{item.title}</h3>
-                    <span className={`tone-badge ${toneClass}`}>{toJourneyStateLabel(badgeState)}</span>
-                  </div>
-                  <p className="next-card-copy">{t(item.state.hintKey)}</p>
-                  {item.state.enabled ? (
-                    <div className="actions-row">
-                      <Link className="btn btn-secondary" to={item.actionTo}>
-                        {item.actionLabel}
-                      </Link>
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      </div>
+      <section className="workspace-grid">
+        {workspaceCards.map((card) => renderWorkspaceCard(card))}
+      </section>
     </div>
   );
 }
