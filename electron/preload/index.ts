@@ -6,6 +6,7 @@ const bridge: TapGitBridge = {
   chooseCloneDestination: () => ipcRenderer.invoke(IPC_CHANNELS.CHOOSE_CLONE_DESTINATION),
   openProject: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PROJECT, projectPath),
   cloneProjectFromGitHub: (payload) => ipcRenderer.invoke(IPC_CHANNELS.CLONE_PROJECT_FROM_GITHUB, payload),
+  openInFileManager: (targetPath) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_IN_FILE_MANAGER, targetPath),
   enableProtection: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.ENABLE_PROTECTION, projectPath),
   getCurrentChanges: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CURRENT_CHANGES, projectPath),
   saveProgress: (payload) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_PROGRESS, payload),

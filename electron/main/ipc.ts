@@ -94,7 +94,8 @@ export function registerIpcHandlers() {
 
   register<[string], Awaited<ReturnType<typeof openProject>>>(IPC_CHANNELS.OPEN_PROJECT, async (projectPath) => {
     const summary = await openProject(projectPath);
-    await addRecentProject(projectPath);
+    const nextConfig = await addRecentProject(projectPath);
+    applyAppMenu(nextConfig);
     await logInfo('OPEN_PROJECT', projectPath);
     return summary;
   });
@@ -103,11 +104,19 @@ export function registerIpcHandlers() {
     IPC_CHANNELS.CLONE_PROJECT_FROM_GITHUB,
     async (payload) => {
       const summary = await cloneProjectFromGitHub(payload);
-      await addRecentProject(summary.path);
+      const nextConfig = await addRecentProject(summary.path);
+      applyAppMenu(nextConfig);
       await logInfo('CLONE_PROJECT_FROM_GITHUB', summary.path);
       return summary;
     }
   );
+
+  register<[string], void>(IPC_CHANNELS.OPEN_IN_FILE_MANAGER, async (targetPath) => {
+    const result = await shell.openPath(targetPath);
+    if (result) {
+      throw new Error(result);
+    }
+  });
 
   register<[string], Awaited<ReturnType<typeof enableProtection>>>(
     IPC_CHANNELS.ENABLE_PROTECTION,
@@ -165,7 +174,8 @@ export function registerIpcHandlers() {
     IPC_CHANNELS.UPDATE_SETTINGS,
     async (partial) => {
       const settings = await updateSettings(partial);
-      applyAppMenu(settings.language);
+      const config = await getConfig();
+      applyAppMenu(config);
       return settings;
     }
   );

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import dayjs from 'dayjs';
+import { useEffect, useMemo, useState } from 'react';
 import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppActionsContext } from './app/app-context';
 import { resolveGettingStartedState } from './app/getting-started';
@@ -12,6 +13,7 @@ import {
   toPlanLabel,
   useI18n
 } from './i18n';
+import { IdeaCopyDialog } from './components/IdeaCopyDialog';
 import { ProjectImportDialog } from './components/ProjectImportDialog';
 import { ChangesPage } from './pages/ChangesPage';
 import { HomePage } from './pages/HomePage';
@@ -51,6 +53,9 @@ function AppContent() {
   const [cloneBusy, setCloneBusy] = useState(false);
   const [githubAuthStatus, setGitHubAuthStatus] = useState<GitHubAuthStatus | null>(null);
   const [githubAuthLoading, setGitHubAuthLoading] = useState(false);
+  const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
+  const [ideaCopyName, setIdeaCopyName] = useState('');
+  const [ideaBusy, setIdeaBusy] = useState(false);
   const { historyCount, historyLoading } = useProjectHistoryCount(
     project?.path,
     project?.isProtected,
@@ -65,6 +70,17 @@ function AppContent() {
     { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
     { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
   ];
+
+  const sourcePlanLabel = useMemo(() => {
+    if (!project?.currentPlan) {
+      return t('common_main_plan');
+    }
+    return toPlanLabel(
+      project.currentPlan,
+      project.currentPlan === 'main' || project.currentPlan === 'master',
+      t
+    );
+  }, [project?.currentPlan, t]);
 
   async function refreshConfig() {
     const nextConfig = await unwrapResult(getBridge().getConfig());
@@ -249,6 +265,161 @@ function AppContent() {
     }
   }
 
+  async function handleShowProjectInFolder() {
+    if (!project?.path) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+
+    try {
+      await unwrapResult(getBridge().openInFileManager(project.path));
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'app_notice_open_project_failed')
+      });
+    }
+  }
+
+  async function handleSaveAllProgress() {
+    if (!project?.path) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+
+    if (!project.isProtected) {
+      setNotice({ type: 'info', text: t('app_menu_need_protection_first') });
+      navigate('/changes');
+      return;
+    }
+
+    try {
+      const message =
+        config?.settings.defaultSaveMessageTemplate.trim() ||
+        t('changes_auto_message', {
+          datetime: dayjs().format('YYYY-MM-DD HH:mm')
+        });
+
+      await unwrapResult(
+        getBridge().saveProgress({
+          projectPath: project.path,
+          message
+        })
+      );
+      await refreshProject();
+      setNotice({ type: 'success', text: t('changes_notice_saved') });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'changes_notice_save_failed')
+      });
+    }
+  }
+
+  function openIdeaCopyDialog() {
+    if (!project?.path) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+
+    if (!project.isProtected) {
+      setNotice({ type: 'info', text: t('app_menu_need_protection_first') });
+      navigate('/changes');
+      return;
+    }
+
+    if ((historyCount ?? 0) === 0) {
+      setNotice({ type: 'info', text: t('app_menu_need_first_save') });
+      navigate('/changes');
+      return;
+    }
+
+    if ((project.pendingChangeCount ?? 0) > 0) {
+      setNotice({ type: 'info', text: t('app_menu_need_clean_changes') });
+      navigate('/changes');
+      return;
+    }
+
+    setIdeaCopyName('');
+    setIdeaDialogOpen(true);
+  }
+
+  async function handleCreateIdeaCopy() {
+    if (!project?.path || !ideaCopyName.trim()) return;
+
+    setIdeaBusy(true);
+    try {
+      await unwrapResult(getBridge().createPlan(project.path, ideaCopyName.trim(), project.currentPlan));
+      await refreshProject();
+      setIdeaDialogOpen(false);
+      navigate('/plans');
+      setNotice({ type: 'success', text: t('plans_notice_created', { name: ideaCopyName.trim() }) });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'plans_notice_create_failed')
+      });
+    } finally {
+      setIdeaBusy(false);
+    }
+  }
+
+  async function handleUploadCloud() {
+    if (!project?.path) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+
+    if (!project.isProtected) {
+      setNotice({ type: 'info', text: t('app_menu_need_protection_first') });
+      navigate('/changes');
+      return;
+    }
+
+    try {
+      await unwrapResult(getBridge().uploadToCloud(project.path));
+      await refreshCloudQuickStatus();
+      setNotice({ type: 'success', text: t('settings_notice_upload_success') });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_upload_failed')
+      });
+      navigate('/settings');
+    }
+  }
+
+  async function handleGetLatestFromCloud() {
+    if (!project?.path) {
+      setNotice({ type: 'info', text: t('app_menu_need_project_first') });
+      navigate('/');
+      return;
+    }
+
+    if (!project.isProtected) {
+      setNotice({ type: 'info', text: t('app_menu_need_protection_first') });
+      navigate('/changes');
+      return;
+    }
+
+    try {
+      await unwrapResult(getBridge().getCloudLatest(project.path));
+      await refreshProject();
+      await refreshCloudQuickStatus();
+      setNotice({ type: 'success', text: t('settings_notice_get_latest_success') });
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_get_latest_failed')
+      });
+      navigate('/settings');
+    }
+  }
+
   function openPageOrRedirect(
     target: '/' | '/changes' | '/timeline' | '/plans' | '/settings',
     needProject: boolean
@@ -285,11 +456,17 @@ function AppContent() {
       const detail = (event as CustomEvent<string>).detail;
 
       switch (detail) {
+        case 'save-all':
+          void handleSaveAllProgress();
+          return;
         case 'open-project':
           void openProjectFolder();
           return;
         case 'clone-project':
           void openCloneProjectDialog();
+          return;
+        case 'show-project-in-folder':
+          void handleShowProjectInFolder();
           return;
         case 'show-home':
           navigate('/');
@@ -307,13 +484,26 @@ function AppContent() {
         case 'show-cloud':
           navigate('/settings');
           return;
+        case 'create-idea-copy':
+          openIdeaCopyDialog();
+          return;
         case 'switch-to-stable':
           void switchToStableVersion();
+          return;
+        case 'upload-cloud':
+          void handleUploadCloud();
+          return;
+        case 'download-cloud':
+          void handleGetLatestFromCloud();
           return;
         case 'export-logs':
           void handleExportLogs();
           return;
         default:
+          if (detail.startsWith('open-recent:')) {
+            const projectPath = detail.slice('open-recent:'.length);
+            void openProjectByPath(projectPath);
+          }
           return;
       }
     }
@@ -578,6 +768,21 @@ function AppContent() {
             }
           }}
           onConfirm={() => void cloneProjectFromGitHub()}
+        />
+      ) : null}
+
+      {ideaDialogOpen ? (
+        <IdeaCopyDialog
+          value={ideaCopyName}
+          sourceLabel={sourcePlanLabel}
+          busy={ideaBusy}
+          onChange={setIdeaCopyName}
+          onCancel={() => {
+            if (!ideaBusy) {
+              setIdeaDialogOpen(false);
+            }
+          }}
+          onConfirm={() => void handleCreateIdeaCopy()}
         />
       ) : null}
     </AppActionsContext.Provider>

@@ -1,8 +1,13 @@
+import path from 'node:path';
 import { app, BrowserWindow, Menu } from 'electron';
-import { AppLanguagePreference, AppLocale } from '../../src/shared/contracts';
+import { APP_EVENTS, AppConfig, AppLanguagePreference, AppLocale } from '../../src/shared/contracts';
 
 function isChineseLanguage(language: string) {
   return language.toLowerCase().startsWith('zh');
+}
+
+function toProjectLabel(projectPath: string) {
+  return path.basename(projectPath) || projectPath;
 }
 
 export function resolveMenuLocale(preference: AppLanguagePreference | undefined): AppLocale {
@@ -15,13 +20,26 @@ export function resolveMenuLocale(preference: AppLanguagePreference | undefined)
 function sendMenuCommand(command: string) {
   const focused = BrowserWindow.getFocusedWindow();
   if (!focused) return;
-  focused.webContents.send('tapgit:menu-command', command);
+  focused.webContents.send(APP_EVENTS.MENU_COMMAND, command);
 }
 
-export function applyAppMenu(preference: AppLanguagePreference | undefined) {
-  const locale = resolveMenuLocale(preference);
+export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settings'> | null) {
+  const locale = resolveMenuLocale(config?.settings.language);
   const chinese = locale === 'zh-CN';
   const isMac = process.platform === 'darwin';
+
+  const recentProjectSubmenu: Electron.MenuItemConstructorOptions[] =
+    config?.recentProjects.length
+      ? config.recentProjects.map((projectPath) => ({
+          label: toProjectLabel(projectPath),
+          click: () => sendMenuCommand(`open-recent:${projectPath}`)
+        }))
+      : [
+          {
+            label: chinese ? '还没有最近项目' : 'No recent projects yet',
+            enabled: false
+          }
+        ];
 
   const projectMenu: Electron.MenuItemConstructorOptions = {
     label: chinese ? '项目' : 'Project',
@@ -35,6 +53,14 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
         label: chinese ? '从 GitHub 获取项目…' : 'Get Project from GitHub...',
         accelerator: 'CmdOrCtrl+Shift+O',
         click: () => sendMenuCommand('clone-project')
+      },
+      {
+        label: chinese ? '最近项目' : 'Recent Projects',
+        submenu: recentProjectSubmenu
+      },
+      {
+        label: chinese ? '打开当前项目位置' : 'Show Current Project in Folder',
+        click: () => sendMenuCommand('show-project-in-folder')
       },
       { type: 'separator' },
       {
@@ -58,6 +84,11 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
         click: () => sendMenuCommand('show-changes')
       },
       {
+        label: chinese ? '保存全部修改' : 'Save All Changes',
+        accelerator: 'CmdOrCtrl+S',
+        click: () => sendMenuCommand('save-all')
+      },
+      {
         label: chinese ? '查看保存记录' : 'Saved Records',
         accelerator: 'CmdOrCtrl+3',
         click: () => sendMenuCommand('show-timeline')
@@ -68,6 +99,11 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
   const ideasMenu: Electron.MenuItemConstructorOptions = {
     label: chinese ? '试新想法' : 'Try Ideas',
     submenu: [
+      {
+        label: chinese ? '开一个想法副本…' : 'Start a New Idea Copy...',
+        accelerator: 'CmdOrCtrl+Shift+N',
+        click: () => sendMenuCommand('create-idea-copy')
+      },
       {
         label: chinese ? '打开试新想法页' : 'Open Try Ideas',
         accelerator: 'CmdOrCtrl+4',
@@ -89,8 +125,12 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
         click: () => sendMenuCommand('show-cloud')
       },
       {
-        label: chinese ? 'GitHub 登录' : 'GitHub Sign In',
-        click: () => sendMenuCommand('clone-project')
+        label: chinese ? '上传到云端' : 'Upload to Cloud',
+        click: () => sendMenuCommand('upload-cloud')
+      },
+      {
+        label: chinese ? '获取最新内容' : 'Get Latest from Cloud',
+        click: () => sendMenuCommand('download-cloud')
       }
     ]
   };
@@ -99,7 +139,7 @@ export function applyAppMenu(preference: AppLanguagePreference | undefined) {
     label: chinese ? '帮助' : 'Help',
     submenu: [
       {
-        label: chinese ? '问题诊断与设置' : 'Help and Settings',
+        label: chinese ? '设置与问题诊断' : 'Settings and Troubleshooting',
         click: () => sendMenuCommand('show-settings')
       },
       {

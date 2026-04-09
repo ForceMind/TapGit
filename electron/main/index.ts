@@ -50,7 +50,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   registerIpcHandlers();
   const config = await getConfig().catch(() => null);
-  applyAppMenu(config?.settings.language);
+  applyAppMenu(config);
   createWindow();
   await logInfo('APP_READY', 'TapGit is ready');
 

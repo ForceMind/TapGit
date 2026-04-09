@@ -135,6 +135,7 @@ export interface TapGitBridge {
   chooseCloneDestination(): Promise<Result<string | null>>;
   openProject(projectPath: string): Promise<Result<ProjectSummary>>;
   cloneProjectFromGitHub(payload: CloneProjectPayload): Promise<Result<ProjectSummary>>;
+  openInFileManager(targetPath: string): Promise<Result<void>>;
   enableProtection(projectPath: string): Promise<Result<ProjectSummary>>;
   getCurrentChanges(projectPath: string): Promise<Result<ChangeItem[]>>;
   saveProgress(payload: SaveProgressPayload): Promise<Result<SaveProgressResult>>;
@@ -180,6 +181,7 @@ export const IPC_CHANNELS = {
   CHOOSE_CLONE_DESTINATION: 'tapgit:choose-clone-destination',
   OPEN_PROJECT: 'tapgit:open-project',
   CLONE_PROJECT_FROM_GITHUB: 'tapgit:clone-project-from-github',
+  OPEN_IN_FILE_MANAGER: 'tapgit:open-in-file-manager',
   ENABLE_PROTECTION: 'tapgit:enable-protection',
   GET_CURRENT_CHANGES: 'tapgit:get-current-changes',
   SAVE_PROGRESS: 'tapgit:save-progress',
