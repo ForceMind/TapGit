@@ -65,11 +65,20 @@ body {
 }
 
 .nav-link {
+  width: 100%;
+  border: 0;
+  background: transparent;
   color: #d7e6ef;
   text-decoration: none;
   border-radius: 12px;
   padding: 10px 12px;
   transition: all 180ms ease;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  font: inherit;
 }
 
 .nav-link:hover {
@@ -79,6 +88,53 @@ body {
 .nav-link.active {
   background: rgba(255, 255, 255, 0.24);
   color: #ffffff;
+}
+
+.nav-link-locked {
+  color: #c5d9e5;
+  cursor: pointer;
+}
+
+.nav-link-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-link-title {
+  font-weight: 600;
+}
+
+.nav-link-sub {
+  color: rgba(231, 243, 249, 0.82);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sidebar-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sidebar-pill.ready {
+  background: rgba(221, 243, 221, 0.18);
+  color: #d7f0d7;
+}
+
+.sidebar-pill.next {
+  background: rgba(255, 204, 138, 0.18);
+  color: #ffe1b4;
+}
+
+.sidebar-pill.locked {
+  background: rgba(209, 223, 235, 0.12);
+  color: #d7e4ee;
 }
 
 .main {
@@ -979,8 +1035,13 @@ pre {
   }
 
   .nav-link {
-    text-align: center;
     padding: 10px 6px;
+    justify-content: center;
+  }
+
+  .nav-link-sub,
+  .sidebar-pill {
+    display: none;
   }
 
   .grid-two,

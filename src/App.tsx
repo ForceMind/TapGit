@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppActionsContext } from './app/app-context';
 import { resolveGettingStartedState } from './app/getting-started';
+import { resolveSidebarNavState, SidebarNavKey } from './app/navigation-state';
 import { useProjectHistoryCount } from './app/use-project-history-count';
 import {
   I18nProvider,
@@ -35,11 +36,11 @@ function AppContent() {
 
   const navItems = useMemo(
     () => [
-      { to: '/', label: t('app_nav_home') },
-      { to: '/changes', label: t('app_nav_changes') },
-      { to: '/timeline', label: t('app_nav_timeline') },
-      { to: '/plans', label: t('app_nav_plans') },
-      { to: '/settings', label: t('app_nav_settings') }
+      { key: 'home' as const, to: '/', label: t('app_nav_home') },
+      { key: 'changes' as const, to: '/changes', label: t('app_nav_changes') },
+      { key: 'timeline' as const, to: '/timeline', label: t('app_nav_timeline') },
+      { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
+      { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
     ],
     [t]
   );
@@ -218,6 +219,62 @@ function AppContent() {
     );
   }
 
+  function toSidebarToneLabel(tone: 'ready' | 'next' | 'locked') {
+    switch (tone) {
+      case 'next':
+        return t('app_nav_status_next');
+      case 'locked':
+        return t('app_nav_status_locked');
+      default:
+        return t('app_nav_status_ready');
+    }
+  }
+
+  function renderNavItem(item: (typeof navItems)[number]) {
+    const state = resolveSidebarNavState(item.key, project, historyCount, historyLoading);
+    const hint = t(state.hintKey as never);
+
+    if (state.enabled) {
+      return (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.to === '/'}
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-link-copy">
+            <span className="nav-link-title">{item.label}</span>
+            <span className="nav-link-sub">{hint}</span>
+          </span>
+          {item.key !== 'home' && item.key !== 'settings' ? (
+            <span className={`sidebar-pill ${state.tone}`}>{toSidebarToneLabel(state.tone)}</span>
+          ) : null}
+        </NavLink>
+      );
+    }
+
+    return (
+      <button
+        key={item.to}
+        type="button"
+        className="nav-link nav-link-locked"
+        aria-disabled="true"
+        onClick={() => {
+          setNotice({ type: 'info', text: hint });
+          if (state.fallbackTo !== location.pathname) {
+            navigate(state.fallbackTo);
+          }
+        }}
+      >
+        <span className="nav-link-copy">
+          <span className="nav-link-title">{item.label}</span>
+          <span className="nav-link-sub">{hint}</span>
+        </span>
+        <span className={`sidebar-pill ${state.tone}`}>{toSidebarToneLabel(state.tone)}</span>
+      </button>
+    );
+  }
+
   return (
     <AppActionsContext.Provider value={actions}>
       <div className="shell">
@@ -227,16 +284,7 @@ function AppContent() {
             <div className="brand-sub">{t('app_brand_sub')}</div>
           </div>
           <nav className="nav">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              >
-                {item.label}
-              </NavLink>
-            ))}
+            {navItems.map((item) => renderNavItem(item))}
           </nav>
         </aside>
 
