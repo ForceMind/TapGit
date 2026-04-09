@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { toLocalizedErrorMessage, toSafetyBackupSourceLabel, useI18n } from '../i18n';
@@ -19,7 +20,7 @@ function formatShortDateTime(timestamp: number | null) {
 
 export function TimelinePage() {
   const { project, config, setNotice } = useAppStore();
-  const { refreshProject } = useAppActions();
+  const { openProjectFolder, enableProtection, refreshProject } = useAppActions();
   const { t } = useI18n();
   const [historyLoading, setHistoryLoading] = useState(false);
   const [backupsLoading, setBackupsLoading] = useState(false);
@@ -128,7 +129,15 @@ export function TimelinePage() {
       <div className="page">
         <section className="panel">
           <h2>{t('timeline_title')}</h2>
-          <p className="muted">{t('common_project_open_required')}</p>
+          <div className="empty-action-panel">
+            <h3>{t('common_project_open_required')}</h3>
+            <p>{t('common_project_open_help')}</p>
+            <div className="actions-row">
+              <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
+                {t('app_open_project')}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     );
@@ -139,7 +148,15 @@ export function TimelinePage() {
       <div className="page">
         <section className="panel">
           <h2>{t('timeline_title')}</h2>
-          <p className="muted">{t('common_protection_required')}</p>
+          <div className="empty-action-panel">
+            <h3>{t('common_protection_required')}</h3>
+            <p>{t('common_protection_help')}</p>
+            <div className="actions-row">
+              <button className="btn btn-primary" onClick={() => void enableProtection()}>
+                {t('app_enable_protection')}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     );
@@ -156,7 +173,15 @@ export function TimelinePage() {
           {historyLoading ? (
             <p className="muted">{t('timeline_loading')}</p>
           ) : records.length === 0 ? (
-            <p className="muted">{t('timeline_empty')}</p>
+            <div className="empty-action-panel">
+              <h3>{t('timeline_empty_title')}</h3>
+              <p>{t('timeline_empty')}</p>
+              <div className="actions-row">
+                <Link className="btn btn-primary" to="/changes">
+                  {t('timeline_empty_action')}
+                </Link>
+              </div>
+            </div>
           ) : (
             <ul className="list">
               {records.map((item) => (

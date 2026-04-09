@@ -951,6 +951,23 @@ pre {
   line-height: 1.6;
 }
 
+.empty-action-panel {
+  border: 1px solid #dbe7ee;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #ffffff 0%, #f7fbff 100%);
+  padding: 16px;
+}
+
+.empty-action-panel h3 {
+  margin: 0;
+}
+
+.empty-action-panel p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 84px 1fr;

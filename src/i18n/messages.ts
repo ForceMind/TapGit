@@ -54,8 +54,12 @@ export const EN_MESSAGES = {
   common_cancel: 'Cancel',
   dialog_safety_eyebrow: 'Safety Check',
   common_project_open_required: 'Open a project from Home first.',
+  common_project_open_help:
+    'Once a project is open, TapGit can show your current changes, saved history, and safe idea copies.',
   common_protection_required:
     'Version protection is not enabled yet. Click "Enable Version Protection" in the top bar first.',
+  common_protection_help:
+    'Turn it on once for this project so TapGit can save progress, restore history, and protect experiments safely.',
 
   home_title: 'Welcome to TapGit',
   home_subtitle:
@@ -214,6 +218,8 @@ export const EN_MESSAGES = {
   timeline_details: 'Record Details',
   timeline_loading: 'Loading history...',
   timeline_empty: 'No saved records yet. Save progress once and the timeline will appear here.',
+  timeline_empty_title: 'Your timeline will appear after the first save',
+  timeline_empty_action: 'Go Save Current Work',
   timeline_select_record: 'Select one record to view details.',
   timeline_label_message: 'Description:',
   timeline_label_time: 'Time:',
@@ -549,7 +555,9 @@ export const ZH_MESSAGES: Record<MessageKey, string> = {
   common_cancel: '取消',
   dialog_safety_eyebrow: '安全确认',
   common_project_open_required: '请先在首页打开一个项目。',
+  common_project_open_help: '打开项目后，码迹才能看到你的当前修改、保存记录和想法副本。',
   common_protection_required: '这个项目还没开启版本保护，先在顶部点击“开启版本保护”。',
+  common_protection_help: '先为这个项目开启一次版本保护，之后码迹才能安全保存进度、恢复历史和试新想法。',
 
   home_title: '欢迎使用码迹',
   home_subtitle: '像保存文档一样保存代码进度，放心试新方案，随时回到可用版本。',
@@ -686,6 +694,8 @@ export const ZH_MESSAGES: Record<MessageKey, string> = {
   timeline_details: '记录详情',
   timeline_loading: '正在读取历史记录…',
   timeline_empty: '还没有保存记录。完成一次“保存进度”后，这里会出现时间线。',
+  timeline_empty_title: '先保存一次，这里才会出现时间线',
+  timeline_empty_action: '先去保存当前修改',
   timeline_select_record: '请选择一条历史记录。',
   timeline_label_message: '说明：',
   timeline_label_time: '时间：',

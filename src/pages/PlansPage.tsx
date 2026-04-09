@@ -12,7 +12,7 @@ function mapPlanLabel(plan: PlanInfo, t: ReturnType<typeof useI18n>['t']) {
 
 export function PlansPage() {
   const { project, setNotice } = useAppStore();
-  const { refreshProject } = useAppActions();
+  const { openProjectFolder, enableProtection, refreshProject } = useAppActions();
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [historyCount, setHistoryCount] = useState<number | null>(null);
@@ -277,7 +277,15 @@ export function PlansPage() {
       <div className="page">
         <section className="panel">
           <h2>{t('plans_title')}</h2>
-          <p className="muted">{t('common_project_open_required')}</p>
+          <div className="empty-action-panel">
+            <h3>{t('common_project_open_required')}</h3>
+            <p>{t('common_project_open_help')}</p>
+            <div className="actions-row">
+              <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
+                {t('app_open_project')}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     );
@@ -288,7 +296,15 @@ export function PlansPage() {
       <div className="page">
         <section className="panel">
           <h2>{t('plans_title')}</h2>
-          <p className="muted">{t('common_protection_required')}</p>
+          <div className="empty-action-panel">
+            <h3>{t('common_protection_required')}</h3>
+            <p>{t('common_protection_help')}</p>
+            <div className="actions-row">
+              <button className="btn btn-primary" onClick={() => void enableProtection()}>
+                {t('app_enable_protection')}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
     );

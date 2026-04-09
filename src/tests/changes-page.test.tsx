@@ -47,11 +47,14 @@ function createBridgeMock() {
   };
 }
 
-function renderChangesPage(locale: 'en-US' | 'zh-CN') {
+function renderChangesPage(
+  locale: 'en-US' | 'zh-CN',
+  actions: typeof defaultActions = defaultActions
+) {
   render(
     <MemoryRouter>
       <I18nProvider locale={locale}>
-        <AppActionsContext.Provider value={defaultActions}>
+        <AppActionsContext.Provider value={actions}>
           <ChangesPage />
         </AppActionsContext.Provider>
       </I18nProvider>
@@ -124,5 +127,36 @@ describe('ChangesPage', () => {
     await waitFor(() => {
       expect(bridge.getCurrentChanges).toHaveBeenCalledWith('E:/demo/project-a');
     });
+  });
+
+  it('shows the next action when no project is open', () => {
+    const openProjectFolder = vi.fn(async () => undefined);
+
+    useAppStore.setState({
+      project: null,
+      notice: null,
+      config: {
+        recentProjects: [],
+        settings: {
+          showAdvancedMode: false,
+          showBeginnerGuide: false,
+          autoSnapshotBeforeRestore: true,
+          autoSnapshotBeforeMerge: true,
+          defaultSaveMessageTemplate: '',
+          language: 'en-US'
+        }
+      }
+    });
+
+    renderChangesPage('en-US', {
+      ...defaultActions,
+      openProjectFolder
+    });
+
+    expect(screen.getByText('Open a project from Home first.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Project' }));
+
+    expect(openProjectFolder).toHaveBeenCalledTimes(1);
   });
 });
