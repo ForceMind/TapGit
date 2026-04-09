@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { resolveGettingStartedState } from '../app/getting-started';
+import { resolveSidebarNavState } from '../app/navigation-state';
+import { resolvePrimaryTaskKey } from '../app/primary-task';
 import { useProjectHistoryCount } from '../app/use-project-history-count';
 import { toPlanLabel, useI18n } from '../i18n';
 import { useAppStore } from '../stores/useAppStore';
@@ -34,49 +36,47 @@ export function HomePage() {
     `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
   );
   const gettingStarted = resolveGettingStartedState(project, historyCount);
+  const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
 
   const focusAction = useMemo<FocusAction>(() => {
-    if (!project) {
-      return {
-        title: t('home_focus_open_title'),
-        detail: t('home_focus_open_desc'),
-        actionLabel: t('home_next_open_project'),
-        actionType: 'button',
-        onAction: openProjectFolder
-      };
+    switch (primaryTaskKey) {
+      case 'open':
+        return {
+          title: t('home_focus_open_title'),
+          detail: t('home_focus_open_desc'),
+          actionLabel: t('home_next_open_project'),
+          actionType: 'button',
+          onAction: openProjectFolder
+        };
+      case 'protect':
+        return {
+          title: t('home_focus_protect_title'),
+          detail: t('home_focus_protect_desc'),
+          actionLabel: t('home_next_enable_protection'),
+          actionType: 'button',
+          onAction: enableProtection
+        };
+      case 'save':
+        return {
+          title: t('home_focus_save_title'),
+          detail:
+            (project?.pendingChangeCount ?? 0) > 0
+              ? t('home_next_save_attention', { count: project?.pendingChangeCount ?? 0 })
+              : t('home_focus_save_desc'),
+          actionLabel: t('home_next_open_changes'),
+          actionType: 'link',
+          actionTo: '/changes'
+        };
+      default:
+        return {
+          title: t('home_focus_timeline_title'),
+          detail: t('home_focus_timeline_desc'),
+          actionLabel: t('home_next_open_timeline'),
+          actionType: 'link',
+          actionTo: '/timeline'
+        };
     }
-
-    if (!project.isProtected) {
-      return {
-        title: t('home_focus_protect_title'),
-        detail: t('home_focus_protect_desc'),
-        actionLabel: t('home_next_enable_protection'),
-        actionType: 'button',
-        onAction: enableProtection
-      };
-    }
-
-    if (project.pendingChangeCount > 0 || historyCount === 0) {
-      return {
-        title: t('home_focus_save_title'),
-        detail:
-          project.pendingChangeCount > 0
-            ? t('home_next_save_attention', { count: project.pendingChangeCount })
-            : t('home_focus_save_desc'),
-        actionLabel: t('home_next_open_changes'),
-        actionType: 'link',
-        actionTo: '/changes'
-      };
-    }
-
-    return {
-      title: t('home_focus_timeline_title'),
-      detail: t('home_focus_timeline_desc'),
-      actionLabel: t('home_next_open_timeline'),
-      actionType: 'link',
-      actionTo: '/timeline'
-    };
-  }, [enableProtection, historyCount, openProjectFolder, project, t]);
+  }, [enableProtection, openProjectFolder, primaryTaskKey, project?.pendingChangeCount, t]);
 
   const journeySteps = useMemo<JourneyStep[]>(() => {
     const hasProject = Boolean(project);
@@ -155,6 +155,32 @@ export function HomePage() {
     return projectPath.split(/[\\/]/).pop() || projectPath;
   }
 
+  const availableAreas = project
+    ? [
+        {
+          key: 'changes' as const,
+          title: t('app_nav_changes'),
+          actionLabel: t('home_action_view_changes'),
+          actionTo: '/changes'
+        },
+        {
+          key: 'timeline' as const,
+          title: t('app_nav_timeline'),
+          actionLabel: t('home_action_view_timeline'),
+          actionTo: '/timeline'
+        },
+        {
+          key: 'plans' as const,
+          title: t('app_nav_plans'),
+          actionLabel: t('home_action_manage_plans'),
+          actionTo: '/plans'
+        }
+      ].map((item) => ({
+        ...item,
+        state: resolveSidebarNavState(item.key, project, historyCount, historyLoading)
+      }))
+    : [];
+
   if (!project) {
     return (
       <div className="page home-start-page">
@@ -219,6 +245,30 @@ export function HomePage() {
           <h1>{t('home_project_opened_title')}</h1>
           <p>{t('home_project_opened_subtitle', { name: project.name })}</p>
         </div>
+        <div className="hero-summary">
+          <div>
+            <span className="status-label">{t('home_label_current_plan')}</span>
+            <strong>
+              {toPlanLabel(
+                project.currentPlan,
+                project.currentPlan === 'main' || project.currentPlan === 'master',
+                t
+              )}
+            </strong>
+          </div>
+          <div>
+            <span className="status-label">{t('home_label_unsaved_changes')}</span>
+            <strong>{t('common_file_unit', { count: project.pendingChangeCount })}</strong>
+          </div>
+          <div>
+            <span className="status-label">{t('home_label_saved_records')}</span>
+            <strong>
+              {historyLoading
+                ? t('home_history_loading_short')
+                : t('common_record_unit', { count: historyCount ?? 0 })}
+            </strong>
+          </div>
+        </div>
       </section>
 
       <section className="panel">
@@ -258,26 +308,6 @@ export function HomePage() {
 
       <div className="grid-two">
         <section className="panel">
-          <h2>{t('home_recent_projects')}</h2>
-          {!config || config.recentProjects.length === 0 ? (
-            <p className="muted">{t('home_recent_projects_empty')}</p>
-          ) : (
-            <ul className="list">
-              {config.recentProjects.map((item) => (
-                <li key={item}>
-                  <button className="list-button list-item" onClick={() => void openProjectByPath(item)}>
-                    <div>
-                      <div className="item-title">{recentProjectName(item)}</div>
-                      <div className="item-subtle">{item}</div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="panel">
           <h2>{t('home_project_status')}</h2>
           <div className="status-stack">
             <div>
@@ -306,6 +336,44 @@ export function HomePage() {
                   : t('common_record_unit', { count: historyCount ?? 0 })}
               </strong>
             </div>
+            <div>
+              <span className="status-label">{t('home_label_path')}</span>
+              <strong className="project-path">{project.path}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <h2>{t('home_available_title')}</h2>
+          <p className="panel-subtitle">{t('home_available_subtitle')}</p>
+          <div className="next-grid availability-grid">
+            {availableAreas.map((item) => {
+              const badgeState: JourneyState =
+                item.state.tone === 'ready'
+                  ? 'done'
+                  : item.state.tone === 'next'
+                    ? 'current'
+                    : 'upcoming';
+              const toneClass =
+                badgeState === 'done' ? 'ready' : badgeState === 'current' ? 'attention' : 'waiting';
+
+              return (
+                <article key={item.key} className={`next-card ${toneClass}`}>
+                  <div className="section-head">
+                    <h3>{item.title}</h3>
+                    <span className={`tone-badge ${toneClass}`}>{toJourneyStateLabel(badgeState)}</span>
+                  </div>
+                  <p className="next-card-copy">{t(item.state.hintKey)}</p>
+                  {item.state.enabled ? (
+                    <div className="actions-row">
+                      <Link className="btn btn-secondary" to={item.actionTo}>
+                        {item.actionLabel}
+                      </Link>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         </section>
       </div>

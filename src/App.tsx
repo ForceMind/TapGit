@@ -4,6 +4,7 @@ import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } fr
 import { AppActionsContext } from './app/app-context';
 import { resolveGettingStartedState } from './app/getting-started';
 import { resolveSidebarNavState } from './app/navigation-state';
+import { resolvePrimaryTaskKey } from './app/primary-task';
 import { useProjectHistoryCount } from './app/use-project-history-count';
 import {
   I18nProvider,
@@ -62,6 +63,7 @@ function AppContent() {
     `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
   );
   const gettingStarted = resolveGettingStartedState(project, historyCount);
+  const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
 
   const navItems = [
     { key: 'home' as const, to: '/', label: t('app_nav_home') },
@@ -652,6 +654,32 @@ function AppContent() {
     }
   }
 
+  const topbarPrimaryAction = useMemo(() => {
+    if (!project) {
+      return null;
+    }
+
+    switch (primaryTaskKey) {
+      case 'protect':
+        return {
+          label: t('app_enable_protection'),
+          onClick: () => void enableProtection()
+        };
+      case 'save':
+        return {
+          label: t('home_next_open_changes'),
+          onClick: () => navigate('/changes')
+        };
+      case 'timeline':
+        return {
+          label: t('home_next_open_timeline'),
+          onClick: () => navigate('/timeline')
+        };
+      default:
+        return null;
+    }
+  }, [enableProtection, navigate, primaryTaskKey, project, t]);
+
   return (
     <AppActionsContext.Provider value={actions}>
       <div className="shell">
@@ -684,16 +712,29 @@ function AppContent() {
               <div className="project-meta">{t('app_cloud_status_label', { status: cloudQuickStatus })}</div>
             </div>
             <div className="top-actions">
-              <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
-                {project ? t('app_switch_project') : t('app_open_project')}
-              </button>
-              <button className="btn btn-secondary" onClick={() => void openCloneProjectDialog()}>
-                {t('app_get_from_github')}
-              </button>
-              {project && !project.isProtected ? (
-                <button className="btn btn-primary" onClick={() => void enableProtection()}>
-                  {t('app_enable_protection')}
-                </button>
+              {project ? (
+                <>
+                  {topbarPrimaryAction ? (
+                    <button className="btn btn-primary" onClick={topbarPrimaryAction.onClick}>
+                      {topbarPrimaryAction.label}
+                    </button>
+                  ) : null}
+                  <button className="btn btn-secondary" onClick={() => void handleShowProjectInFolder()}>
+                    {t('app_show_in_folder')}
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
+                    {t('app_switch_project')}
+                  </button>
+                </>
+              ) : location.pathname !== '/' ? (
+                <>
+                  <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
+                    {t('app_open_project')}
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => void openCloneProjectDialog()}>
+                    {t('app_get_from_github')}
+                  </button>
+                </>
               ) : null}
             </div>
           </header>
