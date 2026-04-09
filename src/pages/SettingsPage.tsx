@@ -18,6 +18,20 @@ import {
 
 type CloudPlatform = 'github' | 'gitlab' | 'custom';
 
+type CloudGuideStatus = 'done' | 'current' | 'upcoming';
+
+interface CloudGuideStep {
+  key: string;
+  label: string;
+  status: CloudGuideStatus;
+}
+
+interface CloudProviderLinks {
+  signInUrl?: string;
+  createRepoUrl?: string;
+  repoPageUrl?: string;
+}
+
 export function SettingsPage() {
   const { project, config, setConfig, setNotice } = useAppStore();
   const { t } = useI18n();
@@ -31,6 +45,78 @@ export function SettingsPage() {
   const [cloudAdvice, setCloudAdvice] = useState('');
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
+
+  const providerLinks: CloudProviderLinks = (() => {
+    const repoName = cloudRepo.trim().replace(/\.git$/i, '');
+
+    if (cloudPlatform === 'github') {
+      return {
+        signInUrl: 'https://github.com/login',
+        createRepoUrl: repoName
+          ? `https://github.com/new?name=${encodeURIComponent(repoName)}`
+          : 'https://github.com/new',
+        repoPageUrl:
+          cloudOwner.trim() && repoName
+            ? `https://github.com/${cloudOwner.trim()}/${repoName}`
+            : undefined
+      };
+    }
+
+    if (cloudPlatform === 'gitlab') {
+      return {
+        signInUrl: 'https://gitlab.com/users/sign_in',
+        createRepoUrl: repoName
+          ? `https://gitlab.com/projects/new?name=${encodeURIComponent(repoName)}`
+          : 'https://gitlab.com/projects/new',
+        repoPageUrl:
+          cloudOwner.trim() && repoName
+            ? `https://gitlab.com/${cloudOwner.trim()}/${repoName}`
+            : undefined
+      };
+    }
+
+    return {};
+  })();
+
+  const cloudGuideSteps: CloudGuideStep[] = (() => {
+    const firstUndone = (() => {
+      if (!project) return 'open_project';
+      if (!project.isProtected) return 'enable_protection';
+      if (!cloudStatus?.connected) return 'connect_cloud';
+      if (!cloudStatus.hasTracking) return 'upload_first';
+      return 'keep_synced';
+    })();
+
+    const order = [
+      { key: 'open_project', label: t('settings_cloud_next_open_project') },
+      { key: 'enable_protection', label: t('settings_cloud_next_enable_protection') },
+      { key: 'connect_cloud', label: t('settings_cloud_next_connect') },
+      { key: 'upload_first', label: t('settings_cloud_next_upload_first') },
+      { key: 'keep_synced', label: t('settings_cloud_next_keep_synced') }
+    ];
+
+    let currentFound = false;
+    return order.map((item) => {
+      const done =
+        (item.key === 'open_project' && Boolean(project)) ||
+        (item.key === 'enable_protection' && Boolean(project?.isProtected)) ||
+        (item.key === 'connect_cloud' && Boolean(project?.isProtected && cloudStatus?.connected)) ||
+        (item.key === 'upload_first' && Boolean(cloudStatus?.hasTracking)) ||
+        (item.key === 'keep_synced' &&
+          Boolean(cloudStatus?.connected && cloudStatus.hasTracking && cloudStatus.pendingUpload === 0 && cloudStatus.pendingDownload === 0));
+
+      if (done) {
+        return { ...item, status: 'done' satisfies CloudGuideStatus };
+      }
+
+      if (!currentFound && item.key === firstUndone) {
+        currentFound = true;
+        return { ...item, status: 'current' satisfies CloudGuideStatus };
+      }
+
+      return { ...item, status: 'upcoming' satisfies CloudGuideStatus };
+    });
+  })();
 
   async function loadGitEnvironment() {
     setChecking(true);
@@ -94,6 +180,24 @@ export function SettingsPage() {
       return `https://gitlab.com/${o}/${r}.git`;
     }
     return '';
+  }
+
+  function getProviderLabel(platform: CloudPlatform) {
+    if (platform === 'github') return 'GitHub';
+    if (platform === 'gitlab') return 'GitLab';
+    return t('settings_cloud_platform_custom');
+  }
+
+  async function openExternalUrl(url?: string) {
+    if (!url) return;
+    try {
+      await unwrapResult(getBridge().openExternalUrl(url));
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_cloud_connect_failed')
+      });
+    }
   }
 
   function applyWizardUrl() {
@@ -318,12 +422,103 @@ export function SettingsPage() {
 
       <section className="panel">
         <h2>{t('settings_cloud_title')}</h2>
+        <div className="cloud-guide-card">
+          <div className="section-head">
+            <h3>{t('settings_cloud_next_title')}</h3>
+          </div>
+          <div className="cloud-guide-list">
+            {cloudGuideSteps.map((step, index) => (
+              <div key={step.key} className={`cloud-guide-step ${step.status}`}>
+                <div className="cloud-guide-index">{index + 1}</div>
+                <div className="cloud-guide-copy">
+                  <strong>{step.label}</strong>
+                  <span className="cloud-guide-status">
+                    {step.status === 'done'
+                      ? t('settings_cloud_next_done')
+                      : step.status === 'current'
+                        ? t('settings_cloud_next_current')
+                        : t('settings_cloud_next_upcoming')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         {!project ? (
           <p className="muted">{t('settings_cloud_open_first')}</p>
         ) : !project.isProtected ? (
           <p className="muted">{t('settings_cloud_enable_first')}</p>
         ) : (
           <div className="settings-stack">
+            <div className="cloud-assistant-card">
+              <div className="section-head">
+                <div>
+                  <h3>{t('settings_cloud_helper_title')}</h3>
+                  <p className="panel-subtitle">{t('settings_cloud_helper_desc')}</p>
+                </div>
+                <span className="pill">
+                  {t('settings_cloud_helper_provider')} {getProviderLabel(cloudPlatform)}
+                </span>
+              </div>
+
+              {cloudPlatform === 'custom' ? (
+                <div className="cloud-assistant-note">
+                  <strong>{t('settings_cloud_helper_custom_title')}</strong>
+                  <p>{t('settings_cloud_helper_custom_desc')}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="actions-row">
+                    <button
+                      className="btn btn-secondary"
+                      disabled={syncing || !providerLinks.signInUrl}
+                      onClick={() => void openExternalUrl(providerLinks.signInUrl)}
+                    >
+                      {t('settings_cloud_helper_sign_in')}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={syncing || !providerLinks.createRepoUrl}
+                      onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}
+                    >
+                      {t('settings_cloud_helper_create_repo')}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={syncing || !providerLinks.repoPageUrl}
+                      onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}
+                    >
+                      {t('settings_cloud_helper_open_repo')}
+                    </button>
+                  </div>
+                  <p className="muted">{t('settings_cloud_helper_browser_hint')}</p>
+                </>
+              )}
+
+              {connectionTest?.code === 'auth_required' ? (
+                <div className="cloud-auth-callout">
+                  <strong>{t('settings_cloud_helper_auth_title')}</strong>
+                  <p>{t('settings_cloud_helper_auth_desc')}</p>
+                  <div className="actions-row">
+                    <button
+                      className="btn btn-secondary"
+                      disabled={syncing || !providerLinks.signInUrl}
+                      onClick={() => void openExternalUrl(providerLinks.signInUrl)}
+                    >
+                      {t('settings_cloud_helper_sign_in')}
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      disabled={syncing || !remoteUrlInput.trim()}
+                      onClick={() => void handleTestCloudConnection()}
+                    >
+                      {t('settings_cloud_helper_retry')}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <label className="switch-row stacked">
               <span>{t('settings_cloud_wizard')}</span>
               <div className="field-row">
@@ -392,6 +587,12 @@ export function SettingsPage() {
 
             {cloudStatus ? (
               <div className="detail-stack">
+                {cloudStatus.remoteUrl ? (
+                  <p>
+                    <strong>{t('settings_cloud_status_connected_to')}</strong>
+                    {cloudStatus.remoteUrl}
+                  </p>
+                ) : null}
                 <p>
                   <strong>{t('settings_cloud_status')}</strong>
                   {toCloudStatusText(cloudStatus, t)}

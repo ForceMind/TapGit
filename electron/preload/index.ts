@@ -29,7 +29,8 @@ const bridge: TapGitBridge = {
     ipcRenderer.invoke(IPC_CHANNELS.CONNECT_CLOUD, projectPath, remoteUrl),
   uploadToCloud: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_TO_CLOUD, projectPath),
   getCloudLatest: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CLOUD_LATEST, projectPath),
-  exportLogs: () => ipcRenderer.invoke(IPC_CHANNELS.EXPORT_LOGS)
+  exportLogs: () => ipcRenderer.invoke(IPC_CHANNELS.EXPORT_LOGS),
+  openExternalUrl: (url) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL_URL, url)
 };
 
 contextBridge.exposeInMainWorld('tapgit', bridge);

@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n';
+
 interface ConfirmDialogProps {
   title: string;
   description: string;
@@ -21,6 +23,8 @@ export function ConfirmDialog({
   onCancel,
   onConfirm
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
+
   return (
     <div className="dialog-backdrop" role="presentation" onClick={busy ? undefined : onCancel}>
       <div
@@ -30,7 +34,7 @@ export function ConfirmDialog({
         aria-labelledby="confirm-dialog-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="dialog-eyebrow">TapGit Safety Check</div>
+        <div className="dialog-eyebrow">{t('dialog_safety_eyebrow')}</div>
         <h3 id="confirm-dialog-title">{title}</h3>
         <p className="dialog-description">{description}</p>
         {details && details.length > 0 ? (

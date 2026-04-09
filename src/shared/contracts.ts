@@ -145,6 +145,7 @@ export interface TapGitBridge {
   uploadToCloud(projectPath: string): Promise<Result<CloudSyncStatus>>;
   getCloudLatest(projectPath: string): Promise<Result<CloudSyncStatus>>;
   exportLogs(): Promise<Result<string>>;
+  openExternalUrl(url: string): Promise<Result<void>>;
 }
 
 export const IPC_CHANNELS = {
@@ -169,5 +170,6 @@ export const IPC_CHANNELS = {
   CONNECT_CLOUD: 'tapgit:connect-cloud',
   UPLOAD_TO_CLOUD: 'tapgit:upload-to-cloud',
   GET_CLOUD_LATEST: 'tapgit:get-cloud-latest',
-  EXPORT_LOGS: 'tapgit:export-logs'
+  EXPORT_LOGS: 'tapgit:export-logs',
+  OPEN_EXTERNAL_URL: 'tapgit:open-external-url'
 } as const;

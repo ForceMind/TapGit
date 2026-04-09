@@ -131,7 +131,7 @@ function AppContent() {
         <aside className="sidebar">
           <div className="brand">
             <div className="brand-title">{t('app_brand_title')}</div>
-            <div className="brand-sub">TapGit</div>
+            <div className="brand-sub">{t('app_brand_sub')}</div>
           </div>
           <nav className="nav">
             {navItems.map((item) => (

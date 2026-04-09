@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { app, dialog, ipcMain } from 'electron';
+import { app, dialog, ipcMain, shell } from 'electron';
 import { IPC_CHANNELS, Result, TapGitBridge } from '../../src/shared/contracts';
 import { normalizeUnknownError } from './app-error';
 import { addRecentProject, getConfig, updateSettings } from './config-store';
@@ -170,5 +170,12 @@ export function registerIpcHandlers() {
     }
     await fs.copyFile(logFilePath, saveResult.filePath);
     return saveResult.filePath;
+  });
+
+  register<[string], void>(IPC_CHANNELS.OPEN_EXTERNAL_URL, async (url) => {
+    if (!/^https?:\/\//i.test(url)) {
+      throw new Error('Only http(s) URLs are allowed.');
+    }
+    await shell.openExternal(url);
   });
 }
