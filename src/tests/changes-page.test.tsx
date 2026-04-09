@@ -1,0 +1,128 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppActionsContext } from '../app/app-context';
+import { I18nProvider } from '../i18n';
+import { ChangesPage } from '../pages/ChangesPage';
+import { useAppStore } from '../stores/useAppStore';
+
+const defaultActions = {
+  openProjectFolder: async () => undefined,
+  openProjectByPath: async () => undefined,
+  enableProtection: async () => undefined,
+  refreshProject: async () => undefined,
+  refreshConfig: async () => undefined
+};
+
+function createBridgeMock() {
+  return {
+    chooseProjectFolder: vi.fn(),
+    openProject: vi.fn(),
+    enableProtection: vi.fn(),
+    getCurrentChanges: vi.fn(),
+    saveProgress: vi.fn(),
+    listHistory: vi.fn(),
+    listSafetyBackups: vi.fn(),
+    restoreToRecord: vi.fn(),
+    restoreToSafetyBackup: vi.fn(),
+    listPlans: vi.fn(),
+    createPlan: vi.fn(),
+    switchPlan: vi.fn(),
+    mergePlan: vi.fn(),
+    resolveCollision: vi.fn(),
+    completeMerge: vi.fn(),
+    getConfig: vi.fn(),
+    updateSettings: vi.fn(),
+    checkGitEnvironment: vi.fn(),
+    getGitHubAuthStatus: vi.fn(),
+    loginGitHub: vi.fn(),
+    logoutGitHub: vi.fn(),
+    getCloudSyncStatus: vi.fn(),
+    testCloudConnection: vi.fn(),
+    connectCloud: vi.fn(),
+    uploadToCloud: vi.fn(),
+    getCloudLatest: vi.fn(),
+    exportLogs: vi.fn(),
+    openExternalUrl: vi.fn()
+  };
+}
+
+function renderChangesPage(locale: 'en-US' | 'zh-CN') {
+  render(
+    <MemoryRouter>
+      <I18nProvider locale={locale}>
+        <AppActionsContext.Provider value={defaultActions}>
+          <ChangesPage />
+        </AppActionsContext.Provider>
+      </I18nProvider>
+    </MemoryRouter>
+  );
+}
+
+describe('ChangesPage', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      project: {
+        path: 'E:/demo/project-a',
+        name: 'project-a',
+        isProtected: true,
+        currentPlan: 'main',
+        pendingChangeCount: 1
+      },
+      notice: null,
+      config: {
+        recentProjects: [],
+        settings: {
+          showAdvancedMode: false,
+          showBeginnerGuide: false,
+          autoSnapshotBeforeRestore: true,
+          autoSnapshotBeforeMerge: true,
+          defaultSaveMessageTemplate: '',
+          language: 'en-US'
+        }
+      }
+    });
+    window.tapgit = undefined as never;
+  });
+
+  afterEach(() => {
+    cleanup();
+    window.tapgit = undefined as never;
+  });
+
+  it('guides the user and keeps partial save disabled until a file is checked', async () => {
+    const bridge = createBridgeMock();
+    bridge.getCurrentChanges.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          path: 'src/login.tsx',
+          changeType: 'modified',
+          statusLabel: 'Modified',
+          additions: 12,
+          deletions: 4,
+          diffText: '+new line'
+        }
+      ]
+    });
+    window.tapgit = bridge as never;
+
+    renderChangesPage('en-US');
+
+    expect(await screen.findByText('How this page works')).toBeInTheDocument();
+    expect(screen.getByText('Files You Changed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Only Checked Files' })).toBeDisabled();
+    expect(
+      screen.getByText('No files are checked. If you only want part of this page, check those files first.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select src/login.tsx for a partial save' }));
+
+    expect(screen.getByRole('button', { name: 'Save Only Checked Files' })).toBeEnabled();
+    expect(screen.getByText('1 files are checked for a partial save.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(bridge.getCurrentChanges).toHaveBeenCalledWith('E:/demo/project-a');
+    });
+  });
+});

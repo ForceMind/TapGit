@@ -16,6 +16,7 @@ export function ChangesPage() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const checkedCount = selectedFiles.size;
 
   const selectedItem = useMemo(
     () => changes.find((item) => item.path === selectedPath) ?? changes[0],
@@ -119,6 +120,38 @@ export function ChangesPage() {
 
   return (
     <div className="page">
+      <section className="panel guide-card">
+        <div className="section-head">
+          <div>
+            <h2>{t('changes_guide_title')}</h2>
+            <p className="panel-subtitle">{t('changes_guide_desc')}</p>
+          </div>
+        </div>
+        <div className="guide-grid">
+          <div className="guide-step">
+            <span className="guide-index">1</span>
+            <div>
+              <strong>{t('changes_guide_step1_title')}</strong>
+              <p>{t('changes_guide_step1_desc')}</p>
+            </div>
+          </div>
+          <div className="guide-step">
+            <span className="guide-index">2</span>
+            <div>
+              <strong>{t('changes_guide_step2_title')}</strong>
+              <p>{t('changes_guide_step2_desc')}</p>
+            </div>
+          </div>
+          <div className="guide-step">
+            <span className="guide-index">3</span>
+            <div>
+              <strong>{t('changes_guide_step3_title')}</strong>
+              <p>{t('changes_guide_step3_desc')}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="panel split-panel">
         <div className="list-panel">
           <div className="section-head">
@@ -144,6 +177,7 @@ export function ChangesPage() {
                       <input
                         type="checkbox"
                         checked={selectedFiles.has(item.path)}
+                        aria-label={t('changes_toggle_file', { path: item.path })}
                         onChange={() => toggleSelection(item.path)}
                         onClick={(event) => event.stopPropagation()}
                       />
@@ -152,7 +186,7 @@ export function ChangesPage() {
                     <div className="flex-grow">
                       <div className="item-title">{item.path}</div>
                       <div className="item-subtle">
-                        {statusLabel} · +{item.additions} -{item.deletions}
+                        {statusLabel} | +{item.additions} -{item.deletions}
                       </div>
                     </div>
                   </li>
@@ -181,7 +215,13 @@ export function ChangesPage() {
       </section>
 
       <section className="panel save-panel">
-        <h3>{t('changes_save_progress')}</h3>
+        <div className="section-head">
+          <div>
+            <h3>{t('changes_save_progress')}</h3>
+            <p className="panel-subtitle">{t('changes_save_help')}</p>
+          </div>
+          <span className="pill">{t('changes_selected_count', { count: checkedCount })}</span>
+        </div>
         <textarea
           className="input-textarea"
           placeholder={t('changes_message_placeholder')}
@@ -190,13 +230,22 @@ export function ChangesPage() {
           rows={3}
         />
         <div className="actions-row">
-          <button className="btn btn-secondary" disabled={saving} onClick={() => void handleSave('selected')}>
+          <button
+            className="btn btn-secondary"
+            disabled={saving || checkedCount === 0}
+            onClick={() => void handleSave('selected')}
+          >
             {t('changes_save_selected')}
           </button>
           <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave('all')}>
             {t('changes_save_all')}
           </button>
         </div>
+        <p className="muted">
+          {checkedCount === 0
+            ? t('changes_partial_hint_none')
+            : t('changes_partial_hint_some', { count: checkedCount })}
+        </p>
       </section>
     </div>
   );
