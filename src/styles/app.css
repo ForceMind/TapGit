@@ -123,6 +123,56 @@ body {
   color: #925300;
 }
 
+.getting-started-strip {
+  margin: 14px 22px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #d7e7ef;
+  background:
+    radial-gradient(circle at top right, rgba(17, 121, 121, 0.14), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #f3fbfb 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.getting-started-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.getting-started-copy strong {
+  font-size: 15px;
+}
+
+.getting-started-copy span {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.getting-started-step {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d5f6a;
+  letter-spacing: 0.02em;
+}
+
+.getting-started-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.getting-started-here {
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .page {
   padding: 18px 22px 24px;
   display: flex;
@@ -923,6 +973,15 @@ pre {
   .conflict-layout,
   .guide-grid {
     grid-template-columns: 1fr;
+  }
+
+  .getting-started-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .getting-started-actions {
+    justify-content: flex-start;
   }
 
   .dialog-card h3 {

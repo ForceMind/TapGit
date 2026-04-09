@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppActionsContext } from './app/app-context';
+import { resolveGettingStartedState } from './app/getting-started';
+import { useProjectHistoryCount } from './app/use-project-history-count';
 import {
   I18nProvider,
   resolveLocale,
@@ -21,7 +23,15 @@ import { useAppStore } from './stores/useAppStore';
 function AppContent() {
   const { project, config, notice, setNotice, setProject, setConfig } = useAppStore();
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [cloudQuickStatus, setCloudQuickStatus] = useState(t('app_cloud_quick_no_project'));
+  const { historyCount, historyLoading } = useProjectHistoryCount(
+    project?.path,
+    project?.isProtected,
+    `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
+  );
+  const gettingStarted = resolveGettingStartedState(project, historyCount);
 
   const navItems = useMemo(
     () => [
@@ -43,6 +53,7 @@ function AppContent() {
     const summary = await unwrapResult(getBridge().openProject(projectPath));
     setProject(summary);
     await refreshConfig();
+    navigate('/');
   }
 
   async function openProjectFolder() {
@@ -65,6 +76,7 @@ function AppContent() {
       const summary = await unwrapResult(getBridge().enableProtection(project.path));
       setProject(summary);
       setNotice({ type: 'success', text: t('app_notice_enable_protection_success') });
+      navigate('/changes');
     } catch (error) {
       setNotice({
         type: 'error',
@@ -138,6 +150,74 @@ function AppContent() {
     [project?.path, t]
   );
 
+  const gettingStartedBanner = useMemo(() => {
+    if (!gettingStarted.isActive) {
+      return null;
+    }
+
+    switch (gettingStarted.key) {
+      case 'open':
+        return {
+          title: t('app_getting_started_open_title'),
+          detail: t('app_getting_started_open_desc'),
+          actionLabel: t('app_getting_started_open_action'),
+          actionType: 'button' as const,
+          actionTo: '/',
+          onAction: openProjectFolder
+        };
+      case 'protect':
+        return {
+          title: t('app_getting_started_protect_title'),
+          detail: t('app_getting_started_protect_desc', { name: project?.name ?? '' }),
+          actionLabel: t('app_getting_started_protect_action'),
+          actionType: 'button' as const,
+          actionTo: '/changes',
+          onAction: enableProtection
+        };
+      case 'save':
+        return {
+          title: t('app_getting_started_save_title'),
+          detail: historyLoading
+            ? t('app_getting_started_save_loading')
+            : (project?.pendingChangeCount ?? 0) > 0
+              ? t('app_getting_started_save_desc_pending', {
+                  count: project?.pendingChangeCount ?? 0
+                })
+              : t('app_getting_started_save_desc_empty'),
+          actionLabel: t('app_getting_started_save_action'),
+          actionType: 'link' as const,
+          actionTo: '/changes'
+        };
+      default:
+        return null;
+    }
+  }, [enableProtection, historyLoading, navigate, openProjectFolder, project, t, gettingStarted]);
+
+  function renderGettingStartedAction() {
+    if (!gettingStartedBanner) {
+      return null;
+    }
+
+    const alreadyHere = gettingStartedBanner.actionTo === location.pathname;
+    if (alreadyHere) {
+      return <span className="getting-started-here">{t('app_getting_started_here')}</span>;
+    }
+
+    if (gettingStartedBanner.actionType === 'button') {
+      return (
+        <button className="btn btn-primary" onClick={() => void gettingStartedBanner.onAction?.()}>
+          {gettingStartedBanner.actionLabel}
+        </button>
+      );
+    }
+
+    return (
+      <Link className="btn btn-primary" to={gettingStartedBanner.actionTo ?? '/'}>
+        {gettingStartedBanner.actionLabel}
+      </Link>
+    );
+  }
+
   return (
     <AppActionsContext.Provider value={actions}>
       <div className="shell">
@@ -194,6 +274,22 @@ function AppContent() {
 
           {project && !project.isProtected ? (
             <div className="warning-banner">{t('app_protection_warning')}</div>
+          ) : null}
+
+          {gettingStartedBanner && location.pathname !== '/' ? (
+            <div className="getting-started-strip">
+              <div className="getting-started-copy">
+                <div className="getting-started-step">
+                  {t('app_getting_started_step', {
+                    current: gettingStarted.stepNumber,
+                    total: gettingStarted.totalSteps
+                  })}
+                </div>
+                <strong>{gettingStartedBanner.title}</strong>
+                <span>{gettingStartedBanner.detail}</span>
+              </div>
+              <div className="getting-started-actions">{renderGettingStartedAction()}</div>
+            </div>
           ) : null}
 
           {notice ? <div className={`toast ${notice.type}`}>{notice.text}</div> : null}

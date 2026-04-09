@@ -29,6 +29,23 @@ export const EN_MESSAGES = {
   app_cloud_quick_no_project: 'Not connected to cloud',
   app_cloud_quick_need_protection: 'Enable version protection first',
   app_cloud_quick_unavailable: 'Cloud status unavailable',
+  app_getting_started_step: 'Getting started · Step {{current}} of {{total}}',
+  app_getting_started_open_title: 'Open one local project first',
+  app_getting_started_open_desc:
+    'Pick the project folder you want TapGit to help protect. We will guide you after that.',
+  app_getting_started_open_action: 'Open Project',
+  app_getting_started_protect_title: 'Turn on version protection for this project',
+  app_getting_started_protect_desc:
+    '"{{name}}" is open. Turn on version protection once so TapGit can save and restore it safely.',
+  app_getting_started_protect_action: 'Turn On Protection',
+  app_getting_started_save_title: 'Save your first stable point',
+  app_getting_started_save_loading: 'Checking whether this project already has a first saved point...',
+  app_getting_started_save_desc_pending:
+    'You already have {{count}} changed files. Open Current Changes and save a stable point before you keep going.',
+  app_getting_started_save_desc_empty:
+    'Version protection is already on. Make one small change, then save your first stable point in Current Changes.',
+  app_getting_started_save_action: 'Open Current Changes',
+  app_getting_started_here: 'You are already on the right page.',
 
   common_main_plan: 'Stable Version',
   common_select: 'Select',
@@ -508,6 +525,22 @@ export const ZH_MESSAGES: Record<MessageKey, string> = {
   app_cloud_quick_no_project: '未连接云端',
   app_cloud_quick_need_protection: '请先开启版本保护',
   app_cloud_quick_unavailable: '云端状态暂不可用',
+  app_getting_started_step: '新手引导 · 第 {{current}} / {{total}} 步',
+  app_getting_started_open_title: '先打开一个本地项目',
+  app_getting_started_open_desc: '先选中你想保护的项目文件夹。打开后，我们会继续带你往下走。',
+  app_getting_started_open_action: '打开项目',
+  app_getting_started_protect_title: '为这个项目开启版本保护',
+  app_getting_started_protect_desc:
+    '“{{name}}”已经打开了。先开启一次版本保护，之后码迹才能帮你安全保存和恢复。',
+  app_getting_started_protect_action: '开启版本保护',
+  app_getting_started_save_title: '先保存第一个稳定版本',
+  app_getting_started_save_loading: '正在检查这个项目是不是已经有第一条保存记录…',
+  app_getting_started_save_desc_pending:
+    '你现在已经改了 {{count}} 个文件。先去“当前修改”把第一个稳定版本保存下来，再继续往下走。',
+  app_getting_started_save_desc_empty:
+    '版本保护已经开启了。先做一点修改，再到“当前修改”里把第一个稳定版本保存下来。',
+  app_getting_started_save_action: '打开当前修改',
+  app_getting_started_here: '你现在已经在正确的位置了。',
 
   common_main_plan: '稳定版本',
   common_select: '请选择',

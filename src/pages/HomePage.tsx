@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
+import { resolveGettingStartedState } from '../app/getting-started';
+import { useProjectHistoryCount } from '../app/use-project-history-count';
 import { toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
@@ -27,8 +29,12 @@ export function HomePage() {
   const { project, config, setConfig, setNotice } = useAppStore();
   const { openProjectFolder, openProjectByPath, enableProtection } = useAppActions();
   const { t } = useI18n();
-  const [historyCount, setHistoryCount] = useState<number | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const { historyCount, historyLoading } = useProjectHistoryCount(
+    project?.path,
+    project?.isProtected,
+    `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
+  );
+  const gettingStarted = resolveGettingStartedState(project, historyCount);
 
   async function hideBeginnerGuide() {
     try {
@@ -44,42 +50,6 @@ export function HomePage() {
       });
     }
   }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadOverview() {
-      if (!project?.path || !project.isProtected) {
-        if (!cancelled) {
-          setHistoryCount(null);
-          setHistoryLoading(false);
-        }
-        return;
-      }
-
-      setHistoryLoading(true);
-      try {
-        const history = await unwrapResult(getBridge().listHistory(project.path));
-        if (!cancelled) {
-          setHistoryCount(history.length);
-        }
-      } catch {
-        if (!cancelled) {
-          setHistoryCount(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setHistoryLoading(false);
-        }
-      }
-    }
-
-    void loadOverview();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [project?.path, project?.isProtected, project?.pendingChangeCount, project?.currentPlan]);
 
   const focusAction = useMemo<FocusAction>(() => {
     if (!project) {
@@ -137,7 +107,7 @@ export function HomePage() {
         detail: hasProject
           ? t('home_step_open_done', { name: project?.name ?? '' })
           : t('home_step_open_wait'),
-        state: hasProject ? 'done' : 'current'
+        state: hasProject ? 'done' : gettingStarted.key === 'open' ? 'current' : 'upcoming'
       },
       {
         key: 'protect',
@@ -147,7 +117,8 @@ export function HomePage() {
           : isProtected
             ? t('home_step_protect_done')
             : t('home_step_protect_current'),
-        state: !hasProject ? 'upcoming' : isProtected ? 'done' : 'current'
+        state:
+          !hasProject ? 'upcoming' : isProtected ? 'done' : gettingStarted.key === 'protect' ? 'current' : 'upcoming'
       },
       {
         key: 'save',
@@ -159,7 +130,14 @@ export function HomePage() {
             : hasHistory
               ? t('home_step_save_done')
               : t('home_focus_save_desc'),
-        state: !isProtected ? 'upcoming' : hasPending || !hasHistory ? 'current' : 'done'
+        state:
+          !isProtected
+            ? 'upcoming'
+            : hasPending || !hasHistory
+              ? gettingStarted.key === 'save'
+                ? 'current'
+                : 'upcoming'
+              : 'done'
       },
       {
         key: 'timeline',
@@ -178,7 +156,7 @@ export function HomePage() {
         state: hasHistory ? 'done' : 'upcoming'
       }
     ];
-  }, [historyCount, project, t]);
+  }, [gettingStarted.key, historyCount, project, t]);
 
   function renderFocusAction() {
     if (focusAction.actionType === 'button') {
