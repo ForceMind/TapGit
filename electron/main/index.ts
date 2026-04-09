@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { app, BrowserWindow, shell } from 'electron';
+import { getConfig } from './config-store';
 import { registerIpcHandlers } from './ipc';
 import { logInfo } from './logger';
+import { applyAppMenu } from './menu';
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 let win: BrowserWindow | null = null;
@@ -47,6 +49,8 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
+  const config = await getConfig().catch(() => null);
+  applyAppMenu(config?.settings.language);
   createWindow();
   await logInfo('APP_READY', 'TapGit is ready');
 

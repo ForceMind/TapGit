@@ -15,6 +15,7 @@ import { PlansPage } from './pages/PlansPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { getBridge, unwrapResult } from './services/bridge';
+import { APP_EVENTS } from './shared/contracts';
 import { useAppStore } from './stores/useAppStore';
 
 function AppContent() {
@@ -114,6 +115,18 @@ function AppContent() {
     void refreshCloudQuickStatus();
   }, [project?.path, project?.isProtected, project?.currentPlan, project?.pendingChangeCount, t]);
 
+  useEffect(() => {
+    function handleMenuCommand(event: Event) {
+      const detail = (event as CustomEvent<string>).detail;
+      if (detail === 'open-project') {
+        void openProjectFolder();
+      }
+    }
+
+    window.addEventListener(APP_EVENTS.MENU_COMMAND, handleMenuCommand as EventListener);
+    return () => window.removeEventListener(APP_EVENTS.MENU_COMMAND, handleMenuCommand as EventListener);
+  }, [openProjectFolder]);
+
   const actions = useMemo(
     () => ({
       openProjectFolder,
@@ -166,9 +179,11 @@ function AppContent() {
               <div className="project-meta">{t('app_cloud_status_label', { status: cloudQuickStatus })}</div>
             </div>
             <div className="top-actions">
-              <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
-                {t('app_open_project')}
-              </button>
+              {project ? (
+                <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
+                  {t('app_switch_project')}
+                </button>
+              ) : null}
               {project && !project.isProtected ? (
                 <button className="btn btn-primary" onClick={() => void enableProtection()}>
                   {t('app_enable_protection')}

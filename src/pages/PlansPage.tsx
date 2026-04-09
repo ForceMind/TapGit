@@ -277,6 +277,38 @@ export function PlansPage() {
 
   return (
     <div className="page">
+      <section className="panel guide-card">
+        <div className="section-head">
+          <div>
+            <h2>{t('plans_intro_title')}</h2>
+            <p className="panel-subtitle">{t('plans_intro_desc')}</p>
+          </div>
+        </div>
+        <div className="guide-grid">
+          <div className="guide-step">
+            <span className="guide-index">1</span>
+            <div>
+              <strong>{t('plans_intro_point_1_title')}</strong>
+              <p>{t('plans_intro_point_1_desc')}</p>
+            </div>
+          </div>
+          <div className="guide-step">
+            <span className="guide-index">2</span>
+            <div>
+              <strong>{t('plans_intro_point_2_title')}</strong>
+              <p>{t('plans_intro_point_2_desc')}</p>
+            </div>
+          </div>
+          <div className="guide-step">
+            <span className="guide-index">3</span>
+            <div>
+              <strong>{t('plans_intro_point_3_title')}</strong>
+              <p>{t('plans_intro_point_3_desc')}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="panel">
         <div className="section-head">
           <h2>{t('plans_list')}</h2>

@@ -43,11 +43,14 @@ function createBridgeMock() {
   };
 }
 
-function renderHomePage(locale: 'en-US' | 'zh-CN') {
+function renderHomePage(
+  locale: 'en-US' | 'zh-CN',
+  actions: typeof defaultActions = defaultActions
+) {
   render(
     <MemoryRouter>
       <I18nProvider locale={locale}>
-        <AppActionsContext.Provider value={defaultActions}>
+        <AppActionsContext.Provider value={actions}>
           <HomePage />
         </AppActionsContext.Provider>
       </I18nProvider>
@@ -94,6 +97,29 @@ describe('HomePage', () => {
     expect(screen.getByText('project-b')).toBeInTheDocument();
   });
 
+  it('shows only one primary open action when no project is open', () => {
+    useAppStore.setState({
+      project: null,
+      notice: null,
+      config: {
+        recentProjects: [],
+        settings: {
+          showAdvancedMode: false,
+          showBeginnerGuide: false,
+          autoSnapshotBeforeRestore: true,
+          autoSnapshotBeforeMerge: true,
+          defaultSaveMessageTemplate: '',
+          language: 'en-US'
+        }
+      }
+    });
+
+    renderHomePage('en-US');
+
+    expect(screen.getByText('Do This Now')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Open Project' })).toHaveLength(1);
+  });
+
   it('shows next-step cards for a protected project', async () => {
     const bridge = createBridgeMock();
     bridge.listHistory.mockResolvedValue({ ok: true, data: [] });
@@ -137,9 +163,10 @@ describe('HomePage', () => {
     renderHomePage('en-US');
 
     expect(screen.getByText('What to do next')).toBeInTheDocument();
+    expect(screen.getByText('Do This Now')).toBeInTheDocument();
     expect(
-      await screen.findByText('You currently have 3 unsaved files. Save once to keep a stable point.')
-    ).toBeInTheDocument();
+      (await screen.findAllByText('You currently have 3 unsaved files. Save once to keep a stable point.')).length
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText('Connect a cloud address when you want a backup outside this device.')
     ).toBeInTheDocument();

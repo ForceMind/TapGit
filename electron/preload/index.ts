@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, TapGitBridge } from '../../src/shared/contracts';
+import { APP_EVENTS, IPC_CHANNELS, TapGitBridge } from '../../src/shared/contracts';
 
 const bridge: TapGitBridge = {
   chooseProjectFolder: () => ipcRenderer.invoke(IPC_CHANNELS.CHOOSE_PROJECT_FOLDER),
@@ -40,3 +40,9 @@ const bridge: TapGitBridge = {
 };
 
 contextBridge.exposeInMainWorld('tapgit', bridge);
+
+window.addEventListener('DOMContentLoaded', () => {
+  ipcRenderer.on(APP_EVENTS.MENU_COMMAND, (_, command: string) => {
+    window.dispatchEvent(new CustomEvent(APP_EVENTS.MENU_COMMAND, { detail: command }));
+  });
+});

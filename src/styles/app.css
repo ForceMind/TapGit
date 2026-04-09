@@ -185,6 +185,17 @@ body {
   gap: 12px;
 }
 
+.current-step-card {
+  margin: 12px 0 14px;
+  border-radius: 18px;
+  border: 1px solid #c7ddd9;
+  background:
+    radial-gradient(circle at top right, rgba(18, 126, 126, 0.12), transparent 36%),
+    linear-gradient(160deg, #ffffff 0%, #effbfb 100%);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
 .next-card {
   border-radius: 16px;
   border: 1px solid #dbe6ef;

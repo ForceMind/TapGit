@@ -197,3 +197,7 @@ export const IPC_CHANNELS = {
   EXPORT_LOGS: 'tapgit:export-logs',
   OPEN_EXTERNAL_URL: 'tapgit:open-external-url'
 } as const;
+
+export const APP_EVENTS = {
+  MENU_COMMAND: 'tapgit:menu-command'
+} as const;

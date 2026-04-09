@@ -314,17 +314,21 @@ export function HomePage() {
     t
   ]);
 
-  function renderCardAction(card: HomeNextCard) {
+  const currentStep = useMemo(() => {
+    return nextCards.find((card) => card.tone === 'attention') ?? nextCards[0] ?? null;
+  }, [nextCards]);
+
+  function renderAction(card: HomeNextCard, kind: 'primary' | 'secondary' = 'secondary') {
     if (card.actionType === 'button') {
       return (
-        <button className="btn btn-secondary" onClick={() => void card.onAction?.()}>
+        <button className={`btn ${kind === 'primary' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => void card.onAction?.()}>
           {card.actionLabel}
         </button>
       );
     }
 
     return (
-      <Link className="btn btn-secondary" to={card.actionTo ?? '/'}>
+      <Link className={`btn ${kind === 'primary' ? 'btn-primary' : 'btn-secondary'}`} to={card.actionTo ?? '/'}>
         {card.actionLabel}
       </Link>
     );
@@ -348,9 +352,6 @@ export function HomePage() {
           <h1>{t('home_title')}</h1>
           <p>{t('home_subtitle')}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-          {t('home_open_folder')}
-        </button>
       </div>
 
       {config?.settings.showBeginnerGuide ? (
@@ -401,6 +402,19 @@ export function HomePage() {
             <p className="panel-subtitle">{t('home_next_subtitle')}</p>
           </div>
         </div>
+        {currentStep ? (
+          <div className="current-step-card">
+            <div className="section-head">
+              <div>
+                <h3>{t('home_now_title')}</h3>
+                <p className="panel-subtitle">{currentStep.title}</p>
+              </div>
+              <span className={`tone-badge ${currentStep.tone}`}>{toStatusLabel(currentStep.tone)}</span>
+            </div>
+            <p className="next-card-copy">{currentStep.detail}</p>
+            <div className="actions-row">{renderAction(currentStep, 'primary')}</div>
+          </div>
+        ) : null}
         <div className="next-grid">
           {nextCards.map((card) => (
             <article key={card.key} className={`next-card ${card.tone}`}>
@@ -409,7 +423,6 @@ export function HomePage() {
                 <span className={`tone-badge ${card.tone}`}>{toStatusLabel(card.tone)}</span>
               </div>
               <p className="next-card-copy">{card.detail}</p>
-              {renderCardAction(card)}
             </article>
           ))}
         </div>

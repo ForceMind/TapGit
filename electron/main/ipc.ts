@@ -28,6 +28,7 @@ import {
   uploadToCloud
 } from './git-service';
 import { getCurrentLogFilePath, logError, logInfo } from './logger';
+import { applyAppMenu } from './menu';
 
 function success<T>(data: T): Result<T> {
   return { ok: true, data };
@@ -139,7 +140,11 @@ export function registerIpcHandlers() {
   register<[], Awaited<ReturnType<typeof getConfig>>>(IPC_CHANNELS.GET_CONFIG, getConfig);
   register<[Parameters<TapGitBridge['updateSettings']>[0]], Awaited<ReturnType<typeof updateSettings>>>(
     IPC_CHANNELS.UPDATE_SETTINGS,
-    updateSettings
+    async (partial) => {
+      const settings = await updateSettings(partial);
+      applyAppMenu(settings.language);
+      return settings;
+    }
   );
   register<[], Awaited<ReturnType<typeof checkGitEnvironment>>>(
     IPC_CHANNELS.CHECK_GIT_ENVIRONMENT,
