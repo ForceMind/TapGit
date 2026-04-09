@@ -196,6 +196,61 @@ body {
   box-shadow: var(--shadow);
 }
 
+.journey-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journey-step {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid #dbe6ef;
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+}
+
+.journey-step.done {
+  border-color: #cfe3cf;
+  background: linear-gradient(160deg, #ffffff 0%, #f4fbf4 100%);
+}
+
+.journey-step.current {
+  border-color: #f0d4aa;
+  background:
+    radial-gradient(circle at top right, rgba(255, 180, 102, 0.16), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #fff8ef 100%);
+}
+
+.journey-step-index {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e7eff7;
+  color: #355070;
+  font-weight: 700;
+}
+
+.journey-step.done .journey-step-index {
+  background: #dff2df;
+  color: #2c6b3b;
+}
+
+.journey-step.current .journey-step-index {
+  background: #fff0d9;
+  color: #9a5a08;
+}
+
+.journey-step-copy {
+  min-width: 0;
+}
+
 .next-card {
   border-radius: 16px;
   border: 1px solid #dbe6ef;
@@ -332,6 +387,13 @@ body {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+}
+
+.list-button {
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  font: inherit;
 }
 
 .list-item:hover {

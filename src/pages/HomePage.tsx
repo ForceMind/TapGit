@@ -1,22 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
-import { toCloudStatusText, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
+import { toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
 import { getBridge, unwrapResult } from '../services/bridge';
-import { CloudSyncStatus } from '../shared/contracts';
 import { useAppStore } from '../stores/useAppStore';
 
-type HomeCardTone = 'ready' | 'attention' | 'waiting';
+type JourneyState = 'done' | 'current' | 'upcoming';
 
-interface HomeNextCard {
-  key: string;
+interface FocusAction {
   title: string;
   detail: string;
-  tone: HomeCardTone;
   actionLabel: string;
   actionType: 'link' | 'button';
   actionTo?: string;
   onAction?: () => Promise<void>;
+}
+
+interface JourneyStep {
+  key: string;
+  title: string;
+  detail: string;
+  state: JourneyState;
 }
 
 export function HomePage() {
@@ -24,8 +28,7 @@ export function HomePage() {
   const { openProjectFolder, openProjectByPath, enableProtection } = useAppActions();
   const { t } = useI18n();
   const [historyCount, setHistoryCount] = useState<number | null>(null);
-  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   async function hideBeginnerGuide() {
     try {
@@ -49,26 +52,26 @@ export function HomePage() {
       if (!project?.path || !project.isProtected) {
         if (!cancelled) {
           setHistoryCount(null);
-          setCloudStatus(null);
-          setOverviewLoading(false);
+          setHistoryLoading(false);
         }
         return;
       }
 
-      setOverviewLoading(true);
-
-      const [historyResult, cloudResult] = await Promise.allSettled([
-        unwrapResult(getBridge().listHistory(project.path)),
-        unwrapResult(getBridge().getCloudSyncStatus(project.path))
-      ]);
-
-      if (cancelled) {
-        return;
+      setHistoryLoading(true);
+      try {
+        const history = await unwrapResult(getBridge().listHistory(project.path));
+        if (!cancelled) {
+          setHistoryCount(history.length);
+        }
+      } catch {
+        if (!cancelled) {
+          setHistoryCount(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setHistoryLoading(false);
+        }
       }
-
-      setHistoryCount(historyResult.status === 'fulfilled' ? historyResult.value.length : null);
-      setCloudStatus(cloudResult.status === 'fulfilled' ? cloudResult.value : null);
-      setOverviewLoading(false);
     }
 
     void loadOverview();
@@ -78,271 +81,134 @@ export function HomePage() {
     };
   }, [project?.path, project?.isProtected, project?.pendingChangeCount, project?.currentPlan]);
 
-  const nextCards = useMemo<HomeNextCard[]>(() => {
-    const cards: HomeNextCard[] = [];
-
+  const focusAction = useMemo<FocusAction>(() => {
     if (!project) {
-      cards.push(
-        {
-          key: 'protection',
-          title: t('home_next_protection_title'),
-          detail: t('home_next_protection_no_project'),
-          tone: 'waiting',
-          actionLabel: t('home_next_open_project'),
-          actionType: 'button',
-          onAction: openProjectFolder
-        },
-        {
-          key: 'save',
-          title: t('home_next_save_title'),
-          detail: t('home_next_save_no_project'),
-          tone: 'waiting',
-          actionLabel: t('home_next_open_project'),
-          actionType: 'button',
-          onAction: openProjectFolder
-        },
-        {
-          key: 'history',
-          title: t('home_next_history_title'),
-          detail: t('home_next_history_no_project'),
-          tone: 'waiting',
-          actionLabel: t('home_next_open_project'),
-          actionType: 'button',
-          onAction: openProjectFolder
-        },
-        {
-          key: 'cloud',
-          title: t('home_next_cloud_title'),
-          detail: t('home_next_cloud_no_project'),
-          tone: 'waiting',
-          actionLabel: t('home_next_open_project'),
-          actionType: 'button',
-          onAction: openProjectFolder
-        }
-      );
-
-      return cards;
+      return {
+        title: t('home_focus_open_title'),
+        detail: t('home_focus_open_desc'),
+        actionLabel: t('home_next_open_project'),
+        actionType: 'button',
+        onAction: openProjectFolder
+      };
     }
 
     if (!project.isProtected) {
-      cards.push(
-        {
-          key: 'protection',
-          title: t('home_next_protection_title'),
-          detail: t('home_next_protection_enable'),
-          tone: 'attention',
-          actionLabel: t('home_next_enable_protection'),
-          actionType: 'button',
-          onAction: enableProtection
-        },
-        {
-          key: 'save',
-          title: t('home_next_save_title'),
-          detail: t('home_next_save_wait_protection'),
-          tone: 'waiting',
-          actionLabel: t('home_next_enable_protection'),
-          actionType: 'button',
-          onAction: enableProtection
-        },
-        {
-          key: 'history',
-          title: t('home_next_history_title'),
-          detail: t('home_next_history_wait_protection'),
-          tone: 'waiting',
-          actionLabel: t('home_next_enable_protection'),
-          actionType: 'button',
-          onAction: enableProtection
-        },
-        {
-          key: 'cloud',
-          title: t('home_next_cloud_title'),
-          detail: t('home_next_cloud_wait_protection'),
-          tone: 'waiting',
-          actionLabel: t('home_next_enable_protection'),
-          actionType: 'button',
-          onAction: enableProtection
-        }
-      );
-
-      return cards;
+      return {
+        title: t('home_focus_protect_title'),
+        detail: t('home_focus_protect_desc'),
+        actionLabel: t('home_next_enable_protection'),
+        actionType: 'button',
+        onAction: enableProtection
+      };
     }
 
-    cards.push({
-      key: 'protection',
-      title: t('home_next_protection_title'),
-      detail: t('home_next_protection_ready'),
-      tone: 'ready',
-      actionLabel: t('home_next_open_changes'),
+    if (project.pendingChangeCount > 0 || historyCount === 0) {
+      return {
+        title: t('home_focus_save_title'),
+        detail:
+          project.pendingChangeCount > 0
+            ? t('home_next_save_attention', { count: project.pendingChangeCount })
+            : t('home_focus_save_desc'),
+        actionLabel: t('home_next_open_changes'),
+        actionType: 'link',
+        actionTo: '/changes'
+      };
+    }
+
+    return {
+      title: t('home_focus_timeline_title'),
+      detail: t('home_focus_timeline_desc'),
+      actionLabel: t('home_next_open_timeline'),
       actionType: 'link',
-      actionTo: '/changes'
-    });
+      actionTo: '/timeline'
+    };
+  }, [enableProtection, historyCount, openProjectFolder, project, t]);
 
-    if (project.pendingChangeCount > 0) {
-      cards.push({
+  const journeySteps = useMemo<JourneyStep[]>(() => {
+    const hasProject = Boolean(project);
+    const isProtected = Boolean(project?.isProtected);
+    const hasHistory = (historyCount ?? 0) > 0;
+    const hasPending = (project?.pendingChangeCount ?? 0) > 0;
+
+    return [
+      {
+        key: 'open',
+        title: t('home_step_open_title'),
+        detail: hasProject
+          ? t('home_step_open_done', { name: project?.name ?? '' })
+          : t('home_step_open_wait'),
+        state: hasProject ? 'done' : 'current'
+      },
+      {
+        key: 'protect',
+        title: t('home_step_protect_title'),
+        detail: !hasProject
+          ? t('home_step_protect_wait')
+          : isProtected
+            ? t('home_step_protect_done')
+            : t('home_step_protect_current'),
+        state: !hasProject ? 'upcoming' : isProtected ? 'done' : 'current'
+      },
+      {
         key: 'save',
-        title: t('home_next_save_title'),
-        detail: t('home_next_save_attention', { count: project.pendingChangeCount }),
-        tone: 'attention',
-        actionLabel: t('home_next_open_changes'),
-        actionType: 'link',
-        actionTo: '/changes'
-      });
-    } else if (historyCount === 0) {
-      cards.push({
-        key: 'save',
-        title: t('home_next_save_title'),
-        detail: t('home_next_save_first'),
-        tone: 'attention',
-        actionLabel: t('home_next_open_changes'),
-        actionType: 'link',
-        actionTo: '/changes'
-      });
-    } else {
-      cards.push({
-        key: 'save',
-        title: t('home_next_save_title'),
-        detail: t('home_next_save_ready'),
-        tone: 'ready',
-        actionLabel: t('home_next_open_timeline'),
-        actionType: 'link',
-        actionTo: '/timeline'
-      });
-    }
+        title: t('home_step_save_title'),
+        detail: !isProtected
+          ? t('home_step_save_wait')
+          : hasPending
+            ? t('home_next_save_attention', { count: project?.pendingChangeCount ?? 0 })
+            : hasHistory
+              ? t('home_step_save_done')
+              : t('home_focus_save_desc'),
+        state: !isProtected ? 'upcoming' : hasPending || !hasHistory ? 'current' : 'done'
+      },
+      {
+        key: 'timeline',
+        title: t('home_step_timeline_title'),
+        detail: !hasHistory
+          ? t('home_step_timeline_wait')
+          : hasPending
+            ? t('home_focus_timeline_later')
+            : t('home_step_timeline_done', { count: historyCount ?? 0 }),
+        state: !hasHistory ? 'upcoming' : hasPending ? 'upcoming' : 'done'
+      },
+      {
+        key: 'ideas',
+        title: t('home_step_ideas_title'),
+        detail: hasHistory ? t('home_step_ideas_ready') : t('home_step_ideas_wait'),
+        state: hasHistory ? 'done' : 'upcoming'
+      }
+    ];
+  }, [historyCount, project, t]);
 
-    if (overviewLoading && historyCount === null) {
-      cards.push({
-        key: 'history',
-        title: t('home_next_history_title'),
-        detail: t('home_next_history_loading'),
-        tone: 'waiting',
-        actionLabel: t('home_next_open_timeline'),
-        actionType: 'link',
-        actionTo: '/timeline'
-      });
-    } else if (historyCount === 0) {
-      cards.push({
-        key: 'history',
-        title: t('home_next_history_title'),
-        detail: t('home_next_history_empty'),
-        tone: 'attention',
-        actionLabel: t('home_next_open_changes'),
-        actionType: 'link',
-        actionTo: '/changes'
-      });
-    } else if (historyCount !== null) {
-      cards.push({
-        key: 'history',
-        title: t('home_next_history_title'),
-        detail: t('home_next_history_ready', { count: historyCount ?? 0 }),
-        tone: 'ready',
-        actionLabel: t('home_next_open_timeline'),
-        actionType: 'link',
-        actionTo: '/timeline'
-      });
-    } else {
-      cards.push({
-        key: 'history',
-        title: t('home_next_history_title'),
-        detail: t('home_next_history_loading'),
-        tone: 'waiting',
-        actionLabel: t('home_next_open_timeline'),
-        actionType: 'link',
-        actionTo: '/timeline'
-      });
-    }
-
-    if (overviewLoading && !cloudStatus) {
-      cards.push({
-        key: 'cloud',
-        title: t('home_next_cloud_title'),
-        detail: t('home_next_cloud_loading'),
-        tone: 'waiting',
-        actionLabel: t('home_next_open_settings'),
-        actionType: 'link',
-        actionTo: '/settings'
-      });
-    } else if (!cloudStatus || !cloudStatus.connected) {
-      cards.push({
-        key: 'cloud',
-        title: t('home_next_cloud_title'),
-        detail: t('home_next_cloud_connect'),
-        tone: 'attention',
-        actionLabel: t('home_next_open_settings'),
-        actionType: 'link',
-        actionTo: '/settings'
-      });
-    } else if (!cloudStatus.hasTracking) {
-      cards.push({
-        key: 'cloud',
-        title: t('home_next_cloud_title'),
-        detail: t('home_next_cloud_upload_first'),
-        tone: 'attention',
-        actionLabel: t('home_next_open_settings'),
-        actionType: 'link',
-        actionTo: '/settings'
-      });
-    } else if (cloudStatus.pendingUpload > 0 || cloudStatus.pendingDownload > 0) {
-      cards.push({
-        key: 'cloud',
-        title: t('home_next_cloud_title'),
-        detail: toCloudStatusText(cloudStatus, t),
-        tone: 'attention',
-        actionLabel: t('home_next_open_settings'),
-        actionType: 'link',
-        actionTo: '/settings'
-      });
-    } else {
-      cards.push({
-        key: 'cloud',
-        title: t('home_next_cloud_title'),
-        detail: t('home_next_cloud_ready'),
-        tone: 'ready',
-        actionLabel: t('home_next_open_settings'),
-        actionType: 'link',
-        actionTo: '/settings'
-      });
-    }
-
-    return cards;
-  }, [
-    cloudStatus,
-    enableProtection,
-    historyCount,
-    openProjectFolder,
-    overviewLoading,
-    project,
-    t
-  ]);
-
-  const currentStep = useMemo(() => {
-    return nextCards.find((card) => card.tone === 'attention') ?? nextCards[0] ?? null;
-  }, [nextCards]);
-
-  function renderAction(card: HomeNextCard, kind: 'primary' | 'secondary' = 'secondary') {
-    if (card.actionType === 'button') {
+  function renderFocusAction() {
+    if (focusAction.actionType === 'button') {
       return (
-        <button className={`btn ${kind === 'primary' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => void card.onAction?.()}>
-          {card.actionLabel}
+        <button className="btn btn-primary" onClick={() => void focusAction.onAction?.()}>
+          {focusAction.actionLabel}
         </button>
       );
     }
 
     return (
-      <Link className={`btn ${kind === 'primary' ? 'btn-primary' : 'btn-secondary'}`} to={card.actionTo ?? '/'}>
-        {card.actionLabel}
+      <Link className="btn btn-primary" to={focusAction.actionTo ?? '/'}>
+        {focusAction.actionLabel}
       </Link>
     );
   }
 
-  function toStatusLabel(tone: HomeCardTone) {
-    switch (tone) {
-      case 'attention':
-        return t('home_next_status_attention');
-      case 'ready':
-        return t('home_next_status_ready');
+  function toJourneyStateLabel(state: JourneyState) {
+    switch (state) {
+      case 'done':
+        return t('home_step_state_done');
+      case 'current':
+        return t('home_step_state_current');
       default:
-        return t('home_next_status_waiting');
+        return t('home_step_state_upcoming');
     }
+  }
+
+  function recentProjectName(projectPath: string) {
+    return projectPath.split(/[\\/]/).pop() || projectPath;
   }
 
   return (
@@ -357,7 +223,10 @@ export function HomePage() {
       {config?.settings.showBeginnerGuide ? (
         <section className="panel guide-card">
           <div className="section-head">
-            <h2>{t('home_guide_title')}</h2>
+            <div>
+              <h2>{t('home_guide_title')}</h2>
+              <p className="panel-subtitle">{t('home_guide_summary')}</p>
+            </div>
             <button className="btn btn-secondary" onClick={() => void hideBeginnerGuide()}>
               {t('home_guide_close')}
             </button>
@@ -402,27 +271,32 @@ export function HomePage() {
             <p className="panel-subtitle">{t('home_next_subtitle')}</p>
           </div>
         </div>
-        {currentStep ? (
-          <div className="current-step-card">
-            <div className="section-head">
-              <div>
-                <h3>{t('home_now_title')}</h3>
-                <p className="panel-subtitle">{currentStep.title}</p>
-              </div>
-              <span className={`tone-badge ${currentStep.tone}`}>{toStatusLabel(currentStep.tone)}</span>
+
+        <div className="current-step-card">
+          <div className="section-head">
+            <div>
+              <h3>{t('home_now_title')}</h3>
+              <p className="panel-subtitle">{focusAction.title}</p>
             </div>
-            <p className="next-card-copy">{currentStep.detail}</p>
-            <div className="actions-row">{renderAction(currentStep, 'primary')}</div>
+            <span className="tone-badge attention">{t('home_step_state_current')}</span>
           </div>
-        ) : null}
-        <div className="next-grid">
-          {nextCards.map((card) => (
-            <article key={card.key} className={`next-card ${card.tone}`}>
-              <div className="section-head">
-                <h3>{card.title}</h3>
-                <span className={`tone-badge ${card.tone}`}>{toStatusLabel(card.tone)}</span>
+          <p className="next-card-copy">{focusAction.detail}</p>
+          <div className="actions-row">{renderFocusAction()}</div>
+        </div>
+
+        <div className="journey-list">
+          {journeySteps.map((step, index) => (
+            <article key={step.key} className={`journey-step ${step.state}`}>
+              <div className="journey-step-index">{index + 1}</div>
+              <div className="journey-step-copy">
+                <div className="section-head">
+                  <h3>{step.title}</h3>
+                  <span className={`tone-badge ${step.state === 'done' ? 'ready' : step.state === 'current' ? 'attention' : 'waiting'}`}>
+                    {toJourneyStateLabel(step.state)}
+                  </span>
+                </div>
+                <p className="next-card-copy">{step.detail}</p>
               </div>
-              <p className="next-card-copy">{card.detail}</p>
             </article>
           ))}
         </div>
@@ -436,13 +310,12 @@ export function HomePage() {
           ) : (
             <ul className="list">
               {config.recentProjects.map((item) => (
-                <li key={item} className="list-item">
-                  <div>
-                    <div className="item-title">{item.split(/[\\/]/).pop()}</div>
-                    <div className="item-subtle">{item}</div>
-                  </div>
-                  <button className="btn btn-secondary" onClick={() => void openProjectByPath(item)}>
-                    {t('home_open')}
+                <li key={item}>
+                  <button className="list-button list-item" onClick={() => void openProjectByPath(item)}>
+                    <div>
+                      <div className="item-title">{recentProjectName(item)}</div>
+                      <div className="item-subtle">{item}</div>
+                    </div>
                   </button>
                 </li>
               ))}
@@ -474,16 +347,13 @@ export function HomePage() {
                 <span className="status-label">{t('home_label_unsaved_changes')}</span>
                 <strong>{t('common_file_unit', { count: project.pendingChangeCount })}</strong>
               </div>
-              <div className="quick-actions">
-                <Link className="btn btn-secondary" to="/changes">
-                  {t('home_action_view_changes')}
-                </Link>
-                <Link className="btn btn-secondary" to="/timeline">
-                  {t('home_action_view_timeline')}
-                </Link>
-                <Link className="btn btn-secondary" to="/plans">
-                  {t('home_action_manage_plans')}
-                </Link>
+              <div>
+                <span className="status-label">{t('home_label_saved_records')}</span>
+                <strong>
+                  {historyLoading
+                    ? t('home_history_loading_short')
+                    : t('common_record_unit', { count: historyCount ?? 0 })}
+                </strong>
               </div>
             </div>
           )}

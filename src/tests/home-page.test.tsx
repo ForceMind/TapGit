@@ -167,13 +167,11 @@ describe('HomePage', () => {
     expect(
       (await screen.findAllByText('You currently have 3 unsaved files. Save once to keep a stable point.')).length
     ).toBeGreaterThan(0);
-    expect(
-      screen.getByText('Connect a cloud address when you want a backup outside this device.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Try a new idea safely')).toBeInTheDocument();
+    expect(screen.getByText('This step unlocks after you save your first stable point.')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
-      expect(bridge.getCloudSyncStatus).toHaveBeenCalledWith('E:/demo/project-a');
     });
   });
 });
