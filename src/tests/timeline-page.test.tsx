@@ -123,6 +123,8 @@ describe('TimelinePage', () => {
 
     renderTimelinePage('en-US');
 
+    expect(await screen.findByText('Go Back Safely')).toBeInTheDocument();
+    expect(screen.getByText('Saved Points')).toBeInTheDocument();
     expect(await screen.findByText('Safety Backups')).toBeInTheDocument();
     expect(screen.getAllByText('Created before restore').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Before trying the older version').length).toBeGreaterThan(0);
