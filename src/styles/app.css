@@ -318,6 +318,55 @@ body {
   gap: 18px;
 }
 
+.project-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 18px;
+  align-items: start;
+  padding: 22px;
+}
+
+.project-dashboard-main {
+  min-width: 0;
+}
+
+.project-dashboard-summary {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.project-task-panel {
+  border-radius: 18px;
+  border: 1px solid #dbe8ef;
+  background:
+    radial-gradient(circle at top right, rgba(17, 121, 121, 0.12), transparent 35%),
+    linear-gradient(160deg, #ffffff 0%, #f5fbfb 100%);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.project-task-panel h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.project-task-panel p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.project-workbench {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 14px;
+}
+
 .project-overview-panel {
   padding: 22px;
 }
@@ -1715,8 +1764,11 @@ pre {
   .home-entry-grid,
   .journey-grid,
   .workspace-grid,
+  .project-workbench,
   .project-stats-row,
-  .project-overview-head {
+  .project-overview-head,
+  .project-dashboard,
+  .project-dashboard-summary {
     grid-template-columns: 1fr;
   }
 
@@ -1742,7 +1794,9 @@ pre {
 
   .hero-summary,
   .workspace-grid,
+  .project-workbench,
   .project-stats-row,
+  .project-dashboard-summary,
   .changes-hero-metrics,
   .settings-hero-metrics,
   .timeline-hero-metrics,
@@ -1752,6 +1806,10 @@ pre {
   }
 
   .project-primary-card {
+    padding: 16px;
+  }
+
+  .project-task-panel {
     padding: 16px;
   }
 }

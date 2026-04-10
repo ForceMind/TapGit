@@ -100,10 +100,10 @@ describe('HomePage', () => {
 
     renderHomePage('zh-CN');
 
-    expect(screen.getByText('先选一个项目开始')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '打开本地项目' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '从 GitHub 获取项目' })).toBeInTheDocument();
-    expect(screen.getByText('最近项目')).toBeInTheDocument();
+    expect(screen.getByText('\u5148\u9009\u4e00\u4e2a\u9879\u76ee\u5f00\u59cb')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '\u6253\u5f00\u672c\u5730\u9879\u76ee' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '\u4ece GitHub \u83b7\u53d6\u9879\u76ee' })).toBeInTheDocument();
+    expect(screen.getByText('\u6700\u8fd1\u9879\u76ee')).toBeInTheDocument();
   });
 
   it('opens the GitHub import flow from the primary entry card', async () => {
@@ -136,7 +136,7 @@ describe('HomePage', () => {
     expect(openCloneProjectDialog).toHaveBeenCalledTimes(1);
   });
 
-  it('shows one clear next step after a project is already open', async () => {
+  it('shows a project dashboard with one clear next step after a project is already open', async () => {
     const bridge = createBridgeMock();
     bridge.listHistory.mockResolvedValue({ ok: true, data: [] });
     window.tapgit = bridge as never;
@@ -166,7 +166,11 @@ describe('HomePage', () => {
     renderHomePage('en-US');
 
     expect(screen.getByText('project-a')).toBeInTheDocument();
-    expect(screen.getByText('Save a stable point before you keep going')).toBeInTheDocument();
+    expect(screen.getByText('Current Project')).toBeInTheDocument();
+    expect(screen.getByText('Save this work first')).toBeInTheDocument();
+    expect(screen.getByText('Current copy')).toBeInTheDocument();
+    expect(screen.getByText('Unsaved')).toBeInTheDocument();
+    expect(screen.getByText('Saved points')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review Changes' })).toBeInTheDocument();
     expect(screen.getByText('Changes')).toBeInTheDocument();
     expect(screen.getByText('History')).toBeInTheDocument();

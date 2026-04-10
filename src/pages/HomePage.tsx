@@ -6,7 +6,7 @@ import { useProjectHistoryCount } from '../app/use-project-history-count';
 import { toPlanLabel, useI18n } from '../i18n';
 import { useAppStore } from '../stores/useAppStore';
 
-type WorkspaceCardTone = 'ready' | 'attention' | 'locked';
+type WorkspaceTone = 'ready' | 'attention' | 'locked';
 
 interface FocusAction {
   title: string;
@@ -17,14 +17,13 @@ interface FocusAction {
   onAction?: () => Promise<void>;
 }
 
-interface WorkspaceCard {
+interface WorkspaceTile {
   key: 'changes' | 'timeline' | 'plans';
   title: string;
-  metric?: string;
-  detail: string;
-  actionLabel?: string;
+  metric: string;
+  summary: string;
   actionTo?: string;
-  tone: WorkspaceCardTone;
+  tone: WorkspaceTone;
 }
 
 export function HomePage() {
@@ -38,6 +37,7 @@ export function HomePage() {
   );
   const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
+
   const projectStats = useMemo(() => {
     if (!project) {
       return [];
@@ -46,7 +46,7 @@ export function HomePage() {
     return [
       {
         key: 'plan',
-        label: t('home_label_current_plan'),
+        label: copy('\u5f53\u524d\u526f\u672c', 'Current copy'),
         value: toPlanLabel(
           project.currentPlan,
           project.currentPlan === 'main' || project.currentPlan === 'master',
@@ -55,63 +55,78 @@ export function HomePage() {
       },
       {
         key: 'changes',
-        label: t('home_label_unsaved_changes'),
+        label: copy('\u672a\u4fdd\u5b58\u4fee\u6539', 'Unsaved'),
         value:
           project.pendingChangeCount > 0
             ? t('common_file_unit', { count: project.pendingChangeCount })
-            : copy('当前很干净', 'Clean')
+            : copy('\u5f88\u5e72\u51c0', 'Clean')
       },
       {
         key: 'history',
-        label: t('home_label_saved_records'),
+        label: copy('\u5df2\u4fdd\u5b58\u7248\u672c', 'Saved points'),
         value: historyLoading
-          ? t('home_history_loading_short')
+          ? copy('\u6b63\u5728\u8bfb\u53d6', 'Loading')
           : t('common_record_unit', { count: historyCount ?? 0 })
       }
     ];
-  }, [historyCount, historyLoading, project, t]);
+  }, [copy, historyCount, historyLoading, project, t]);
 
   const focusAction = useMemo<FocusAction>(() => {
     switch (primaryTaskKey) {
       case 'open':
         return {
-          title: t('home_focus_open_title'),
-          detail: t('home_focus_open_desc'),
+          title: copy('\u6253\u5f00\u4e00\u4e2a\u9879\u76ee', 'Open a project'),
+          detail: copy(
+            '\u5148\u9009\u62e9\u4e00\u4e2a\u9879\u76ee\u6587\u4ef6\u5939\uff0c\u6211\u4eec\u518d\u5e2e\u4f60\u7ee7\u7eed\u3002',
+            'Choose a project folder first, then continue from there.'
+          ),
           actionLabel: t('home_next_open_project'),
           actionType: 'button',
           onAction: openProjectFolder
         };
       case 'protect':
         return {
-          title: t('home_focus_protect_title'),
-          detail: t('home_focus_protect_desc'),
+          title: copy('\u5148\u6253\u5f00\u7248\u672c\u4fdd\u62a4', 'Turn on protection first'),
+          detail: copy(
+            '\u6709\u4e86\u7248\u672c\u4fdd\u62a4\uff0c\u8fd9\u4e2a\u9879\u76ee\u624d\u80fd\u5b89\u5168\u4fdd\u5b58\u3001\u6062\u590d\u548c\u540c\u6b65\u3002',
+            'Protection is what makes saving, restoring, and syncing safe.'
+          ),
           actionLabel: t('home_next_enable_protection'),
           actionType: 'button',
           onAction: enableProtection
         };
       case 'save':
         return {
-          title: t('home_focus_save_title'),
+          title: copy('\u5148\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c', 'Save this work first'),
           detail:
             (project?.pendingChangeCount ?? 0) > 0
-              ? t('home_next_save_attention', { count: project?.pendingChangeCount ?? 0 })
-              : t('home_focus_save_desc'),
-          actionLabel: t('home_next_open_changes'),
+              ? copy(
+                  `\u8fd9\u4e2a\u9879\u76ee\u8fd8\u6709 ${project?.pendingChangeCount ?? 0} \u4e2a\u6587\u4ef6\u6ca1\u6709\u4fdd\u5b58\u3002`,
+                  `${project?.pendingChangeCount ?? 0} files are waiting to be saved.`
+                )
+              : copy(
+                  '\u5148\u7559\u4e0b\u7b2c\u4e00\u4e2a\u53ef\u56de\u5230\u7684\u4fdd\u5b58\u70b9\u3002',
+                  'Create the first safe point before you keep going.'
+                ),
+          actionLabel: copy('\u53bb\u770b\u4fee\u6539', 'Review Changes'),
           actionType: 'link',
           actionTo: '/changes'
         };
       default:
         return {
-          title: t('home_focus_timeline_title'),
-          detail: t('home_focus_timeline_desc'),
-          actionLabel: t('home_next_open_timeline'),
+          title: copy('\u73b0\u5728\u53ef\u4ee5\u5f80\u540e\u8d70\u4e86', 'You can move forward now'),
+          detail: copy(
+            '\u8fd9\u4e2a\u9879\u76ee\u5df2\u7ecf\u6709\u53ef\u56de\u5230\u7684\u4fdd\u5b58\u70b9\u3002',
+            'This project already has saved points you can return to.'
+          ),
+          actionLabel: copy('\u6253\u5f00\u5386\u53f2', 'Open History'),
           actionType: 'link',
           actionTo: '/timeline'
         };
     }
-  }, [enableProtection, openProjectFolder, primaryTaskKey, project?.pendingChangeCount, t]);
+  }, [copy, enableProtection, openProjectFolder, primaryTaskKey, project?.pendingChangeCount, t]);
 
-  const workspaceCards = useMemo<WorkspaceCard[]>(() => {
+  const workspaceTiles = useMemo<WorkspaceTile[]>(() => {
     if (!project) {
       return [];
     }
@@ -122,42 +137,47 @@ export function HomePage() {
     return [
       {
         key: 'changes',
-        title: copy('修改', 'Changes'),
-        metric: t('common_file_unit', { count: pendingCount }),
-        detail: !project.isProtected
-          ? copy('先开启版本保护。', 'Turn on protection first.')
+        title: copy('\u4fee\u6539', 'Changes'),
+        metric: project.isProtected
+          ? pendingCount > 0
+            ? t('common_file_unit', { count: pendingCount })
+            : copy('\u5df2\u7ecf\u5e72\u51c0', 'Clean')
+          : copy('\u672a\u5f00\u542f', 'Locked'),
+        summary: !project.isProtected
+          ? copy('\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4\u3002', 'Turn on protection first.')
           : pendingCount > 0
-            ? copy(`${pendingCount} 个文件正在等你处理。`, `${pendingCount} files are waiting for you.`)
-            : copy('现在没有要保存的修改。', 'Nothing to save right now.'),
-        actionLabel: project.isProtected ? copy('打开修改', 'Open Changes') : undefined,
+            ? copy('\u8fd9\u91cc\u662f\u4f60\u8fd9\u6b21\u7684\u5de5\u4f5c\u533a\u3002', 'This is where the current work waits.')
+            : copy('\u6682\u65f6\u6ca1\u6709\u9700\u8981\u4fdd\u5b58\u7684\u4fee\u6539\u3002', 'Nothing is waiting right now.'),
         actionTo: project.isProtected ? '/changes' : undefined,
         tone: !project.isProtected ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
       },
       {
         key: 'timeline',
-        title: copy('历史', 'History'),
+        title: copy('\u5386\u53f2', 'History'),
         metric: historyLoading
-          ? t('home_history_loading_short')
+          ? copy('\u6b63\u5728\u8bfb\u53d6', 'Loading')
           : t('common_record_unit', { count: historyCount ?? 0 }),
-        detail: historyLoading
-          ? copy('正在检查保存记录。', 'Checking your saved points.')
+        summary: historyLoading
+          ? copy('\u6b63\u5728\u6574\u7406\u4f60\u7684\u4fdd\u5b58\u70b9\u3002', 'Checking your saved points.')
           : hasHistory
-            ? copy('你的保存记录都在这里。', 'Review or restore any saved point.')
-            : copy('先保存一次，再来看历史。', 'Save once to unlock history.'),
-        actionLabel: hasHistory ? copy('打开历史', 'Open History') : undefined,
+            ? copy('\u4ece\u8fd9\u91cc\u56de\u770b\u6216\u6062\u590d\u4efb\u4f55\u4e00\u6b21\u4fdd\u5b58\u3002', 'Review or restore any saved point here.')
+            : copy('\u5148\u4fdd\u5b58\u4e00\u6b21\uff0c\u8fd9\u91cc\u624d\u4f1a\u6253\u5f00\u3002', 'Save once to unlock this area.'),
         actionTo: hasHistory ? '/timeline' : undefined,
         tone: historyLoading ? 'locked' : hasHistory ? 'ready' : 'locked'
       },
       {
         key: 'plans',
-        title: copy('试验区', 'Idea Lab'),
-        metric: pendingCount > 0 ? t('common_file_unit', { count: pendingCount }) : undefined,
-        detail: !hasHistory
-          ? copy('先有一个稳定保存点，再开启试验区。', 'Save once before opening the idea lab.')
+        title: copy('\u8bd5\u9a8c\u533a', 'Idea Lab'),
+        metric: !hasHistory
+          ? copy('\u9700\u8981\u7b2c\u4e00\u6b21\u4fdd\u5b58', 'Need first save')
           : pendingCount > 0
-            ? copy('先保存当前修改，再开始试验。', 'Save current changes before starting an idea copy.')
-            : copy('在单独副本里安全试新想法。', 'Use a separate copy for risky edits.'),
-        actionLabel: hasHistory && pendingCount === 0 ? copy('打开试验区', 'Open Idea Lab') : undefined,
+            ? copy('\u5148\u4fdd\u5b58\u5f53\u524d\u5de5\u4f5c', 'Save work first')
+            : copy('\u53ef\u4ee5\u5f00\u59cb', 'Ready'),
+        summary: !hasHistory
+          ? copy('\u6709\u4e86\u7a33\u5b9a\u7248\u672c\u540e\uff0c\u518d\u6765\u8fd9\u91cc\u5b89\u5168\u8bd5\u65b0\u60f3\u6cd5\u3002', 'Come here after the first stable save.')
+          : pendingCount > 0
+            ? copy('\u5148\u628a\u624b\u4e0a\u8fd9\u6279\u6539\u52a8\u6536\u597d\uff0c\u518d\u5f00\u8bd5\u9a8c\u526f\u672c\u3002', 'Save current work before starting an experiment.')
+            : copy('\u5728\u5355\u72ec\u526f\u672c\u91cc\u6162\u6162\u8bd5\uff0c\u4e0d\u6253\u4e71\u7a33\u5b9a\u7248\u672c\u3002', 'Try ideas in a separate copy without disturbing the stable version.'),
         actionTo: hasHistory && pendingCount === 0 ? '/plans' : undefined,
         tone: !hasHistory ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
       }
@@ -184,28 +204,30 @@ export function HomePage() {
     return projectPath.split(/[\\/]/).pop() || projectPath;
   }
 
-  function renderWorkspaceCard(card: WorkspaceCard) {
+  function renderWorkspaceTile(tile: WorkspaceTile) {
     const content = (
       <>
         <div className="workspace-card-head">
-          <h3>{card.title}</h3>
-          {card.metric ? <span className={`workspace-card-metric ${card.tone}`}>{card.metric}</span> : null}
+          <h3>{tile.title}</h3>
+          <span className={`workspace-card-metric ${tile.tone}`}>{tile.metric}</span>
         </div>
-        <p>{card.detail}</p>
-        {card.actionLabel ? <span className="workspace-card-action">{card.actionLabel}</span> : null}
+        <p>{tile.summary}</p>
+        <span className="workspace-card-action">
+          {tile.actionTo ? copy('\u6253\u5f00', 'Open') : copy('\u7a0d\u540e', 'Later')}
+        </span>
       </>
     );
 
-    if (card.actionTo) {
+    if (tile.actionTo) {
       return (
-        <Link key={card.key} className={`workspace-card ${card.tone}`} to={card.actionTo}>
+        <Link key={tile.key} className={`workspace-card ${tile.tone}`} to={tile.actionTo}>
           {content}
         </Link>
       );
     }
 
     return (
-      <article key={card.key} className={`workspace-card ${card.tone} is-disabled`}>
+      <article key={tile.key} className={`workspace-card ${tile.tone} is-disabled`}>
         {content}
       </article>
     );
@@ -270,31 +292,31 @@ export function HomePage() {
 
   return (
     <div className="page project-home-page">
-      <section className="panel project-overview-panel">
-        <div className="project-overview-head">
-          <div className="project-overview-copy">
-            <h1 className="project-overview-title">{project.name}</h1>
-            <p className="project-overview-path">{project.path}</p>
-          </div>
-          <div className="project-primary-card">
-            <span className="project-primary-label">{t('home_now_title')}</span>
-            <h2>{focusAction.title}</h2>
-            <p>{focusAction.detail}</p>
-            <div className="actions-row">{renderFocusAction()}</div>
+      <section className="panel project-dashboard">
+        <div className="project-dashboard-main">
+          <span className="pill">{copy('\u5f53\u524d\u9879\u76ee', 'Current Project')}</span>
+          <h1 className="project-overview-title">{project.name}</h1>
+          <p className="project-overview-path">{project.path}</p>
+          <div className="project-dashboard-summary">
+            {projectStats.map((item) => (
+              <article key={item.key} className="project-stat-card">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </article>
+            ))}
           </div>
         </div>
-        <div className="project-stats-row">
-          {projectStats.map((item) => (
-            <article key={item.key} className="project-stat-card">
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </article>
-          ))}
+
+        <div className="project-task-panel">
+          <span className="project-primary-label">{copy('\u73b0\u5728\u5148\u505a\u8fd9\u4ef6\u4e8b', 'Do This Now')}</span>
+          <h2>{focusAction.title}</h2>
+          <p>{focusAction.detail}</p>
+          <div className="actions-row">{renderFocusAction()}</div>
         </div>
       </section>
 
-      <section className="workspace-grid">
-        {workspaceCards.map((card) => renderWorkspaceCard(card))}
+      <section className="project-workbench">
+        {workspaceTiles.map((tile) => renderWorkspaceTile(tile))}
       </section>
     </div>
   );
