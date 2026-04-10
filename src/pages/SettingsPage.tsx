@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   toCloudAdvice,
   toCloudStatusText,
@@ -7,25 +7,18 @@ import {
   toPlanLabel,
   useI18n
 } from '../i18n';
+import { useAppActions } from '../app/app-context';
 import { BridgeError, getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
 import {
   AppLanguagePreference,
   CloudConnectionTestResult,
   CloudSyncStatus,
-  GitHubAuthStatus,
-  GitEnvironment
+  GitEnvironment,
+  GitHubAuthStatus
 } from '../shared/contracts';
 
 type CloudPlatform = 'github' | 'gitlab' | 'custom';
-
-type CloudGuideStatus = 'done' | 'current' | 'upcoming';
-
-interface CloudGuideStep {
-  key: string;
-  label: string;
-  status: CloudGuideStatus;
-}
 
 interface CloudProviderLinks {
   signInUrl?: string;
@@ -35,7 +28,8 @@ interface CloudProviderLinks {
 
 export function SettingsPage() {
   const { project, config, setConfig, setNotice } = useAppStore();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const { openProjectFolder, enableProtection } = useAppActions();
   const [gitEnv, setGitEnv] = useState<GitEnvironment | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus | null>(null);
   const [remoteUrlInput, setRemoteUrlInput] = useState('');
@@ -48,6 +42,9 @@ export function SettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [authWorking, setAuthWorking] = useState(false);
   const [githubAuthStatus, setGitHubAuthStatus] = useState<GitHubAuthStatus | null>(null);
+
+  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
+  const projectReadyForCloud = Boolean(project?.isProtected);
 
   const providerLinks: CloudProviderLinks = (() => {
     const repoName = cloudRepo.trim().replace(/\.git$/i, '');
@@ -81,45 +78,58 @@ export function SettingsPage() {
     return {};
   })();
 
-  const cloudGuideSteps: CloudGuideStep[] = (() => {
-    const firstUndone = (() => {
-      if (!project) return 'open_project';
-      if (!project.isProtected) return 'enable_protection';
-      if (!cloudStatus?.connected) return 'connect_cloud';
-      if (!cloudStatus.hasTracking) return 'upload_first';
-      return 'keep_synced';
-    })();
+  const heroTitle = project
+    ? copy(`${project.name} \u7684\u540c\u6b65`, `${project.name} Sync`)
+    : copy('\u4e91\u7aef\u4e0e\u5e94\u7528', 'Cloud & App');
 
-    const order = [
-      { key: 'open_project', label: t('settings_cloud_next_open_project') },
-      { key: 'enable_protection', label: t('settings_cloud_next_enable_protection') },
-      { key: 'connect_cloud', label: t('settings_cloud_next_connect') },
-      { key: 'upload_first', label: t('settings_cloud_next_upload_first') },
-      { key: 'keep_synced', label: t('settings_cloud_next_keep_synced') }
-    ];
+  const heroDescription = !project
+    ? copy(
+        '\u5148\u6253\u5f00\u4e00\u4e2a\u9879\u76ee\uff0c\u518d\u51b3\u5b9a\u8981\u4e0d\u8981\u628a\u5b83\u8fde\u5230 GitHub \u6216\u5176\u4ed6\u4e91\u7aef\u3002',
+        'Open a project first, then decide whether to connect it to GitHub or another cloud.'
+      )
+    : !project.isProtected
+      ? copy(
+          '\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4\uff0c\u8fd9\u4e2a\u9879\u76ee\u624d\u80fd\u5b89\u5168\u5730\u4e0a\u4f20\u3001\u83b7\u53d6\u548c\u6062\u590d\u3002',
+          'Turn on protection first so this project can upload, receive updates, and recover safely.'
+        )
+      : copy(
+          '\u5148\u770b\u8fd9\u4e2a\u9879\u76ee\u6709\u6ca1\u6709\u8fde\u4e0a\u4e91\u7aef\uff0c\u518d\u51b3\u5b9a\u73b0\u5728\u8981\u4e0a\u4f20\u8fd8\u662f\u83b7\u53d6\u6700\u65b0\u5185\u5bb9\u3002',
+          'Check whether this project is connected, then decide whether to upload your latest work or get updates from the cloud.'
+        );
 
-    let currentFound = false;
-    return order.map((item) => {
-      const done =
-        (item.key === 'open_project' && Boolean(project)) ||
-        (item.key === 'enable_protection' && Boolean(project?.isProtected)) ||
-        (item.key === 'connect_cloud' && Boolean(project?.isProtected && cloudStatus?.connected)) ||
-        (item.key === 'upload_first' && Boolean(cloudStatus?.hasTracking)) ||
-        (item.key === 'keep_synced' &&
-          Boolean(cloudStatus?.connected && cloudStatus.hasTracking && cloudStatus.pendingUpload === 0 && cloudStatus.pendingDownload === 0));
+  const connectionStateLabel = !project
+    ? copy('\u5148\u6253\u5f00\u9879\u76ee', 'Open a project first')
+    : !project.isProtected
+      ? copy('\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4', 'Turn on protection first')
+      : !cloudStatus
+        ? copy('\u6b63\u5728\u68c0\u67e5', 'Checking')
+        : cloudStatus.connected
+          ? copy('\u5df2\u8fde\u63a5', 'Connected')
+          : copy('\u8fd8\u6ca1\u8fde\u4e0a', 'Not connected yet');
 
-      if (done) {
-        return { ...item, status: 'done' satisfies CloudGuideStatus };
-      }
+  const syncStateLabel = !projectReadyForCloud
+    ? copy('\u6682\u672a\u5c31\u7eea', 'Not ready yet')
+    : !cloudStatus?.connected
+      ? copy('\u9700\u8981\u5148\u8fde\u63a5', 'Connect first')
+      : cloudStatus.pendingUpload > 0
+        ? copy('\u6709\u65b0\u8fdb\u5ea6\u53ef\u4e0a\u4f20', 'Ready to upload')
+        : cloudStatus.pendingDownload > 0
+          ? copy('\u4e91\u7aef\u6709\u66f4\u65b0', 'Updates are waiting')
+          : copy('\u5df2\u7ecf\u540c\u6b65', 'Already in sync');
 
-      if (!currentFound && item.key === firstUndone) {
-        currentFound = true;
-        return { ...item, status: 'current' satisfies CloudGuideStatus };
-      }
+  const syncSummary = !projectReadyForCloud
+    ? copy('\u5148\u628a\u9879\u76ee\u51c6\u5907\u597d\uff0c\u4e91\u7aef\u529f\u80fd\u624d\u4f1a\u6253\u5f00\u3002', 'Prepare the project first to unlock cloud sync.')
+    : !cloudStatus?.connected
+      ? copy('\u8fde\u4e0a\u4e91\u7aef\u540e\uff0c\u5c31\u80fd\u628a\u672c\u5730\u8fdb\u5ea6\u4f20\u4e0a\u53bb\uff0c\u6216\u62ff\u5230\u4e91\u7aef\u7684\u6700\u65b0\u7248\u672c\u3002', 'Once connected, you can upload local progress or get the latest version from the cloud.')
+      : toCloudStatusText(cloudStatus, t);
 
-      return { ...item, status: 'upcoming' satisfies CloudGuideStatus };
-    });
-  })();
+  const activeGitHubAccount = githubAuthStatus?.activeAccount ?? githubAuthStatus?.accounts[0] ?? null;
+
+  const providerLabel = useMemo(() => {
+    if (cloudPlatform === 'github') return 'GitHub';
+    if (cloudPlatform === 'gitlab') return 'GitLab';
+    return copy('\u5176\u4ed6\u4ed3\u5e93', 'Other Remote');
+  }, [cloudPlatform, locale]);
 
   async function loadGitEnvironment() {
     setChecking(true);
@@ -136,15 +146,12 @@ export function SettingsPage() {
     }
   }
 
-  useEffect(() => {
-    void loadGitEnvironment();
-  }, []);
-
   async function loadCloudStatus() {
     if (!project?.path || !project.isProtected) {
       setCloudStatus(null);
       return;
     }
+
     try {
       const status = await unwrapResult(getBridge().getCloudSyncStatus(project.path));
       setCloudStatus(status);
@@ -188,29 +195,41 @@ export function SettingsPage() {
     }
   }
 
+  useEffect(() => {
+    void loadGitEnvironment();
+  }, []);
+
+  useEffect(() => {
+    void loadCloudStatus();
+  }, [project?.path, project?.isProtected]);
+
+  useEffect(() => {
+    void loadGitHubAuthStatus();
+  }, [cloudPlatform]);
+
   function buildCloudUrl(platform: CloudPlatform, owner: string, repo: string) {
     const o = owner.trim();
     const r = repo.trim().replace(/\.git$/i, '');
     if (!o || !r) {
       return '';
     }
+
     if (platform === 'github') {
       return `https://github.com/${o}/${r}.git`;
     }
+
     if (platform === 'gitlab') {
       return `https://gitlab.com/${o}/${r}.git`;
     }
+
     return '';
   }
 
-  function getProviderLabel(platform: CloudPlatform) {
-    if (platform === 'github') return 'GitHub';
-    if (platform === 'gitlab') return 'GitLab';
-    return t('settings_cloud_platform_custom');
-  }
-
   async function openExternalUrl(url?: string) {
-    if (!url) return;
+    if (!url) {
+      return;
+    }
+
     try {
       await unwrapResult(getBridge().openExternalUrl(url));
     } catch (error) {
@@ -227,19 +246,12 @@ export function SettingsPage() {
       setNotice({ type: 'info', text: t('settings_notice_need_owner_repo') });
       return;
     }
+
     if (generated) {
       setRemoteUrlInput(generated);
       setNotice({ type: 'success', text: t('settings_notice_url_filled') });
     }
   }
-
-  useEffect(() => {
-    void loadCloudStatus();
-  }, [project?.path, project?.isProtected]);
-
-  useEffect(() => {
-    void loadGitHubAuthStatus();
-  }, [cloudPlatform]);
 
   async function patchSettings(
     patch: Partial<{
@@ -279,7 +291,10 @@ export function SettingsPage() {
   }
 
   async function handleConnectCloud() {
-    if (!project?.path) return;
+    if (!project?.path) {
+      return;
+    }
+
     setSyncing(true);
     try {
       const status = await unwrapResult(getBridge().connectCloud(project.path, remoteUrlInput.trim()));
@@ -300,7 +315,10 @@ export function SettingsPage() {
   }
 
   async function handleUploadToCloud() {
-    if (!project?.path) return;
+    if (!project?.path) {
+      return;
+    }
+
     setSyncing(true);
     try {
       const status = await unwrapResult(getBridge().uploadToCloud(project.path));
@@ -319,7 +337,10 @@ export function SettingsPage() {
   }
 
   async function handleGetCloudLatest() {
-    if (!project?.path) return;
+    if (!project?.path) {
+      return;
+    }
+
     setSyncing(true);
     try {
       const status = await unwrapResult(getBridge().getCloudLatest(project.path));
@@ -338,7 +359,10 @@ export function SettingsPage() {
   }
 
   async function handleTestCloudConnection() {
-    if (!project?.path) return;
+    if (!project?.path) {
+      return;
+    }
+
     setSyncing(true);
     try {
       const result = await unwrapResult(getBridge().testCloudConnection(project.path, remoteUrlInput.trim()));
@@ -395,254 +419,70 @@ export function SettingsPage() {
 
   return (
     <div className="page">
-      <section className="panel">
-        <div className="section-head">
-          <h2>{t('settings_env_title')}</h2>
-          <button className="btn btn-secondary" disabled={checking} onClick={() => void loadGitEnvironment()}>
-            {t('settings_env_recheck')}
-          </button>
+      <section className="panel settings-hero">
+        <div className="settings-hero-copy">
+          <span className="pill">{copy('\u9879\u76ee\u4e91\u7aef', 'Project Cloud')}</span>
+          <h1>{heroTitle}</h1>
+          <p>{heroDescription}</p>
         </div>
-        {!gitEnv ? (
-          <p className="muted">{t('settings_env_loading')}</p>
-        ) : gitEnv.available ? (
-          <p className="success-text">{t('settings_env_available', { version: gitEnv.version })}</p>
-        ) : (
-          <p className="danger-text">{t('settings_env_missing')}</p>
-        )}
+        <div className="settings-hero-metrics">
+          <article className="settings-metric-card">
+            <span>{copy('\u8fde\u63a5\u72b6\u6001', 'Connection')}</span>
+            <strong>{connectionStateLabel}</strong>
+          </article>
+          <article className="settings-metric-card">
+            <span>{copy('\u7b49\u5f85\u4e0a\u4f20', 'Waiting to upload')}</span>
+            <strong>{cloudStatus?.connected ? cloudStatus.pendingUpload : '-'}</strong>
+          </article>
+          <article className="settings-metric-card">
+            <span>{copy('\u7b49\u5f85\u83b7\u53d6', 'Waiting to get')}</span>
+            <strong>{cloudStatus?.connected ? cloudStatus.pendingDownload : gitEnv?.available ? copy('\u73af\u5883\u5df2\u5c31\u7eea', 'Git ready') : copy('\u9700\u8981 Git', 'Need Git')}</strong>
+          </article>
+        </div>
       </section>
 
-      <section className="panel">
-        <h2>{t('settings_pref_title')}</h2>
-        {!config ? (
-          <p className="muted">{t('settings_pref_loading')}</p>
-        ) : (
-          <div className="settings-stack">
-            <label className="switch-row">
-              <span>{t('settings_pref_show_advanced')}</span>
-              <input
-                type="checkbox"
-                checked={config.settings.showAdvancedMode}
-                onChange={(event) => void patchSettings({ showAdvancedMode: event.target.checked })}
-              />
-            </label>
-            <label className="switch-row">
-              <span>{t('settings_pref_show_guide')}</span>
-              <input
-                type="checkbox"
-                checked={config.settings.showBeginnerGuide}
-                onChange={(event) => void patchSettings({ showBeginnerGuide: event.target.checked })}
-              />
-            </label>
-            <label className="switch-row">
-              <span>{t('settings_pref_snapshot_restore')}</span>
-              <input
-                type="checkbox"
-                checked={config.settings.autoSnapshotBeforeRestore}
-                onChange={(event) => void patchSettings({ autoSnapshotBeforeRestore: event.target.checked })}
-              />
-            </label>
-            <label className="switch-row">
-              <span>{t('settings_pref_snapshot_merge')}</span>
-              <input
-                type="checkbox"
-                checked={config.settings.autoSnapshotBeforeMerge}
-                onChange={(event) => void patchSettings({ autoSnapshotBeforeMerge: event.target.checked })}
-              />
-            </label>
-            <label className="switch-row stacked">
-              <span>{t('settings_pref_save_template')}</span>
-              <input
-                className="input-text"
-                type="text"
-                value={config.settings.defaultSaveMessageTemplate}
-                onChange={(event) => void patchSettings({ defaultSaveMessageTemplate: event.target.value })}
-                placeholder={t('settings_pref_save_template_placeholder')}
-              />
-            </label>
-            <label className="switch-row stacked">
-              <span>{t('settings_pref_language')}</span>
-              <select
-                className="input-select"
-                value={config.settings.language}
-                onChange={(event) =>
-                  void patchSettings({ language: event.target.value as AppLanguagePreference })
-                }
-              >
-                <option value="auto">{t('settings_pref_language_auto')}</option>
-                <option value="en-US">{t('settings_pref_language_en')}</option>
-                <option value="zh-CN">{t('settings_pref_language_zh')}</option>
-              </select>
-            </label>
+      {!project ? (
+        <section className="panel">
+          <div className="empty-action-panel">
+            <h3>{copy('\u5148\u6253\u5f00\u4e00\u4e2a\u9879\u76ee', 'Open a project first')}</h3>
+            <p>{copy('\u53ea\u6709\u6253\u5f00\u4e86\u9879\u76ee\uff0c\u6211\u4eec\u624d\u80fd\u5e2e\u4f60\u914d\u7f6e\u8fd9\u4e2a\u9879\u76ee\u7684\u4e91\u7aef\u540c\u6b65\u3002', 'We can only set up cloud sync after a project is open.')}</p>
+            <div className="actions-row">
+              <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
+                {t('app_open_project')}
+              </button>
+            </div>
           </div>
-        )}
-      </section>
+        </section>
+      ) : !project.isProtected ? (
+        <section className="panel">
+          <div className="empty-action-panel">
+            <h3>{copy('\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4', 'Turn on protection first')}</h3>
+            <p>{copy('\u8fd9\u4e2a\u9879\u76ee\u8fd8\u6ca1\u6709\u5f00\u542f\u7248\u672c\u4fdd\u62a4\uff0c\u6240\u4ee5\u4e91\u7aef\u4e0a\u4f20\u548c\u83b7\u53d6\u8fd8\u4e0d\u5b89\u5168\u3002', 'This project is not protected yet, so cloud upload and download are not ready.')}</p>
+            <div className="actions-row">
+              <button className="btn btn-primary" onClick={() => void enableProtection()}>
+                {t('app_enable_protection')}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
-      <section className="panel">
-        <h2>{t('settings_cloud_title')}</h2>
-        <div className="cloud-guide-card">
-          <div className="section-head">
-            <h3>{t('settings_cloud_next_title')}</h3>
-          </div>
-          <div className="cloud-guide-list">
-            {cloudGuideSteps.map((step, index) => (
-              <div key={step.key} className={`cloud-guide-step ${step.status}`}>
-                <div className="cloud-guide-index">{index + 1}</div>
-                <div className="cloud-guide-copy">
-                  <strong>{step.label}</strong>
-                  <span className="cloud-guide-status">
-                    {step.status === 'done'
-                      ? t('settings_cloud_next_done')
-                      : step.status === 'current'
-                        ? t('settings_cloud_next_current')
-                        : t('settings_cloud_next_upcoming')}
-                  </span>
-                </div>
+      {projectReadyForCloud ? (
+        <div className="settings-grid">
+          <section className="panel settings-card">
+            <div className="section-head">
+              <div>
+                <h2>{copy('\u8fde\u63a5\u8fd9\u4e2a\u9879\u76ee', 'Connect This Project')}</h2>
+                <p className="panel-subtitle">
+                  {copy('\u9009\u62e9\u8fd9\u4e2a\u9879\u76ee\u5e94\u8be5\u540c\u6b65\u5230\u54ea\u91cc\u3002', 'Choose where this project should sync.')}
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
-        {!project ? (
-          <p className="muted">{t('settings_cloud_open_first')}</p>
-        ) : !project.isProtected ? (
-          <p className="muted">{t('settings_cloud_enable_first')}</p>
-        ) : (
-          <div className="settings-stack">
-            <div className="cloud-assistant-card">
-              <div className="section-head">
-                <div>
-                  <h3>{t('settings_cloud_helper_title')}</h3>
-                  <p className="panel-subtitle">{t('settings_cloud_helper_desc')}</p>
-                </div>
-                <span className="pill">
-                  {t('settings_cloud_helper_provider')} {getProviderLabel(cloudPlatform)}
-                </span>
-              </div>
-
-              {cloudPlatform === 'github' ? (
-                <div className="cloud-account-card">
-                  <div className="section-head">
-                    <div>
-                      <h4>{t('settings_cloud_account_title')}</h4>
-                      <p className="panel-subtitle">{t('settings_cloud_account_desc')}</p>
-                    </div>
-                    <button
-                      className="btn btn-secondary"
-                      disabled={authWorking}
-                      onClick={() => void loadGitHubAuthStatus()}
-                    >
-                      {t('settings_cloud_account_refresh')}
-                    </button>
-                  </div>
-                  {!githubAuthStatus ? (
-                    <p className="muted">{t('settings_cloud_account_loading')}</p>
-                  ) : !githubAuthStatus.available ? (
-                    <p className="muted">{t('settings_cloud_account_unavailable')}</p>
-                  ) : githubAuthStatus.accounts.length === 0 ? (
-                    <div className="detail-stack">
-                      <p className="muted">{t('settings_cloud_account_none')}</p>
-                      <div className="actions-row">
-                        <button className="btn btn-primary" disabled={authWorking} onClick={() => void handleGitHubLogin()}>
-                          {t('settings_cloud_account_sign_in')}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="detail-stack">
-                      <p>
-                        <strong>{t('settings_cloud_account_signed_in')}</strong>
-                      </p>
-                      <div className="cloud-account-list">
-                        {githubAuthStatus.accounts.map((account) => (
-                          <div key={account} className="cloud-account-row">
-                            <span className="cloud-account-name">{account}</span>
-                            <button
-                              className="btn btn-secondary"
-                              disabled={authWorking}
-                              onClick={() => void handleGitHubLogout(account)}
-                            >
-                              {t('settings_cloud_account_sign_out')}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {cloudPlatform === 'custom' ? (
-                <div className="cloud-assistant-note">
-                  <strong>{t('settings_cloud_helper_custom_title')}</strong>
-                  <p>{t('settings_cloud_helper_custom_desc')}</p>
-                </div>
-              ) : (
-                <>
-                  <div className="actions-row">
-                    <button
-                      className="btn btn-secondary"
-                      disabled={syncing || authWorking || !providerLinks.signInUrl}
-                      onClick={() =>
-                        void (cloudPlatform === 'github'
-                          ? handleGitHubLogin()
-                          : openExternalUrl(providerLinks.signInUrl))
-                      }
-                    >
-                      {cloudPlatform === 'github'
-                        ? t('settings_cloud_account_sign_in')
-                        : t('settings_cloud_helper_sign_in')}
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      disabled={syncing || authWorking || !providerLinks.createRepoUrl}
-                      onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}
-                    >
-                      {t('settings_cloud_helper_create_repo')}
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      disabled={syncing || authWorking || !providerLinks.repoPageUrl}
-                      onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}
-                    >
-                      {t('settings_cloud_helper_open_repo')}
-                    </button>
-                  </div>
-                  <p className="muted">{t('settings_cloud_helper_browser_hint')}</p>
-                </>
-              )}
-
-              {connectionTest?.code === 'auth_required' ? (
-                <div className="cloud-auth-callout">
-                  <strong>{t('settings_cloud_helper_auth_title')}</strong>
-                  <p>{t('settings_cloud_helper_auth_desc')}</p>
-                  <div className="actions-row">
-                    <button
-                      className="btn btn-secondary"
-                      disabled={syncing || authWorking || !providerLinks.signInUrl}
-                      onClick={() =>
-                        void (cloudPlatform === 'github'
-                          ? handleGitHubLogin()
-                          : openExternalUrl(providerLinks.signInUrl))
-                      }
-                    >
-                      {cloudPlatform === 'github'
-                        ? t('settings_cloud_account_sign_in')
-                        : t('settings_cloud_helper_sign_in')}
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      disabled={syncing || authWorking || !remoteUrlInput.trim()}
-                      onClick={() => void handleTestCloudConnection()}
-                    >
-                      {t('settings_cloud_helper_retry')}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
+              <span className="pill">{providerLabel}</span>
             </div>
 
-            <label className="switch-row stacked">
-              <span>{t('settings_cloud_wizard')}</span>
-              <div className="field-row">
+            <div className="settings-stack-tight">
+              <label className="switch-row stacked">
+                <span>{copy('\u4e91\u7aef\u5e73\u53f0', 'Cloud provider')}</span>
                 <select
                   className="input-select"
                   value={cloudPlatform}
@@ -652,123 +492,310 @@ export function SettingsPage() {
                   <option value="gitlab">GitLab</option>
                   <option value="custom">{t('settings_cloud_platform_custom')}</option>
                 </select>
-                {cloudPlatform === 'custom' ? (
-                  <span className="muted">{t('settings_cloud_custom_hint')}</span>
-                ) : (
-                  <>
-                    <input
-                      className="input-text"
-                      value={cloudOwner}
-                      onChange={(event) => setCloudOwner(event.target.value)}
-                      placeholder={t('settings_cloud_owner_placeholder')}
-                    />
-                    <input
-                      className="input-text"
-                      value={cloudRepo}
-                      onChange={(event) => setCloudRepo(event.target.value)}
-                      placeholder={t('settings_cloud_repo_placeholder')}
-                    />
-                    <button className="btn btn-secondary" disabled={syncing} onClick={() => applyWizardUrl()}>
-                      {t('settings_cloud_fill_url')}
-                    </button>
-                  </>
-                )}
-              </div>
-            </label>
+              </label>
 
-            <label className="switch-row stacked">
-              <span>{t('settings_cloud_url')}</span>
-              <div className="field-row">
+              {cloudPlatform === 'github' ? (
+                <div className="settings-status-card">
+                  <span>{copy('GitHub \u8d26\u53f7', 'GitHub account')}</span>
+                  <strong>
+                    {githubAuthStatus?.available
+                      ? activeGitHubAccount ?? copy('\u8fd8\u6ca1\u767b\u5f55', 'Not signed in yet')
+                      : copy('\u8fd9\u53f0\u7535\u8111\u8fd8\u6ca1\u51c6\u5907\u597d', 'Not available on this device')}
+                  </strong>
+                  <div className="actions-row">
+                    <button className="btn btn-secondary" disabled={authWorking} onClick={() => void loadGitHubAuthStatus()}>
+                      {copy('\u5237\u65b0\u72b6\u6001', 'Refresh')}
+                    </button>
+                    {activeGitHubAccount ? (
+                      <button
+                        className="btn btn-secondary"
+                        disabled={authWorking}
+                        onClick={() => void handleGitHubLogout(activeGitHubAccount)}
+                      >
+                        {copy('\u9000\u51fa\u8fd9\u4e2a\u8d26\u53f7', 'Sign Out')}
+                      </button>
+                    ) : (
+                      <button className="btn btn-primary" disabled={authWorking} onClick={() => void handleGitHubLogin()}>
+                        {copy('\u767b\u5f55 GitHub', 'Sign In to GitHub')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {cloudPlatform === 'custom' ? (
+                <div className="settings-note">
+                  <strong>{copy('\u81ea\u5b9a\u4e49\u4ed3\u5e93\u5730\u5740', 'Custom remote address')}</strong>
+                  <p>{t('settings_cloud_helper_custom_desc')}</p>
+                </div>
+              ) : (
+                <div className="settings-inline-grid">
+                  <input
+                    className="input-text"
+                    value={cloudOwner}
+                    onChange={(event) => setCloudOwner(event.target.value)}
+                    placeholder={t('settings_cloud_owner_placeholder')}
+                  />
+                  <input
+                    className="input-text"
+                    value={cloudRepo}
+                    onChange={(event) => setCloudRepo(event.target.value)}
+                    placeholder={t('settings_cloud_repo_placeholder')}
+                  />
+                  <button className="btn btn-secondary" disabled={syncing} onClick={() => applyWizardUrl()}>
+                    {copy('\u751f\u6210\u4ed3\u5e93\u5730\u5740', 'Fill Address')}
+                  </button>
+                </div>
+              )}
+
+              <label className="switch-row stacked">
+                <span>{copy('\u4ed3\u5e93\u5730\u5740', 'Repository address')}</span>
                 <input
                   className="input-text"
                   value={remoteUrlInput}
                   onChange={(event) => setRemoteUrlInput(event.target.value)}
                   placeholder={t('settings_cloud_url_placeholder')}
                 />
-                <button className="btn btn-secondary" disabled={syncing} onClick={() => void handleConnectCloud()}>
-                  {t('settings_cloud_connect')}
+              </label>
+
+              <div className="actions-row">
+                <button
+                  className="btn btn-primary"
+                  disabled={syncing || !remoteUrlInput.trim()}
+                  onClick={() => void handleConnectCloud()}
+                >
+                  {copy('\u8fde\u63a5\u8fd9\u4e2a\u9879\u76ee', 'Connect This Project')}
                 </button>
                 <button
                   className="btn btn-secondary"
                   disabled={syncing || !remoteUrlInput.trim()}
                   onClick={() => void handleTestCloudConnection()}
                 >
-                  {t('settings_cloud_test')}
+                  {copy('\u5148\u6d4b\u8bd5\u4e00\u4e0b', 'Test First')}
                 </button>
               </div>
-            </label>
 
-            {connectionTest ? (
-              <p className={connectionTest.reachable ? 'success-text' : 'muted'}>
-                {toCloudTestMessage(connectionTest, t)}
-              </p>
-            ) : null}
-
-            {cloudAdvice ? <p className="muted">{cloudAdvice}</p> : null}
-
-            {cloudStatus ? (
-              <div className="detail-stack">
-                {cloudStatus.remoteUrl ? (
-                  <p>
-                    <strong>{t('settings_cloud_status_connected_to')}</strong>
-                    {cloudStatus.remoteUrl}
-                  </p>
-                ) : null}
-                <p>
-                  <strong>{t('settings_cloud_status')}</strong>
-                  {toCloudStatusText(cloudStatus, t)}
-                </p>
-                <p>
-                  <strong>{t('settings_cloud_plan')}</strong>
-                  {toPlanLabel(
-                    cloudStatus.currentPlan,
-                    cloudStatus.currentPlan === 'main' || cloudStatus.currentPlan === 'master',
-                    t
-                  )}
-                </p>
-                <p>
-                  <strong>{t('settings_cloud_pending_upload')}</strong>
-                  {t('common_record_unit', { count: cloudStatus.pendingUpload })}
-                </p>
-                <p>
-                  <strong>{t('settings_cloud_pending_download')}</strong>
-                  {t('common_record_unit', { count: cloudStatus.pendingDownload })}
-                </p>
+              <div className="actions-row">
+                <button
+                  className="btn btn-secondary"
+                  disabled={syncing || authWorking || !providerLinks.signInUrl}
+                  onClick={() =>
+                    void (cloudPlatform === 'github' ? handleGitHubLogin() : openExternalUrl(providerLinks.signInUrl))
+                  }
+                >
+                  {cloudPlatform === 'github'
+                    ? copy('\u767b\u5f55 GitHub', 'Sign In to GitHub')
+                    : t('settings_cloud_helper_sign_in')}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={syncing || authWorking || !providerLinks.createRepoUrl}
+                  onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}
+                >
+                  {copy('\u53bb\u521b\u5efa\u4ed3\u5e93', 'Create Repository')}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={syncing || authWorking || !providerLinks.repoPageUrl}
+                  onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}
+                >
+                  {copy('\u6253\u5f00\u8fd9\u4e2a\u4ed3\u5e93', 'Open Repository')}
+                </button>
               </div>
-            ) : (
-              <p className="muted">{t('settings_cloud_loading')}</p>
-            )}
 
-            <div className="actions-row">
-              <button
-                className="btn btn-secondary"
-                disabled={syncing || !cloudStatus?.connected}
-                onClick={() => void handleUploadToCloud()}
-              >
-                {t('settings_cloud_upload')}
-              </button>
-              <button
-                className="btn btn-secondary"
-                disabled={syncing || !cloudStatus?.connected}
-                onClick={() => void handleGetCloudLatest()}
-              >
-                {t('settings_cloud_get_latest')}
-              </button>
-              <button className="btn btn-secondary" disabled={syncing} onClick={() => void loadCloudStatus()}>
-                {t('settings_cloud_refresh')}
-              </button>
+              {connectionTest ? (
+                <p className={connectionTest.reachable ? 'success-text' : 'muted'}>
+                  {toCloudTestMessage(connectionTest, t)}
+                </p>
+              ) : null}
+
+              {cloudAdvice ? <p className="muted">{cloudAdvice}</p> : null}
+            </div>
+          </section>
+
+          <section className="panel settings-card">
+            <div className="section-head">
+              <div>
+                <h2>{copy('\u73b0\u5728\u540c\u6b65', 'Sync Now')}</h2>
+                <p className="panel-subtitle">{syncSummary}</p>
+              </div>
+              <span className="pill">{syncStateLabel}</span>
+            </div>
+
+            <div className="settings-stack-tight">
+              <div className="settings-status-card">
+                <span>{copy('\u5f53\u524d\u8fde\u63a5', 'Current remote')}</span>
+                <strong>{cloudStatus?.remoteUrl || copy('\u8fd8\u6ca1\u8fde\u4e0a', 'Not connected yet')}</strong>
+              </div>
+
+              <div className="settings-status-grid">
+                <div className="settings-status-card">
+                  <span>{copy('\u540c\u6b65\u72b6\u6001', 'Sync state')}</span>
+                  <strong>{cloudStatus ? toCloudStatusText(cloudStatus, t) : copy('\u7b49\u5f85\u8fde\u63a5', 'Waiting for connection')}</strong>
+                </div>
+                <div className="settings-status-card">
+                  <span>{copy('\u5f53\u524d\u526f\u672c', 'Current copy')}</span>
+                  <strong>
+                    {cloudStatus
+                      ? toPlanLabel(
+                          cloudStatus.currentPlan,
+                          cloudStatus.currentPlan === 'main' || cloudStatus.currentPlan === 'master',
+                          t
+                        )
+                      : copy('\u4e3b\u7ebf', 'Main')}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="settings-status-grid">
+                <div className="settings-status-card">
+                  <span>{copy('\u8fd8\u6ca1\u4e0a\u4f20', 'Pending upload')}</span>
+                  <strong>{t('common_record_unit', { count: cloudStatus?.pendingUpload ?? 0 })}</strong>
+                </div>
+                <div className="settings-status-card">
+                  <span>{copy('\u8fd8\u6ca1\u53d6\u56de', 'Pending download')}</span>
+                  <strong>{t('common_record_unit', { count: cloudStatus?.pendingDownload ?? 0 })}</strong>
+                </div>
+              </div>
+
+              <div className="actions-row">
+                <button
+                  className="btn btn-primary"
+                  disabled={syncing || !cloudStatus?.connected}
+                  onClick={() => void handleUploadToCloud()}
+                >
+                  {t('settings_cloud_upload')}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={syncing || !cloudStatus?.connected}
+                  onClick={() => void handleGetCloudLatest()}
+                >
+                  {t('settings_cloud_get_latest')}
+                </button>
+                <button className="btn btn-secondary" disabled={syncing} onClick={() => void loadCloudStatus()}>
+                  {copy('\u5237\u65b0\u72b6\u6001', 'Refresh Status')}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      <div className="settings-grid settings-grid-secondary">
+        <section className="panel settings-card">
+          <div className="section-head">
+            <div>
+              <h2>{copy('\u5e94\u7528\u504f\u597d', 'App Preferences')}</h2>
+              <p className="panel-subtitle">
+                {copy('\u8fd9\u4e9b\u662f\u663e\u793a\u548c\u9ed8\u8ba4\u6587\u6848\u7684\u8bbe\u7f6e\u3002', 'These control language, guidance, and default save notes.')}
+              </p>
             </div>
           </div>
-        )}
-      </section>
+          {!config ? (
+            <p className="muted">{t('settings_pref_loading')}</p>
+          ) : (
+            <div className="settings-stack-tight">
+              <label className="switch-row stacked">
+                <span>{t('settings_pref_language')}</span>
+                <select
+                  className="input-select"
+                  value={config.settings.language}
+                  onChange={(event) => void patchSettings({ language: event.target.value as AppLanguagePreference })}
+                >
+                  <option value="auto">{t('settings_pref_language_auto')}</option>
+                  <option value="en-US">{t('settings_pref_language_en')}</option>
+                  <option value="zh-CN">{t('settings_pref_language_zh')}</option>
+                </select>
+              </label>
 
-      <section className="panel">
-        <h2>{t('settings_trouble_title')}</h2>
-        <p className="muted">{t('settings_trouble_desc')}</p>
-        <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>
-          {t('settings_trouble_export_logs')}
-        </button>
-      </section>
+              <label className="switch-row stacked">
+                <span>{t('settings_pref_save_template')}</span>
+                <input
+                  className="input-text"
+                  type="text"
+                  value={config.settings.defaultSaveMessageTemplate}
+                  onChange={(event) => void patchSettings({ defaultSaveMessageTemplate: event.target.value })}
+                  placeholder={t('settings_pref_save_template_placeholder')}
+                />
+              </label>
+
+              <label className="switch-row">
+                <span>{t('settings_pref_show_guide')}</span>
+                <input
+                  type="checkbox"
+                  checked={config.settings.showBeginnerGuide}
+                  onChange={(event) => void patchSettings({ showBeginnerGuide: event.target.checked })}
+                />
+              </label>
+
+              <label className="switch-row">
+                <span>{t('settings_pref_show_advanced')}</span>
+                <input
+                  type="checkbox"
+                  checked={config.settings.showAdvancedMode}
+                  onChange={(event) => void patchSettings({ showAdvancedMode: event.target.checked })}
+                />
+              </label>
+            </div>
+          )}
+        </section>
+
+        <section className="panel settings-card">
+          <div className="section-head">
+            <div>
+              <h2>{copy('\u5b89\u5168\u4e0e\u652f\u6301', 'Safety & Support')}</h2>
+              <p className="panel-subtitle">
+                {copy('\u8fd9\u91cc\u662f\u6062\u590d\u524d\u4fdd\u62a4\u548c\u6545\u969c\u5bfc\u51fa\u3002', 'Use these controls for restore protection and troubleshooting.')}
+              </p>
+            </div>
+          </div>
+
+          {!config ? (
+            <p className="muted">{t('settings_pref_loading')}</p>
+          ) : (
+            <div className="settings-stack-tight">
+              <label className="switch-row">
+                <span>{t('settings_pref_snapshot_restore')}</span>
+                <input
+                  type="checkbox"
+                  checked={config.settings.autoSnapshotBeforeRestore}
+                  onChange={(event) => void patchSettings({ autoSnapshotBeforeRestore: event.target.checked })}
+                />
+              </label>
+
+              <label className="switch-row">
+                <span>{t('settings_pref_snapshot_merge')}</span>
+                <input
+                  type="checkbox"
+                  checked={config.settings.autoSnapshotBeforeMerge}
+                  onChange={(event) => void patchSettings({ autoSnapshotBeforeMerge: event.target.checked })}
+                />
+              </label>
+
+              <div className="settings-status-card">
+                <span>{copy('Git \u73af\u5883', 'Git environment')}</span>
+                <strong>
+                  {!gitEnv
+                    ? copy('\u6b63\u5728\u68c0\u67e5', 'Checking')
+                    : gitEnv.available
+                      ? t('settings_env_available', { version: gitEnv.version })
+                      : t('settings_env_missing')}
+                </strong>
+              </div>
+
+              <div className="actions-row">
+                <button className="btn btn-secondary" disabled={checking} onClick={() => void loadGitEnvironment()}>
+                  {t('settings_env_recheck')}
+                </button>
+                <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>
+                  {t('settings_trouble_export_logs')}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
