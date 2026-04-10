@@ -10,8 +10,8 @@ function toProjectLabel(projectPath: string) {
   return path.basename(projectPath) || projectPath;
 }
 
-function zh(text: string) {
-  return text;
+function pickLabel(chinese: boolean, zh: string, en: string) {
+  return chinese ? zh : en;
 }
 
 export function resolveMenuLocale(preference: AppLanguagePreference | undefined): AppLocale {
@@ -23,7 +23,9 @@ export function resolveMenuLocale(preference: AppLanguagePreference | undefined)
 
 function sendMenuCommand(command: string) {
   const focused = BrowserWindow.getFocusedWindow();
-  if (!focused) return;
+  if (!focused) {
+    return;
+  }
   focused.webContents.send(APP_EVENTS.MENU_COMMAND, command);
 }
 
@@ -31,6 +33,7 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
   const locale = resolveMenuLocale(config?.settings.language);
   const chinese = locale === 'zh-CN';
   const isMac = process.platform === 'darwin';
+  const label = (zh: string, en: string) => pickLabel(chinese, zh, en);
 
   const recentProjectSubmenu: Electron.MenuItemConstructorOptions[] =
     config?.recentProjects.length
@@ -40,118 +43,110 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
         }))
       : [
           {
-            label: chinese ? zh('还没有最近项目') : 'No recent projects yet',
+            label: label('\u8fd8\u6ca1\u6709\u6700\u8fd1\u9879\u76ee', 'No recent projects yet'),
             enabled: false
           }
         ];
 
   const projectMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? zh('项目') : 'Project',
+    label: label('\u9879\u76ee', 'Project'),
     submenu: [
       {
-        label: chinese ? zh('打开本地项目...') : 'Open Local Project...',
+        label: label('\u6253\u5f00\u672c\u5730\u9879\u76ee...', 'Open Local Project...'),
         accelerator: 'CmdOrCtrl+O',
         click: () => sendMenuCommand('open-project')
       },
       {
-        label: chinese ? zh('从 GitHub 获取项目...') : 'Get Project from GitHub...',
+        label: label('\u4ece GitHub \u83b7\u53d6\u9879\u76ee...', 'Get Project from GitHub...'),
         accelerator: 'CmdOrCtrl+Shift+O',
         click: () => sendMenuCommand('clone-project')
       },
       {
-        label: chinese ? zh('最近项目') : 'Recent Projects',
+        label: label('\u6700\u8fd1\u9879\u76ee', 'Recent Projects'),
         submenu: recentProjectSubmenu
       },
       {
-        label: chinese ? zh('在文件夹中查看项目') : 'Show Project in Folder',
+        label: label('\u5728\u6587\u4ef6\u5939\u4e2d\u67e5\u770b\u9879\u76ee', 'Show Project in Folder'),
         click: () => sendMenuCommand('show-project-in-folder')
       },
-      { type: 'separator' },
       {
-        label: chinese ? zh('项目概览') : 'Project Overview',
+        label: label('\u9879\u76ee\u4e3b\u9875', 'Project Home'),
         accelerator: 'CmdOrCtrl+1',
         click: () => sendMenuCommand('show-home')
       },
-      { type: 'separator' },
-      isMac
-        ? { role: 'close', label: chinese ? zh('关闭窗口') : 'Close Window' }
-        : { role: 'quit', label: chinese ? zh('退出码迹') : 'Quit TapGit' }
+      ...(!isMac
+        ? [
+            { type: 'separator' as const },
+            {
+              role: 'quit' as const,
+              label: label('\u9000\u51fa\u7801\u8ff9', 'Quit TapGit')
+            }
+          ]
+        : [])
     ]
   };
 
-  const changesMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? zh('修改') : 'Changes',
+  const workMenu: Electron.MenuItemConstructorOptions = {
+    label: label('\u5de5\u4f5c', 'Work'),
     submenu: [
       {
-        label: chinese ? zh('打开当前修改') : 'Open Changes',
+        label: label('\u5f53\u524d\u4fee\u6539', 'Current Changes'),
         accelerator: 'CmdOrCtrl+2',
         click: () => sendMenuCommand('show-changes')
       },
       {
-        label: chinese ? zh('保存这次进度') : 'Save Current Progress',
+        label: label('\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c', 'Save This Work'),
         accelerator: 'CmdOrCtrl+S',
         click: () => sendMenuCommand('save-all')
       },
       {
-        label: chinese ? zh('打开历史') : 'Open History',
+        label: label('\u5386\u53f2\u8bb0\u5f55', 'History'),
         accelerator: 'CmdOrCtrl+3',
         click: () => sendMenuCommand('show-timeline')
-      }
-    ]
-  };
-
-  const ideasMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? zh('试验区') : 'Idea Lab',
-    submenu: [
-      {
-        label: chinese ? zh('新建试验副本...') : 'Start New Idea Copy...',
-        accelerator: 'CmdOrCtrl+Shift+N',
-        click: () => sendMenuCommand('create-idea-copy')
       },
       {
-        label: chinese ? zh('打开试验区') : 'Open Idea Lab',
+        label: label('\u8bd5\u65b0\u60f3\u6cd5', 'Idea Lab'),
         accelerator: 'CmdOrCtrl+4',
         click: () => sendMenuCommand('show-plans')
       },
       {
-        label: chinese ? zh('回到稳定版本') : 'Return to Stable Version',
-        click: () => sendMenuCommand('switch-to-stable')
+        label: label('\u65b0\u5efa\u4e00\u4e2a\u8bd5\u9a8c\u526f\u672c...', 'Start New Idea Copy...'),
+        accelerator: 'CmdOrCtrl+Shift+N',
+        click: () => sendMenuCommand('create-idea-copy')
       }
     ]
   };
 
-  const cloudMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? zh('云端') : 'Cloud',
+  const syncMenu: Electron.MenuItemConstructorOptions = {
+    label: label('\u540c\u6b65', 'Sync'),
     submenu: [
       {
-        label: chinese ? zh('打开云端设置') : 'Open Cloud Settings',
+        label: label('\u6253\u5f00\u540c\u6b65\u9875', 'Open Sync Workspace'),
         accelerator: 'CmdOrCtrl+5',
         click: () => sendMenuCommand('show-cloud')
       },
       {
-        label: chinese ? zh('上传到云端') : 'Upload to Cloud',
+        label: label('\u4e0a\u4f20\u5230\u4e91\u7aef', 'Upload to Cloud'),
         click: () => sendMenuCommand('upload-cloud')
       },
       {
-        label: chinese ? zh('获取云端最新内容') : 'Get Latest from Cloud',
+        label: label('\u83b7\u53d6\u4e91\u7aef\u6700\u65b0\u5185\u5bb9', 'Get Latest from Cloud'),
         click: () => sendMenuCommand('download-cloud')
       }
     ]
   };
 
-  const moreMenu: Electron.MenuItemConstructorOptions = {
-    label: chinese ? zh('更多') : 'More',
+  const helpMenu: Electron.MenuItemConstructorOptions = {
+    label: label('\u5e2e\u52a9', 'Help'),
     submenu: [
       {
-        label: chinese ? zh('设置与问题诊断') : 'Settings and Troubleshooting',
-        click: () => sendMenuCommand('show-settings')
-      },
-      {
-        label: chinese ? zh('导出日志') : 'Export Logs',
+        label: label('\u5bfc\u51fa\u65e5\u5fd7', 'Export Logs'),
         click: () => sendMenuCommand('export-logs')
       },
-      { type: 'separator' },
-      { role: 'about', label: chinese ? zh('关于码迹') : 'About TapGit' }
+      {
+        role: 'about',
+        label: label('\u5173\u4e8e\u7801\u8ff9', 'About TapGit')
+      }
     ]
   };
 
@@ -159,20 +154,20 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
 
   if (isMac) {
     template.push({
-      label: chinese ? zh('码迹') : 'TapGit',
+      label: label('\u7801\u8ff9', 'TapGit'),
       submenu: [
-        { role: 'about', label: chinese ? zh('关于码迹') : 'About TapGit' },
+        { role: 'about', label: label('\u5173\u4e8e\u7801\u8ff9', 'About TapGit') },
         { type: 'separator' },
-        { role: 'hide', label: chinese ? zh('隐藏码迹') : 'Hide TapGit' },
-        { role: 'hideOthers', label: chinese ? zh('隐藏其他') : 'Hide Others' },
-        { role: 'unhide', label: chinese ? zh('全部显示') : 'Show All' },
+        { role: 'hide', label: label('\u9690\u85cf\u7801\u8ff9', 'Hide TapGit') },
+        { role: 'hideOthers', label: label('\u9690\u85cf\u5176\u4ed6', 'Hide Others') },
+        { role: 'unhide', label: label('\u5168\u90e8\u663e\u793a', 'Show All') },
         { type: 'separator' },
-        { role: 'quit', label: chinese ? zh('退出码迹') : 'Quit TapGit' }
+        { role: 'quit', label: label('\u9000\u51fa\u7801\u8ff9', 'Quit TapGit') }
       ]
     });
   }
 
-  template.push(projectMenu, changesMenu, ideasMenu, cloudMenu, moreMenu);
+  template.push(projectMenu, workMenu, syncMenu, helpMenu);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

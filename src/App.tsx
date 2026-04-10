@@ -83,6 +83,34 @@ function AppContent() {
     );
   }, [project?.currentPlan, t]);
 
+  const projectMetaSummary = useMemo(() => {
+    if (!project) {
+      return t('app_project_meta_empty');
+    }
+
+    const historyText = historyLoading
+      ? copy('\u6b63\u5728\u6574\u7406\u5386\u53f2', 'Loading history')
+      : copy(`${historyCount ?? 0} \u4e2a\u4fdd\u5b58\u70b9`, `${historyCount ?? 0} saved points`);
+
+    const changesText =
+      project.pendingChangeCount > 0
+        ? copy(
+            `${project.pendingChangeCount} \u4e2a\u672a\u4fdd\u5b58\u6587\u4ef6`,
+            `${project.pendingChangeCount} unsaved files`
+          )
+        : copy('\u6ca1\u6709\u672a\u4fdd\u5b58\u4fee\u6539', 'No unsaved changes');
+
+    return [
+      toPlanLabel(
+        project.currentPlan,
+        project.currentPlan === 'main' || project.currentPlan === 'master',
+        t
+      ),
+      changesText,
+      historyText
+    ].join(' · ');
+  }, [copy, historyCount, historyLoading, project, t]);
+
   async function refreshConfig() {
     const nextConfig = await unwrapResult(getBridge().getConfig());
     setConfig(nextConfig);
@@ -654,11 +682,17 @@ function AppContent() {
               <div className="project-title-row">
                 <div className="project-title">{project?.name ?? t('app_project_not_opened')}</div>
                 {project ? (
-                  <button className="link-quiet" onClick={() => void handleShowProjectInFolder()}>
-                    {t('app_show_in_folder')}
-                  </button>
+                  <div className="project-links">
+                    <button className="link-quiet" onClick={() => void handleShowProjectInFolder()}>
+                      {t('app_show_in_folder')}
+                    </button>
+                    <button className="link-quiet" onClick={() => void openProjectFolder()}>
+                      {t('app_switch_project')}
+                    </button>
+                  </div>
                 ) : null}
               </div>
+              {project ? <div className="project-meta">{projectMetaSummary}</div> : null}
               {project ? (
                 <div className="project-pills">
                   <span className="project-pill">
@@ -685,16 +719,11 @@ function AppContent() {
             </div>
             <div className="top-actions">
               {project ? (
-                <>
-                  {topbarPrimaryAction ? (
-                    <button className="btn btn-primary" onClick={topbarPrimaryAction.onClick}>
-                      {topbarPrimaryAction.label}
-                    </button>
-                  ) : null}
-                  <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
-                    {t('app_switch_project')}
+                topbarPrimaryAction ? (
+                  <button className="btn btn-primary" onClick={topbarPrimaryAction.onClick}>
+                    {topbarPrimaryAction.label}
                   </button>
-                </>
+                ) : null
               ) : location.pathname !== '/' ? (
                 <>
                   <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
