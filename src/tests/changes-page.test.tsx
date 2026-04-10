@@ -96,7 +96,7 @@ describe('ChangesPage', () => {
     window.tapgit = undefined as never;
   });
 
-  it('guides the user and keeps partial save disabled until a file is checked', async () => {
+  it('shows a focused work area and keeps partial save disabled until a file is checked', async () => {
     const bridge = createBridgeMock();
     bridge.getCurrentChanges.mockResolvedValue({
       ok: true,
@@ -115,8 +115,10 @@ describe('ChangesPage', () => {
 
     renderChangesPage('en-US');
 
-    expect(await screen.findByText('How this page works')).toBeInTheDocument();
-    expect(screen.getByText('Files You Changed')).toBeInTheDocument();
+    expect(await screen.findByText('Current Work')).toBeInTheDocument();
+    expect(screen.getByText('Review what changed, then save this batch with one short note.')).toBeInTheDocument();
+    expect(screen.getByText('Changed Files')).toBeInTheDocument();
+    expect(screen.getByText('Save This Work')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save Only Checked Files' })).toBeDisabled();
     expect(
       screen.getByText('No files are checked. If you only want part of this page, check those files first.')

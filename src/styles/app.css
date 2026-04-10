@@ -999,6 +999,52 @@ pre {
   overflow: auto;
 }
 
+.changes-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 18px;
+  align-items: start;
+}
+
+.changes-hero-copy h1 {
+  margin: 14px 0 10px;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.changes-hero-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.75;
+  max-width: 760px;
+}
+
+.changes-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.changes-metric-card {
+  border-radius: 16px;
+  border: 1px solid #dbe6ef;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.changes-metric-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.changes-metric-card strong {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
 .lab-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
@@ -1488,6 +1534,7 @@ pre {
   .next-grid,
   .split-panel,
   .plan-layout,
+  .changes-hero,
   .lab-grid,
   .lab-hero,
   .conflict-layout,
@@ -1523,6 +1570,7 @@ pre {
   .hero-summary,
   .workspace-grid,
   .project-stats-row,
+  .changes-hero-metrics,
   .lab-hero-metrics {
     width: 100%;
     grid-template-columns: 1fr;
