@@ -65,13 +65,12 @@ function AppContent() {
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   const navItems = [
-    { key: 'home' as const, to: '/', label: copy('项目', 'Project') },
-    { key: 'changes' as const, to: '/changes', label: copy('修改', 'Changes') },
-    { key: 'timeline' as const, to: '/timeline', label: copy('历史', 'History') },
-    { key: 'plans' as const, to: '/plans', label: copy('试验区', 'Idea Lab') },
+    { key: 'home' as const, to: '/', label: t('app_nav_home') },
+    { key: 'changes' as const, to: '/changes', label: t('app_nav_changes') },
+    { key: 'timeline' as const, to: '/timeline', label: t('app_nav_timeline') },
+    { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
     { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
   ];
-
   const sourcePlanLabel = useMemo(() => {
     if (!project?.currentPlan) {
       return t('common_main_plan');
@@ -87,11 +86,9 @@ function AppContent() {
     if (!project) {
       return t('app_project_meta_empty');
     }
-
     const historyText = historyLoading
       ? copy('\u6b63\u5728\u6574\u7406\u5386\u53f2', 'Loading history')
       : copy(`${historyCount ?? 0} \u4e2a\u4fdd\u5b58\u70b9`, `${historyCount ?? 0} saved points`);
-
     const changesText =
       project.pendingChangeCount > 0
         ? copy(
@@ -99,7 +96,6 @@ function AppContent() {
             `${project.pendingChangeCount} unsaved files`
           )
         : copy('\u6ca1\u6709\u672a\u4fdd\u5b58\u4fee\u6539', 'No unsaved changes');
-
     return [
       toPlanLabel(
         project.currentPlan,
@@ -108,7 +104,7 @@ function AppContent() {
       ),
       changesText,
       historyText
-    ].join(' · ');
+    ].join(' | ');
   }, [copy, historyCount, historyLoading, project, t]);
 
   async function refreshConfig() {
@@ -704,7 +700,10 @@ function AppContent() {
                   </span>
                   {project.pendingChangeCount > 0 ? (
                     <span className="project-pill attention">
-                      {copy(`${project.pendingChangeCount} 个未保存`, `${project.pendingChangeCount} unsaved`)}
+                      {copy(
+                        `${project.pendingChangeCount} \u4e2a\u672a\u4fdd\u5b58`,
+                        `${project.pendingChangeCount} unsaved`
+                      )}
                     </span>
                   ) : null}
                   <span className="project-pill">

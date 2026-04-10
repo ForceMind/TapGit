@@ -30,6 +30,7 @@ export function HomePage() {
   const { project, config } = useAppStore();
   const { openProjectFolder, openCloneProjectDialog, openProjectByPath, enableProtection } = useAppActions();
   const { locale, t } = useI18n();
+  const recentProjects = config?.recentProjects ?? [];
   const { historyCount, historyLoading } = useProjectHistoryCount(
     project?.path,
     project?.isProtected,
@@ -236,55 +237,75 @@ export function HomePage() {
   if (!project) {
     return (
       <div className="page home-start-page">
-        <section className="hero-card hero-card-compact">
-          <div>
-            <h1>{t('home_start_title')}</h1>
-            <p>{t('home_start_subtitle')}</p>
+        <section className="panel home-start-shell">
+          <div className="home-start-main">
+            <div className="home-start-copy">
+              <span className="pill">{copy('\u73b0\u5728\u5f00\u59cb', 'Start')}</span>
+              <h1>{t('home_start_title')}</h1>
+              <p>{t('home_start_subtitle')}</p>
+            </div>
+
+            <div className="home-start-actions">
+              <button
+                type="button"
+                className="start-action-card start-action-card-primary"
+                aria-label={t('home_entry_local_action')}
+                onClick={() => void openProjectFolder()}
+              >
+                <div className="start-action-copy">
+                  <span className="pill">{t('home_entry_local_badge')}</span>
+                  <strong>{t('home_entry_local_title')}</strong>
+                  <span>{t('home_entry_local_desc')}</span>
+                </div>
+                <span className="start-action-label">{t('home_entry_local_action')}</span>
+              </button>
+
+              <button
+                type="button"
+                className="start-action-card"
+                aria-label={t('home_entry_github_action')}
+                onClick={() => void openCloneProjectDialog()}
+              >
+                <div className="start-action-copy">
+                  <span className="pill">{t('home_entry_github_badge')}</span>
+                  <strong>{t('home_entry_github_title')}</strong>
+                  <span>{t('home_entry_github_desc')}</span>
+                </div>
+                <span className="start-action-label">{t('home_entry_github_action')}</span>
+              </button>
+            </div>
           </div>
-        </section>
 
-        <section className="home-entry-grid">
-          <article className="panel entry-card">
-            <div className="entry-card-copy">
-              <span className="pill">{t('home_entry_local_badge')}</span>
-              <h2>{t('home_entry_local_title')}</h2>
-              <p>{t('home_entry_local_desc')}</p>
+          <aside className="home-start-side">
+            <div className="section-head">
+              <div>
+                <h2>{t('home_recent_projects')}</h2>
+                <p className="panel-subtitle">
+                  {copy(
+                    '\u56de\u5230\u6700\u8fd1\u6253\u5f00\u8fc7\u7684\u9879\u76ee\u3002',
+                    'Jump back into a recent project.'
+                  )}
+                </p>
+              </div>
             </div>
-            <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-              {t('home_entry_local_action')}
-            </button>
-          </article>
 
-          <article className="panel entry-card entry-card-accent">
-            <div className="entry-card-copy">
-              <span className="pill">{t('home_entry_github_badge')}</span>
-              <h2>{t('home_entry_github_title')}</h2>
-              <p>{t('home_entry_github_desc')}</p>
-            </div>
-            <button className="btn btn-primary" onClick={() => void openCloneProjectDialog()}>
-              {t('home_entry_github_action')}
-            </button>
-          </article>
-        </section>
-
-        <section className="panel">
-          <h2>{t('home_recent_projects')}</h2>
-          {!config || config.recentProjects.length === 0 ? (
-            <p className="muted">{t('home_recent_projects_empty')}</p>
-          ) : (
-            <ul className="list">
-              {config.recentProjects.map((item) => (
-                <li key={item}>
-                  <button className="list-button list-item" onClick={() => void openProjectByPath(item)}>
-                    <div>
-                      <div className="item-title">{recentProjectName(item)}</div>
-                      <div className="item-subtle">{item}</div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            {recentProjects.length === 0 ? (
+              <p className="muted home-start-empty">{t('home_recent_projects_empty')}</p>
+            ) : (
+              <ul className="list recent-project-list">
+                {recentProjects.map((item) => (
+                  <li key={item}>
+                    <button className="list-button list-item" onClick={() => void openProjectByPath(item)}>
+                      <div>
+                        <div className="item-title">{recentProjectName(item)}</div>
+                        <div className="item-subtle">{item}</div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
         </section>
       </div>
     );
