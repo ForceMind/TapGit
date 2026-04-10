@@ -498,7 +498,7 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .workspace-card-head h3 {
@@ -517,6 +517,7 @@ body {
   font-weight: 700;
   background: #edf4fb;
   color: #31536a;
+  white-space: nowrap;
 }
 
 .workspace-card-metric.ready {
@@ -813,24 +814,27 @@ body {
   border: 1px solid var(--border);
   background: var(--panel);
   box-shadow: var(--shadow);
-  padding: 16px;
+  padding: 18px;
 }
 
 .panel h2,
 .panel h3 {
   margin: 0 0 12px;
+  line-height: 1.25;
 }
 
 .panel-subtitle {
-  margin: -4px 0 0;
+  margin: 4px 0 0;
   color: var(--text-muted);
   font-size: 13px;
+  line-height: 1.65;
+  max-width: 620px;
 }
 
 .section-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
 }
 
@@ -863,9 +867,9 @@ body {
 .list-item {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   cursor: pointer;
 }
@@ -895,9 +899,10 @@ body {
 }
 
 .item-subtle {
-  margin-top: 3px;
+  margin-top: 5px;
   color: var(--text-muted);
   font-size: 12px;
+  line-height: 1.55;
 }
 
 .flex-grow {
@@ -1104,6 +1109,7 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 92px;
 }
 
 .changes-metric-card span {
@@ -1250,6 +1256,7 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 92px;
 }
 
 .timeline-metric-card span {
@@ -1296,6 +1303,7 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 92px;
 }
 
 .lab-metric-card span {
