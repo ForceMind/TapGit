@@ -22,6 +22,7 @@ interface WorkspaceTile {
   title: string;
   metric: string;
   summary: string;
+  actionLabel: string;
   actionTo?: string;
   tone: WorkspaceTone;
 }
@@ -149,6 +150,7 @@ export function HomePage() {
           : pendingCount > 0
             ? copy('\u8fd9\u91cc\u662f\u4f60\u8fd9\u6b21\u7684\u5de5\u4f5c\u533a\u3002', 'This is where the current work waits.')
             : copy('\u6682\u65f6\u6ca1\u6709\u9700\u8981\u4fdd\u5b58\u7684\u4fee\u6539\u3002', 'Nothing is waiting right now.'),
+        actionLabel: copy('\u67e5\u770b\u4fee\u6539', 'Review Changes'),
         actionTo: project.isProtected ? '/changes' : undefined,
         tone: !project.isProtected ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
       },
@@ -163,6 +165,7 @@ export function HomePage() {
           : hasHistory
             ? copy('\u4ece\u8fd9\u91cc\u56de\u770b\u6216\u6062\u590d\u4efb\u4f55\u4e00\u6b21\u4fdd\u5b58\u3002', 'Review or restore any saved point here.')
             : copy('\u5148\u4fdd\u5b58\u4e00\u6b21\uff0c\u8fd9\u91cc\u624d\u4f1a\u6253\u5f00\u3002', 'Save once to unlock this area.'),
+        actionLabel: copy('\u6253\u5f00\u5386\u53f2', 'Open History'),
         actionTo: hasHistory ? '/timeline' : undefined,
         tone: historyLoading ? 'locked' : hasHistory ? 'ready' : 'locked'
       },
@@ -179,6 +182,7 @@ export function HomePage() {
           : pendingCount > 0
             ? copy('\u5148\u628a\u624b\u4e0a\u8fd9\u6279\u6539\u52a8\u6536\u597d\uff0c\u518d\u5f00\u8bd5\u9a8c\u526f\u672c\u3002', 'Save current work before starting an experiment.')
             : copy('\u5728\u5355\u72ec\u526f\u672c\u91cc\u6162\u6162\u8bd5\uff0c\u4e0d\u6253\u4e71\u7a33\u5b9a\u7248\u672c\u3002', 'Try ideas in a separate copy without disturbing the stable version.'),
+        actionLabel: copy('\u6253\u5f00\u8bd5\u9a8c\u533a', 'Open Idea Lab'),
         actionTo: hasHistory && pendingCount === 0 ? '/plans' : undefined,
         tone: !hasHistory ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
       }
@@ -213,9 +217,12 @@ export function HomePage() {
           <span className={`workspace-card-metric ${tile.tone}`}>{tile.metric}</span>
         </div>
         <p>{tile.summary}</p>
-        <span className="workspace-card-action">
-          {tile.actionTo ? copy('\u6253\u5f00', 'Open') : copy('\u7a0d\u540e', 'Later')}
-        </span>
+        <div className="workspace-card-footer">
+          <span className="workspace-card-action">{tile.actionLabel}</span>
+          {!tile.actionTo ? (
+            <span className="workspace-card-note">{copy('\u8fd8\u6ca1\u5230\u8fd9\u4e00\u6b65', 'Not ready yet')}</span>
+          ) : null}
+        </div>
       </>
     );
 
@@ -316,11 +323,15 @@ export function HomePage() {
       <section className="panel project-dashboard">
         <div className="project-dashboard-main">
           <span className="pill">{copy('\u5f53\u524d\u9879\u76ee', 'Current Project')}</span>
-          <h1 className="project-overview-title">{project.name}</h1>
-          <p className="project-overview-path">{project.path}</p>
-          <div className="project-dashboard-summary">
+          <div className="project-dashboard-head">
+            <div className="project-dashboard-copy">
+              <h1 className="project-overview-title">{project.name}</h1>
+              <p className="project-overview-path">{project.path}</p>
+            </div>
+          </div>
+          <div className="project-summary-strip">
             {projectStats.map((item) => (
-              <article key={item.key} className="project-stat-card">
+              <article key={item.key} className="project-summary-item">
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
               </article>
@@ -328,7 +339,7 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="project-task-panel">
+        <div className="project-task-panel project-task-panel-compact">
           <span className="project-primary-label">{copy('\u73b0\u5728\u5148\u505a\u8fd9\u4ef6\u4e8b', 'Do This Now')}</span>
           <h2>{focusAction.title}</h2>
           <p>{focusAction.detail}</p>
