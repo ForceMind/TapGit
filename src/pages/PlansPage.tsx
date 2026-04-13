@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { toLocalizedConflictContent, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
+import { MergeResult, PlanInfo } from '../shared/contracts';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
-import { MergeResult, PlanInfo } from '../shared/contracts';
 
 function mapPlanLabel(plan: PlanInfo, t: ReturnType<typeof useI18n>['t']) {
   return toPlanLabel(plan.name, plan.isMain, t);
@@ -31,6 +31,20 @@ export function PlansPage() {
 
   const ideaPlans = useMemo(() => plans.filter((item) => !item.isMain), [plans]);
   const currentPlan = useMemo(() => plans.find((item) => item.isCurrent) ?? null, [plans]);
+  const fallbackPlan = useMemo<PlanInfo>(
+    () => ({
+      id: '',
+      name: 'main',
+      isCurrent: false,
+      isMain: true,
+      lastSavedAt: null,
+      lastMessage: ''
+    }),
+    []
+  );
+  const currentPlanLabel = currentPlan
+    ? mapPlanLabel(currentPlan, t)
+    : mapPlanLabel(stablePlan ?? fallbackPlan, t);
   const needsFirstSave = (historyCount ?? 0) === 0;
   const hasUnsavedChanges = (project?.pendingChangeCount ?? 0) > 0;
   const ideasLocked = needsFirstSave || hasUnsavedChanges;
@@ -95,7 +109,6 @@ export function PlansPage() {
       setPlans(plansData);
       setHistoryCount(historyData.length);
 
-      const mainTarget = plansData.find((item) => item.isMain)?.name ?? '';
       const firstIdea = plansData.find((item) => !item.isMain)?.name ?? '';
       setMergeFrom((current) => {
         if (plansData.find((item) => item.name === current && !item.isMain)) {
@@ -103,9 +116,6 @@ export function PlansPage() {
         }
         return firstIdea || current || '';
       });
-      if (!mainTarget && !firstIdea) {
-        setMergeFrom('');
-      }
     } catch (error) {
       setNotice({
         type: 'error',
@@ -315,16 +325,16 @@ export function PlansPage() {
     <div className="page">
       <section className="panel lab-hero">
         <div className="lab-hero-copy">
-          <span className="pill">{copy('安全实验区', 'Safe Workspace')}</span>
+          <span className="pill">{copy('安全试验区', 'Safe Workspace')}</span>
           <h1>{copy('试验区', 'Idea Lab')}</h1>
           <p>
             {ideasLocked
               ? copy(
-                  '先把当前项目整理到稳定状态，再来这里试新想法。',
+                  '先把当前项目收成稳定状态，再来这里试新想法。',
                   'First bring this project to a stable point, then use this page for risky ideas.'
                 )
               : copy(
-                  '这里专门用来开试验副本，不会直接打乱你当前的稳定版本。',
+                  '在单独副本里试想法，满意后再带回稳定版本。',
                   'Use this page to try ideas in separate copies without disturbing the stable version.'
                 )}
           </p>
@@ -332,7 +342,7 @@ export function PlansPage() {
         <div className="lab-hero-metrics">
           <article className="lab-metric-card">
             <span>{copy('当前副本', 'Current copy')}</span>
-            <strong>{currentPlan ? mapPlanLabel(currentPlan, t) : mapPlanLabel(stablePlan ?? { id: '', name: 'main', isCurrent: false, isMain: true, lastSavedAt: null, lastMessage: '' }, t)}</strong>
+            <strong>{currentPlanLabel}</strong>
           </article>
           <article className="lab-metric-card">
             <span>{copy('试验副本', 'Idea copies')}</span>
@@ -340,7 +350,7 @@ export function PlansPage() {
           </article>
           <article className="lab-metric-card">
             <span>{copy('当前状态', 'Current state')}</span>
-            <strong>{ideasLocked ? copy('先处理当前项目', 'Needs one step first') : copy('可以开始试验', 'Ready to experiment')}</strong>
+            <strong>{ideasLocked ? copy('还差一步', 'Needs one step first') : copy('可以开始试验', 'Ready to experiment')}</strong>
           </article>
         </div>
       </section>
@@ -357,11 +367,11 @@ export function PlansPage() {
               <p className="panel-subtitle">
                 {needsFirstSave
                   ? copy(
-                      '没有稳定保存点之前，试验副本没有意义。先去“修改”页保存一次。',
+                      '先留下一次稳定保存，试验副本才有意义。先去“修改”页保存一次。',
                       'An idea copy only helps after you have one stable saved point. Save once in Changes first.'
                     )
                   : copy(
-                      '当前还有未保存修改。先把这次改动保存下来，再开始试验。',
+                      '你手上还有未保存修改。先把这次工作收好，再开始试验。',
                       'There are still unsaved changes. Save this work first, then start an experiment.'
                     )}
               </p>
@@ -400,7 +410,7 @@ export function PlansPage() {
                     disabled={working || ideasLocked}
                     onClick={() => void handleSwitchPlan(stablePlan.name)}
                   >
-                    {copy('回到这个版本', 'Open this version')}
+                    {copy('打开这个版本', 'Open this version')}
                   </button>
                 </div>
               ) : null}
@@ -476,13 +486,7 @@ export function PlansPage() {
             </div>
           </div>
           <p className="muted">
-            <strong>{copy('将从这里开始：', 'Starting from:')}</strong>{' '}
-            {currentPlan
-              ? mapPlanLabel(currentPlan, t)
-              : mapPlanLabel(
-                  stablePlan ?? { id: '', name: 'main', isCurrent: false, isMain: true, lastSavedAt: null, lastMessage: '' },
-                  t
-                )}
+            <strong>{copy('将从这里开始：', 'Starting from:')}</strong> {currentPlanLabel}
           </p>
           <div className="field-row">
             <input
@@ -492,7 +496,7 @@ export function PlansPage() {
               onChange={(event) => setNewPlanName(event.target.value)}
             />
             <button className="btn btn-primary" disabled={working || ideasLocked} onClick={() => void handleCreatePlan()}>
-              {copy('开始试验', 'Start This Idea')}
+              {copy('开始这个试验', 'Start This Idea')}
             </button>
           </div>
         </section>
@@ -503,7 +507,7 @@ export function PlansPage() {
               <h2>{copy('带回稳定版本', 'Bring Back to Stable')}</h2>
               <p className="panel-subtitle">
                 {copy(
-                  '当某个试验已经满意了，再把它带回稳定版本。',
+                  '某个试验已经满意了，就把它带回稳定版本。',
                   'When an idea copy looks right, bring it back into the stable version.'
                 )}
               </p>
@@ -523,8 +527,7 @@ export function PlansPage() {
                 ))}
               </select>
               <span className="lab-merge-summary">
-                {copy('会带回到：', 'Will be added into:')}{' '}
-                <strong>{stablePlan ? mapPlanLabel(stablePlan, t) : t('common_main_plan')}</strong>
+                {copy('会带回到：', 'Will be added into:')} <strong>{stablePlan ? mapPlanLabel(stablePlan, t) : t('common_main_plan')}</strong>
               </span>
               <button className="btn btn-primary" disabled={working || ideasLocked || !mergeFrom} onClick={() => void handleMerge()}>
                 {copy('带回稳定版本', 'Bring It Back')}
@@ -649,7 +652,7 @@ export function PlansPage() {
 
       {mergeState?.status === 'merged' ? (
         <section className="panel">
-          <h3>{copy('这个试验已经带回稳定版本', 'This idea copy is ready to save into the stable version')}</h3>
+          <h3>{copy('这个试验已经带回稳定版本，最后保存一下就好', 'This idea copy is ready to save into the stable version')}</h3>
           <div className="actions-row">
             <button className="btn btn-primary" onClick={() => void handleCompleteMerge()}>
               {copy('保存这次带回结果', 'Save This Merge')}
