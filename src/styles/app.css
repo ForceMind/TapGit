@@ -466,7 +466,7 @@ body {
   padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .project-task-panel-compact {
@@ -483,7 +483,8 @@ body {
 .project-task-panel p {
   margin: 0;
   color: var(--text-muted);
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .project-workbench {
@@ -634,7 +635,8 @@ body {
 .workspace-card p {
   margin: 0;
   color: var(--text-muted);
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .workspace-card-footer {
@@ -1269,8 +1271,9 @@ pre {
 .lab-hero-copy p {
   margin: 0;
   color: var(--text-muted);
-  line-height: 1.72;
-  max-width: 760px;
+  font-size: 14px;
+  line-height: 1.65;
+  max-width: 620px;
 }
 
 .changes-hero-metrics,

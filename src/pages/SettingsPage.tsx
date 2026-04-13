@@ -84,17 +84,17 @@ export function SettingsPage() {
 
   const heroDescription = !project
     ? copy(
-        '\u5148\u6253\u5f00\u4e00\u4e2a\u9879\u76ee\uff0c\u518d\u51b3\u5b9a\u8981\u4e0d\u8981\u628a\u5b83\u8fde\u5230 GitHub \u6216\u5176\u4ed6\u4e91\u7aef\u3002',
-        'Open a project first, then decide whether to connect it to GitHub or another cloud.'
+        '\u5148\u6253\u5f00\u4e00\u4e2a\u9879\u76ee\u3002',
+        'Open a project first.'
       )
     : !project.isProtected
       ? copy(
-          '\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4\uff0c\u8fd9\u4e2a\u9879\u76ee\u624d\u80fd\u5b89\u5168\u5730\u4e0a\u4f20\u3001\u83b7\u53d6\u548c\u6062\u590d\u3002',
-          'Turn on protection first so this project can upload, receive updates, and recover safely.'
+          '\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4\u3002',
+          'Turn on protection first.'
         )
       : copy(
-          '\u5148\u770b\u8fd9\u4e2a\u9879\u76ee\u6709\u6ca1\u6709\u8fde\u4e0a\u4e91\u7aef\uff0c\u518d\u51b3\u5b9a\u73b0\u5728\u8981\u4e0a\u4f20\u8fd8\u662f\u83b7\u53d6\u6700\u65b0\u5185\u5bb9\u3002',
-          'Check whether this project is connected, then decide whether to upload your latest work or get updates from the cloud.'
+          '\u5148\u8fde\u63a5\uff0c\u6216\u8005\u73b0\u5728\u540c\u6b65\u3002',
+          'Connect this project or sync now.'
         );
 
   const connectionStateLabel = !project
@@ -474,7 +474,7 @@ export function SettingsPage() {
               <div>
                 <h2>{copy('\u8fde\u63a5\u8fd9\u4e2a\u9879\u76ee', 'Connect This Project')}</h2>
                 <p className="panel-subtitle">
-                  {copy('\u9009\u62e9\u8fd9\u4e2a\u9879\u76ee\u5e94\u8be5\u540c\u6b65\u5230\u54ea\u91cc\u3002', 'Choose where this project should sync.')}
+                  {copy('\u9009\u62e9\u540c\u6b65\u5730\u65b9\u3002', 'Choose the sync destination.')}
                 </p>
               </div>
               <span className="pill">{providerLabel}</span>
@@ -682,11 +682,11 @@ export function SettingsPage() {
         <section className="panel settings-card">
           <div className="section-head">
             <div>
-              <h2>{copy('\u5e94\u7528\u504f\u597d', 'App Preferences')}</h2>
-              <p className="panel-subtitle">
-                {copy('\u8fd9\u4e9b\u662f\u663e\u793a\u548c\u9ed8\u8ba4\u6587\u6848\u7684\u8bbe\u7f6e\u3002', 'These control language, guidance, and default save notes.')}
-              </p>
-            </div>
+                <h2>{copy('\u5e94\u7528\u504f\u597d', 'App Preferences')}</h2>
+                <p className="panel-subtitle">
+                  {copy('\u8bed\u8a00\u548c\u9ed8\u8ba4\u6587\u6848\u3002', 'Language and default notes.')}
+                </p>
+              </div>
           </div>
           {!config ? (
             <p className="muted">{t('settings_pref_loading')}</p>
@@ -740,11 +740,11 @@ export function SettingsPage() {
         <section className="panel settings-card">
           <div className="section-head">
             <div>
-              <h2>{copy('\u5b89\u5168\u4e0e\u652f\u6301', 'Safety & Support')}</h2>
-              <p className="panel-subtitle">
-                {copy('\u8fd9\u91cc\u662f\u6062\u590d\u524d\u4fdd\u62a4\u548c\u6545\u969c\u5bfc\u51fa\u3002', 'Use these controls for restore protection and troubleshooting.')}
-              </p>
-            </div>
+                <h2>{copy('\u5b89\u5168\u4e0e\u652f\u6301', 'Safety & Support')}</h2>
+                <p className="panel-subtitle">
+                  {copy('\u6062\u590d\u4fdd\u62a4\u548c\u65e5\u5fd7\u3002', 'Recovery protection and logs.')}
+                </p>
+              </div>
           </div>
 
           {!config ? (

@@ -192,12 +192,7 @@ export function TimelinePage() {
         <div className="timeline-hero-copy">
           <span className="pill">{copy('\u5386\u53f2\u4e0e\u6062\u590d', 'History & Restore')}</span>
           <h1>{copy('\u5b89\u5168\u56de\u5230\u4ee5\u524d', 'Go Back Safely')}</h1>
-          <p>
-            {copy(
-              '\u5728\u8fd9\u91cc\u627e\u5230\u4f60\u4e3b\u52a8\u4fdd\u5b58\u7684\u7248\u672c\uff0c\u4e5f\u53ef\u4ee5\u627e\u56de\u7cfb\u7edf\u5728\u6062\u590d\u524d\u81ea\u52a8\u7559\u4e0b\u7684\u5b89\u5168\u5907\u4efd\u3002',
-              'Find the versions you saved on purpose, or return to an automatic safety backup created before risky actions.'
-            )}
-          </p>
+          <p>{copy('\u67e5\u770b\u4fdd\u5b58\u70b9\uff0c\u6216\u56de\u5230\u5b89\u5168\u5907\u4efd\u3002', 'Review saved points or go back safely.')}</p>
         </div>
         <div className="timeline-hero-metrics">
           <article className="timeline-metric-card">
@@ -244,7 +239,7 @@ export function TimelinePage() {
                   <div className="flex-grow">
                     <div className="item-title">{item.message}</div>
                     <div className="item-subtle">
-                      {dayjs.unix(item.timestamp).format('YYYY-MM-DD HH:mm')} |{' '}
+                      {dayjs.unix(item.timestamp).format('YYYY-MM-DD HH:mm')} ·{' '}
                       {t('common_file_unit', { count: item.changedFiles })}
                     </div>
                   </div>
@@ -259,7 +254,7 @@ export function TimelinePage() {
             <div>
               <h2>{copy('\u9009\u4e2d\u7684\u4fdd\u5b58\u70b9', 'Selected Point')}</h2>
               <p className="panel-subtitle">
-                {copy('\u786e\u8ba4\u8fd9\u4e2a\u7248\u672c\u5408\u9002\uff0c\u518d\u51b3\u5b9a\u8981\u4e0d\u8981\u56de\u5230\u5b83\u3002', 'Check this saved point, then decide whether to return to it.')}
+                {copy('\u5982\u679c\u5c31\u662f\u8fd9\u4e2a\u7248\u672c\uff0c\u5c31\u56de\u5230\u5b83\u3002', 'Return to this save if this is the version you want.')}
               </p>
             </div>
             <div className="actions-row">
@@ -340,7 +335,7 @@ export function TimelinePage() {
             <div>
               <h2>{copy('\u9009\u4e2d\u7684\u5b89\u5168\u5907\u4efd', 'Selected Backup')}</h2>
               <p className="panel-subtitle">
-                {copy('\u8fd9\u662f\u7cfb\u7edf\u5e2e\u4f60\u7559\u4e0b\u7684\u9000\u8def\uff0c\u9002\u5408\u5728\u6062\u590d\u524d\u518d\u68c0\u67e5\u4e00\u904d\u3002', 'This is the safety copy the app kept for you before a risky action.')}
+                {copy('\u8fd9\u662f\u98ce\u9669\u64cd\u4f5c\u524d\u81ea\u52a8\u7559\u4e0b\u7684\u5907\u4efd\u3002', 'This backup was kept before a risky action.')}
               </p>
             </div>
             <div className="actions-row">

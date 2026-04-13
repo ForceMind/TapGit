@@ -152,12 +152,7 @@ export function ChangesPage() {
         <div className="changes-hero-copy">
           <span className="pill">{copy('\u5f53\u524d\u5de5\u4f5c\u533a', 'Current Work')}</span>
           <h1>{copy('\u4fee\u6539', 'Changes')}</h1>
-          <p>
-            {copy(
-              '\u5148\u770b\u8fd9\u6b21\u6539\u4e86\u4ec0\u4e48\uff0c\u518d\u5199\u4e00\u53e5\u8bf4\u660e\u628a\u8fd9\u6279\u8fdb\u5ea6\u4fdd\u5b58\u4e0b\u6765\u3002',
-              'Review what changed, then save this batch with one short note.'
-            )}
-          </p>
+          <p>{copy('\u5148\u770b\uff0c\u518d\u4fdd\u5b58\u3002', 'Review first, then save.')}</p>
         </div>
         <div className="changes-hero-metrics">
           <article className="changes-metric-card">
@@ -210,7 +205,7 @@ export function ChangesPage() {
                     <div className="flex-grow">
                       <div className="item-title">{item.path}</div>
                       <div className="item-subtle">
-                        {statusLabel} | +{item.additions} -{item.deletions}
+                        {statusLabel} · +{item.additions} -{item.deletions}
                       </div>
                     </div>
                   </li>
@@ -226,7 +221,7 @@ export function ChangesPage() {
               <h2>{copy('\u9884\u89c8', 'Preview')}</h2>
               <p className="panel-subtitle">
                 {selectedItem
-                  ? copy('\u770b\u5b8c\u8fd9\u4e2a\u6587\u4ef6\uff0c\u53f3\u4e0b\u89d2\u5c31\u53ef\u4ee5\u76f4\u63a5\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c\u3002', 'Review this file, then save the work right below.')
+                  ? copy('\u770b\u8fd9\u4e2a\u6587\u4ef6\u7684\u53d8\u5316\u3002', 'See the change in this file.')
                   : t('changes_select_file_hint')}
               </p>
             </div>
@@ -251,8 +246,8 @@ export function ChangesPage() {
                 <h3>{copy('\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c', 'Save This Work')}</h3>
                 <p className="panel-subtitle">
                   {copy(
-                    '\u8fd9\u6279\u4fee\u6539\u662f\u4e00\u4ef6\u4e8b\uff0c\u5c31\u5168\u90e8\u4fdd\u5b58\uff1b\u4e0d\u662f\u7684\u8bdd\uff0c\u5c31\u53ea\u4fdd\u5b58\u52fe\u9009\u7684\u6587\u4ef6\u3002',
-                    'Save everything if this batch belongs together, or save only the checked files.'
+                    '\u8fd9\u6279\u662f\u4e00\u4ef6\u4e8b\u5c31\u5168\u90e8\u4fdd\u5b58\uff0c\u4e0d\u662f\u5c31\u53ea\u4fdd\u5b58\u52fe\u9009\u7684\u6587\u4ef6\u3002',
+                    'Save all of it, or save only the checked files.'
                   )}
                 </p>
               </div>

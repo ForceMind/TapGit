@@ -116,7 +116,7 @@ describe('ChangesPage', () => {
     renderChangesPage('en-US');
 
     expect(await screen.findByText('Current Work')).toBeInTheDocument();
-    expect(screen.getByText('Review what changed, then save this batch with one short note.')).toBeInTheDocument();
+    expect(screen.getByText('Review first, then save.')).toBeInTheDocument();
     expect(screen.getByText('Changed Files')).toBeInTheDocument();
     expect(screen.getByText('Save This Work')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save Only Checked Files' })).toBeDisabled();

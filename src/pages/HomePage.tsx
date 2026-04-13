@@ -10,7 +10,7 @@ type WorkspaceTone = 'ready' | 'attention' | 'locked';
 
 interface FocusAction {
   title: string;
-  detail: string;
+  detail?: string;
   actionLabel: string;
   actionType: 'link' | 'button';
   actionTo?: string;
@@ -78,10 +78,7 @@ export function HomePage() {
       case 'open':
         return {
           title: copy('\u6253\u5f00\u4e00\u4e2a\u9879\u76ee', 'Open a project'),
-          detail: copy(
-            '\u5148\u9009\u62e9\u4e00\u4e2a\u9879\u76ee\u6587\u4ef6\u5939\uff0c\u6211\u4eec\u518d\u5e2e\u4f60\u7ee7\u7eed\u3002',
-            'Choose a project folder first, then continue from there.'
-          ),
+          detail: copy('\u5148\u9009\u4e00\u4e2a\u6587\u4ef6\u5939\u3002', 'Pick one folder first.'),
           actionLabel: t('home_next_open_project'),
           actionType: 'button',
           onAction: openProjectFolder
@@ -89,10 +86,7 @@ export function HomePage() {
       case 'protect':
         return {
           title: copy('\u5148\u6253\u5f00\u7248\u672c\u4fdd\u62a4', 'Turn on protection first'),
-          detail: copy(
-            '\u6709\u4e86\u7248\u672c\u4fdd\u62a4\uff0c\u8fd9\u4e2a\u9879\u76ee\u624d\u80fd\u5b89\u5168\u4fdd\u5b58\u3001\u6062\u590d\u548c\u540c\u6b65\u3002',
-            'Protection is what makes saving, restoring, and syncing safe.'
-          ),
+          detail: copy('\u4e00\u6b21\u5f00\u542f\uff0c\u540e\u9762\u624d\u5b89\u5168\u3002', 'One click makes saving and restore safe.'),
           actionLabel: t('home_next_enable_protection'),
           actionType: 'button',
           onAction: enableProtection
@@ -103,11 +97,11 @@ export function HomePage() {
           detail:
             (project?.pendingChangeCount ?? 0) > 0
               ? copy(
-                  `\u8fd9\u4e2a\u9879\u76ee\u8fd8\u6709 ${project?.pendingChangeCount ?? 0} \u4e2a\u6587\u4ef6\u6ca1\u6709\u4fdd\u5b58\u3002`,
+                  `\u8fd8\u6709 ${project?.pendingChangeCount ?? 0} \u4e2a\u6587\u4ef6\u7b49\u4f60\u4fdd\u5b58\u3002`,
                   `${project?.pendingChangeCount ?? 0} files are waiting to be saved.`
                 )
               : copy(
-                  '\u5148\u7559\u4e0b\u7b2c\u4e00\u4e2a\u53ef\u56de\u5230\u7684\u4fdd\u5b58\u70b9\u3002',
+                  '\u5148\u7559\u4e0b\u7b2c\u4e00\u4e2a\u4fdd\u5b58\u70b9\u3002',
                   'Create the first safe point before you keep going.'
                 ),
           actionLabel: copy('\u53bb\u770b\u4fee\u6539', 'Review Changes'),
@@ -117,10 +111,7 @@ export function HomePage() {
       default:
         return {
           title: copy('\u73b0\u5728\u53ef\u4ee5\u5f80\u540e\u8d70\u4e86', 'You can move forward now'),
-          detail: copy(
-            '\u8fd9\u4e2a\u9879\u76ee\u5df2\u7ecf\u6709\u53ef\u56de\u5230\u7684\u4fdd\u5b58\u70b9\u3002',
-            'This project already has saved points you can return to.'
-          ),
+          detail: copy('\u5df2\u7ecf\u6709\u53ef\u56de\u5230\u7684\u4fdd\u5b58\u70b9\u3002', 'Saved points are ready.'),
           actionLabel: copy('\u6253\u5f00\u5386\u53f2', 'Open History'),
           actionType: 'link',
           actionTo: '/timeline'
@@ -148,7 +139,7 @@ export function HomePage() {
         summary: !project.isProtected
           ? copy('\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4\u3002', 'Turn on protection first.')
           : pendingCount > 0
-            ? copy('\u8fd9\u91cc\u662f\u4f60\u8fd9\u6b21\u7684\u5de5\u4f5c\u533a\u3002', 'This is where the current work waits.')
+            ? copy(`${pendingCount} \u4e2a\u6587\u4ef6\u7b49\u4f60\u4fdd\u5b58\u3002`, `${pendingCount} files are waiting.`)
             : copy('\u6682\u65f6\u6ca1\u6709\u9700\u8981\u4fdd\u5b58\u7684\u4fee\u6539\u3002', 'Nothing is waiting right now.'),
         actionLabel: copy('\u67e5\u770b\u4fee\u6539', 'Review Changes'),
         actionTo: project.isProtected ? '/changes' : undefined,
@@ -161,9 +152,9 @@ export function HomePage() {
           ? copy('\u6b63\u5728\u8bfb\u53d6', 'Loading')
           : t('common_record_unit', { count: historyCount ?? 0 }),
         summary: historyLoading
-          ? copy('\u6b63\u5728\u6574\u7406\u4f60\u7684\u4fdd\u5b58\u70b9\u3002', 'Checking your saved points.')
+          ? copy('\u6b63\u5728\u6574\u7406\u5386\u53f2\u3002', 'Checking history.')
           : hasHistory
-            ? copy('\u4ece\u8fd9\u91cc\u56de\u770b\u6216\u6062\u590d\u4efb\u4f55\u4e00\u6b21\u4fdd\u5b58\u3002', 'Review or restore any saved point here.')
+            ? copy('\u53ef\u4ee5\u56de\u770b\u6216\u6062\u590d\u3002', 'Review or restore here.')
             : copy('\u5148\u4fdd\u5b58\u4e00\u6b21\uff0c\u8fd9\u91cc\u624d\u4f1a\u6253\u5f00\u3002', 'Save once to unlock this area.'),
         actionLabel: copy('\u6253\u5f00\u5386\u53f2', 'Open History'),
         actionTo: hasHistory ? '/timeline' : undefined,
@@ -178,10 +169,10 @@ export function HomePage() {
             ? copy('\u5148\u4fdd\u5b58\u5f53\u524d\u5de5\u4f5c', 'Save work first')
             : copy('\u53ef\u4ee5\u5f00\u59cb', 'Ready'),
         summary: !hasHistory
-          ? copy('\u6709\u4e86\u7a33\u5b9a\u7248\u672c\u540e\uff0c\u518d\u6765\u8fd9\u91cc\u5b89\u5168\u8bd5\u65b0\u60f3\u6cd5\u3002', 'Come here after the first stable save.')
+          ? copy('\u5148\u6709\u7b2c\u4e00\u4e2a\u7a33\u5b9a\u7248\u672c\u3002', 'Come here after the first save.')
           : pendingCount > 0
-            ? copy('\u5148\u628a\u624b\u4e0a\u8fd9\u6279\u6539\u52a8\u6536\u597d\uff0c\u518d\u5f00\u8bd5\u9a8c\u526f\u672c\u3002', 'Save current work before starting an experiment.')
-            : copy('\u5728\u5355\u72ec\u526f\u672c\u91cc\u6162\u6162\u8bd5\uff0c\u4e0d\u6253\u4e71\u7a33\u5b9a\u7248\u672c\u3002', 'Try ideas in a separate copy without disturbing the stable version.'),
+            ? copy('\u5148\u4fdd\u5b58\u624b\u4e0a\u8fd9\u6279\u5de5\u4f5c\u3002', 'Save current work first.')
+            : copy('\u73b0\u5728\u53ef\u4ee5\u5f00\u59cb\u8bd5\u65b0\u60f3\u6cd5\u3002', 'Ready for a safe experiment.'),
         actionLabel: copy('\u6253\u5f00\u8bd5\u9a8c\u533a', 'Open Idea Lab'),
         actionTo: hasHistory && pendingCount === 0 ? '/plans' : undefined,
         tone: !hasHistory ? 'locked' : pendingCount > 0 ? 'attention' : 'ready'
@@ -342,7 +333,7 @@ export function HomePage() {
         <div className="project-task-panel project-task-panel-compact">
           <span className="project-primary-label">{copy('\u73b0\u5728\u5148\u505a\u8fd9\u4ef6\u4e8b', 'Do This Now')}</span>
           <h2>{focusAction.title}</h2>
-          <p>{focusAction.detail}</p>
+          {focusAction.detail ? <p>{focusAction.detail}</p> : null}
           <div className="actions-row">{renderFocusAction()}</div>
         </div>
       </section>
