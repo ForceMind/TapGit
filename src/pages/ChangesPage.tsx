@@ -220,9 +220,16 @@ export function ChangesPage() {
           )}
         </div>
 
-        <div className="detail-panel">
+        <div className="detail-panel workbench-panel">
           <div className="section-head">
-            <h2>{copy('\u9884\u89c8', 'Preview')}</h2>
+            <div>
+              <h2>{copy('\u9884\u89c8', 'Preview')}</h2>
+              <p className="panel-subtitle">
+                {selectedItem
+                  ? copy('\u770b\u5b8c\u8fd9\u4e2a\u6587\u4ef6\uff0c\u53f3\u4e0b\u89d2\u5c31\u53ef\u4ee5\u76f4\u63a5\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c\u3002', 'Review this file, then save the work right below.')
+                  : t('changes_select_file_hint')}
+              </p>
+            </div>
             {selectedItem ? (
               <span className="pill">{toChangeStatusLabel(selectedItem.changeType, t)}</span>
             ) : null}
@@ -235,46 +242,48 @@ export function ChangesPage() {
               <pre>{toLocalizedDiffText(selectedItem.diffText, t)}</pre>
             </div>
           )}
-        </div>
-      </section>
 
-      <section className="panel save-panel">
-        <div className="section-head">
-          <div>
-            <h3>{copy('\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c', 'Save This Work')}</h3>
-            <p className="panel-subtitle">
-              {copy(
-                '\u5982\u679c\u8fd9\u6279\u4fee\u6539\u662f\u4e00\u4ef6\u4e8b\uff0c\u5c31\u76f4\u63a5\u5168\u90e8\u4fdd\u5b58\uff1b\u5982\u679c\u4e0d\u662f\uff0c\u5c31\u53ea\u4fdd\u5b58\u52fe\u9009\u5185\u5bb9\u3002',
-                'Save everything if this batch belongs together, or save only the checked files.'
-              )}
+          <div className="workbench-divider" />
+
+          <div className="save-box">
+            <div className="section-head">
+              <div>
+                <h3>{copy('\u4fdd\u5b58\u8fd9\u6b21\u5de5\u4f5c', 'Save This Work')}</h3>
+                <p className="panel-subtitle">
+                  {copy(
+                    '\u8fd9\u6279\u4fee\u6539\u662f\u4e00\u4ef6\u4e8b\uff0c\u5c31\u5168\u90e8\u4fdd\u5b58\uff1b\u4e0d\u662f\u7684\u8bdd\uff0c\u5c31\u53ea\u4fdd\u5b58\u52fe\u9009\u7684\u6587\u4ef6\u3002',
+                    'Save everything if this batch belongs together, or save only the checked files.'
+                  )}
+                </p>
+              </div>
+              <span className="pill">{t('changes_selected_count', { count: checkedCount })}</span>
+            </div>
+            <textarea
+              className="input-textarea"
+              placeholder={t('changes_message_placeholder')}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              rows={3}
+            />
+            <div className="actions-row">
+              <button
+                className="btn btn-secondary"
+                disabled={saving || checkedCount === 0}
+                onClick={() => void handleSave('selected')}
+              >
+                {t('changes_save_selected')}
+              </button>
+              <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave('all')}>
+                {t('changes_save_all')}
+              </button>
+            </div>
+            <p className="muted">
+              {checkedCount === 0
+                ? t('changes_partial_hint_none')
+                : t('changes_partial_hint_some', { count: checkedCount })}
             </p>
           </div>
-          <span className="pill">{t('changes_selected_count', { count: checkedCount })}</span>
         </div>
-        <textarea
-          className="input-textarea"
-          placeholder={t('changes_message_placeholder')}
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          rows={3}
-        />
-        <div className="actions-row">
-          <button
-            className="btn btn-secondary"
-            disabled={saving || checkedCount === 0}
-            onClick={() => void handleSave('selected')}
-          >
-            {t('changes_save_selected')}
-          </button>
-          <button className="btn btn-primary" disabled={saving} onClick={() => void handleSave('all')}>
-            {t('changes_save_all')}
-          </button>
-        </div>
-        <p className="muted">
-          {checkedCount === 0
-            ? t('changes_partial_hint_none')
-            : t('changes_partial_hint_some', { count: checkedCount })}
-        </p>
       </section>
     </div>
   );

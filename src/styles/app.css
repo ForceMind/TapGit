@@ -1029,6 +1029,18 @@ body {
   min-width: 0;
 }
 
+.workbench-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.workbench-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(213, 222, 232, 0), rgba(213, 222, 232, 1), rgba(213, 222, 232, 0));
+}
+
 .diff-view {
   display: flex;
   flex-direction: column;
@@ -1057,6 +1069,17 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.save-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.save-box .muted {
+  margin: 0;
+  line-height: 1.6;
 }
 
 .input-textarea,
@@ -1154,6 +1177,42 @@ pre {
 }
 
 .detail-stack strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.detail-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.detail-fact-card,
+.detail-list-box {
+  border-radius: 16px;
+  border: 1px solid #dbe6ef;
+  background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
+  padding: 14px;
+}
+
+.detail-fact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-fact-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.detail-fact-card strong {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.detail-list-box strong {
   display: block;
   margin-bottom: 4px;
 }
@@ -1800,6 +1859,10 @@ pre {
   .lab-hero-metrics {
     width: 100%;
     flex-direction: column;
+  }
+
+  .detail-fact-grid {
+    grid-template-columns: 1fr;
   }
 
   .project-task-panel {

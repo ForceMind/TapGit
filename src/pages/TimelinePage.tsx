@@ -218,15 +218,7 @@ export function TimelinePage() {
       <section className="panel split-panel">
         <div className="list-panel">
           <div className="section-head">
-            <div>
-              <h2>{copy('\u4fdd\u5b58\u70b9', 'Saved Points')}</h2>
-              <p className="panel-subtitle">
-                {copy(
-                  '\u8fd9\u4e9b\u662f\u4f60\u4e3b\u52a8\u4fdd\u5b58\u4e0b\u6765\u7684\u7248\u672c\u3002',
-                  'These are the versions you chose to keep.'
-                )}
-              </p>
-            </div>
+            <h2>{copy('\u4fdd\u5b58\u70b9', 'Saved Points')}</h2>
             <span className="pill">{t('common_record_unit', { count: records.length })}</span>
           </div>
           {historyLoading ? (
@@ -262,41 +254,50 @@ export function TimelinePage() {
           )}
         </div>
 
-        <div className="detail-panel">
+        <div className="detail-panel workbench-panel">
           <div className="section-head">
-            <h2>{copy('\u9009\u4e2d\u7684\u4fdd\u5b58\u70b9', 'Selected Point')}</h2>
-            {selectedRecord && config?.settings.showAdvancedMode ? (
-              <span className="pill">{selectedRecord.id.slice(0, 8)}</span>
-            ) : null}
+            <div>
+              <h2>{copy('\u9009\u4e2d\u7684\u4fdd\u5b58\u70b9', 'Selected Point')}</h2>
+              <p className="panel-subtitle">
+                {copy('\u786e\u8ba4\u8fd9\u4e2a\u7248\u672c\u5408\u9002\uff0c\u518d\u51b3\u5b9a\u8981\u4e0d\u8981\u56de\u5230\u5b83\u3002', 'Check this saved point, then decide whether to return to it.')}
+              </p>
+            </div>
+            <div className="actions-row">
+              {selectedRecord && config?.settings.showAdvancedMode ? (
+                <span className="pill">{selectedRecord.id.slice(0, 8)}</span>
+              ) : null}
+              {selectedRecord ? (
+                <button className="btn btn-danger" disabled={restoring} onClick={() => setRestoreDialogOpen(true)}>
+                  {copy('\u56de\u5230\u8fd9\u4e2a\u4fdd\u5b58\u70b9', 'Return to This Save')}
+                </button>
+              ) : null}
+            </div>
           </div>
           {!selectedRecord ? (
             <p className="muted">{t('timeline_select_record')}</p>
           ) : (
             <div className="detail-stack">
-              <p>
-                <strong>{copy('\u8bf4\u660e', 'Note')}</strong>
-                {selectedRecord.message}
-              </p>
-              <p>
-                <strong>{copy('\u4fdd\u5b58\u65f6\u95f4', 'Saved at')}</strong>
-                {formatDateTime(selectedRecord.timestamp)}
-              </p>
-              <p>
-                <strong>{copy('\u6d89\u53ca\u6587\u4ef6', 'Files in this save')}</strong>
-                {selectedRecord.changedFiles}
-              </p>
-              <div>
+              <div className="detail-fact-grid">
+                <article className="detail-fact-card">
+                  <span>{copy('\u8bf4\u660e', 'Note')}</span>
+                  <strong>{selectedRecord.message}</strong>
+                </article>
+                <article className="detail-fact-card">
+                  <span>{copy('\u4fdd\u5b58\u65f6\u95f4', 'Saved at')}</span>
+                  <strong>{formatDateTime(selectedRecord.timestamp)}</strong>
+                </article>
+                <article className="detail-fact-card">
+                  <span>{copy('\u6d89\u53ca\u6587\u4ef6', 'Files in this save')}</span>
+                  <strong>{t('common_file_unit', { count: selectedRecord.changedFiles })}</strong>
+                </article>
+              </div>
+              <div className="detail-list-box">
                 <strong>{copy('\u6587\u4ef6\u6e05\u5355', 'Files')}</strong>
                 <ul className="mini-list">
                   {selectedRecord.files.slice(0, 20).map((file) => (
                     <li key={file}>{file}</li>
                   ))}
                 </ul>
-              </div>
-              <div className="actions-row">
-                <button className="btn btn-danger" disabled={restoring} onClick={() => setRestoreDialogOpen(true)}>
-                  {copy('\u56de\u5230\u8fd9\u4e2a\u4fdd\u5b58\u70b9', 'Return to This Save')}
-                </button>
               </div>
             </div>
           )}
@@ -306,15 +307,7 @@ export function TimelinePage() {
       <section className="panel split-panel">
         <div className="list-panel">
           <div className="section-head">
-            <div>
-              <h2>{copy('\u5b89\u5168\u5907\u4efd', 'Safety Backups')}</h2>
-              <p className="panel-subtitle">
-                {copy(
-                  '\u7cfb\u7edf\u4f1a\u5728\u6062\u590d\u524d\u81ea\u52a8\u7559\u4e0b\u8fd9\u4e9b\u5907\u4efd\u3002',
-                  'These are created automatically before restore and other risky actions.'
-                )}
-              </p>
-            </div>
+            <h2>{copy('\u5b89\u5168\u5907\u4efd', 'Safety Backups')}</h2>
             <span className="pill">{t('common_record_unit', { count: backups.length })}</span>
           </div>
           {backupsLoading ? (
@@ -342,33 +335,42 @@ export function TimelinePage() {
           )}
         </div>
 
-        <div className="detail-panel">
+        <div className="detail-panel workbench-panel">
           <div className="section-head">
-            <h2>{copy('\u9009\u4e2d\u7684\u5b89\u5168\u5907\u4efd', 'Selected Backup')}</h2>
-            {selectedBackup && config?.settings.showAdvancedMode ? (
-              <span className="pill">{selectedBackup.id}</span>
-            ) : null}
+            <div>
+              <h2>{copy('\u9009\u4e2d\u7684\u5b89\u5168\u5907\u4efd', 'Selected Backup')}</h2>
+              <p className="panel-subtitle">
+                {copy('\u8fd9\u662f\u7cfb\u7edf\u5e2e\u4f60\u7559\u4e0b\u7684\u9000\u8def\uff0c\u9002\u5408\u5728\u6062\u590d\u524d\u518d\u68c0\u67e5\u4e00\u904d\u3002', 'This is the safety copy the app kept for you before a risky action.')}
+              </p>
+            </div>
+            <div className="actions-row">
+              {selectedBackup && config?.settings.showAdvancedMode ? (
+                <span className="pill">{selectedBackup.id}</span>
+              ) : null}
+              {selectedBackup ? (
+                <button className="btn btn-secondary" disabled={restoring} onClick={() => setBackupDialogOpen(true)}>
+                  {copy('\u56de\u5230\u8fd9\u4e2a\u5b89\u5168\u5907\u4efd', 'Return to This Backup')}
+                </button>
+              ) : null}
+            </div>
           </div>
           {!selectedBackup ? (
             <p className="muted">{t('timeline_backups_empty')}</p>
           ) : (
             <div className="detail-stack">
-              <p>
-                <strong>{copy('\u6765\u6e90', 'Created because')}</strong>
-                {toSafetyBackupSourceLabel(selectedBackup.source, t)}
-              </p>
-              <p>
-                <strong>{copy('\u521b\u5efa\u65f6\u95f4', 'Created at')}</strong>
-                {formatDateTime(selectedBackup.createdAt)}
-              </p>
-              <p>
-                <strong>{copy('\u5f53\u65f6\u6700\u65b0\u7684\u4fdd\u5b58', 'Latest saved note at that time')}</strong>
-                {selectedBackup.lastMessage || t('timeline_backup_no_record')}
-              </p>
-              <div className="actions-row">
-                <button className="btn btn-secondary" disabled={restoring} onClick={() => setBackupDialogOpen(true)}>
-                  {copy('\u56de\u5230\u8fd9\u4e2a\u5b89\u5168\u5907\u4efd', 'Return to This Backup')}
-                </button>
+              <div className="detail-fact-grid">
+                <article className="detail-fact-card">
+                  <span>{copy('\u6765\u6e90', 'Created because')}</span>
+                  <strong>{toSafetyBackupSourceLabel(selectedBackup.source, t)}</strong>
+                </article>
+                <article className="detail-fact-card">
+                  <span>{copy('\u521b\u5efa\u65f6\u95f4', 'Created at')}</span>
+                  <strong>{formatDateTime(selectedBackup.createdAt)}</strong>
+                </article>
+                <article className="detail-fact-card">
+                  <span>{copy('\u5f53\u65f6\u6700\u65b0\u7684\u4fdd\u5b58', 'Latest saved note at that time')}</span>
+                  <strong>{selectedBackup.lastMessage || t('timeline_backup_no_record')}</strong>
+                </article>
               </div>
             </div>
           )}
