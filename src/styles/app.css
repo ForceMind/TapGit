@@ -108,7 +108,7 @@ body {
 }
 
 .topbar {
-  padding: 18px 24px;
+  padding: 16px 24px;
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -121,6 +121,15 @@ body {
 
 .project-info {
   min-width: 0;
+}
+
+.topbar-section-label {
+  color: #0d5f6a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 .project-title-row {
@@ -138,20 +147,12 @@ body {
 }
 
 .project-title {
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
-.project-pills {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.top-actions:empty,
-.project-pills {
+.top-actions:empty {
   display: none;
 }
 
@@ -180,7 +181,9 @@ body {
 .project-meta {
   color: var(--text-muted);
   font-size: 13px;
-  margin-top: 3px;
+  margin-top: 6px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .link-quiet {
@@ -1335,6 +1338,39 @@ pre {
   gap: 14px;
 }
 
+.settings-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-fact-card {
+  border-radius: 16px;
+  border: 1px solid #dbe6ef;
+  background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-fact-card-wide {
+  grid-column: 1 / -1;
+}
+
+.settings-fact-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.settings-fact-card strong {
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 .settings-status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
@@ -1498,15 +1534,6 @@ pre {
 .switch-row.stacked {
   align-items: flex-start;
   flex-direction: column;
-}
-
-.statusbar {
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  padding: 10px 22px;
-  display: flex;
-  gap: 20px;
-  font-size: 12px;
 }
 
 .toast {
@@ -1811,6 +1838,7 @@ pre {
   .changes-hero,
   .settings-hero,
   .settings-grid,
+  .settings-fact-grid,
   .settings-status-grid,
   .settings-inline-grid,
   .timeline-hero,

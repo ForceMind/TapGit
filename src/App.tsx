@@ -104,8 +104,16 @@ function AppContent() {
       ),
       changesText,
       historyText
-    ].join(' | ');
+    ].join(' · ');
   }, [copy, historyCount, historyLoading, project, t]);
+
+  const currentSectionLabel = useMemo(() => {
+    if (location.pathname === '/changes') return t('app_nav_changes');
+    if (location.pathname === '/timeline') return t('app_nav_timeline');
+    if (location.pathname === '/plans') return t('app_nav_plans');
+    if (location.pathname === '/settings') return t('app_nav_settings');
+    return t('app_nav_home');
+  }, [location.pathname, t]);
 
   async function refreshConfig() {
     const nextConfig = await unwrapResult(getBridge().getConfig());
@@ -675,6 +683,7 @@ function AppContent() {
         <main className="main">
           <header className="topbar">
             <div className="project-info">
+              <div className="topbar-section-label">{currentSectionLabel}</div>
               <div className="project-title-row">
                 <div className="project-title">{project?.name ?? t('app_project_not_opened')}</div>
                 {project ? (
@@ -688,33 +697,7 @@ function AppContent() {
                   </div>
                 ) : null}
               </div>
-              {project ? <div className="project-meta">{projectMetaSummary}</div> : null}
-              {project ? (
-                <div className="project-pills">
-                  <span className="project-pill">
-                    {toPlanLabel(
-                      project.currentPlan,
-                      project.currentPlan === 'main' || project.currentPlan === 'master',
-                      t
-                    )}
-                  </span>
-                  {project.pendingChangeCount > 0 ? (
-                    <span className="project-pill attention">
-                      {copy(
-                        `${project.pendingChangeCount} \u4e2a\u672a\u4fdd\u5b58`,
-                        `${project.pendingChangeCount} unsaved`
-                      )}
-                    </span>
-                  ) : null}
-                  <span className="project-pill">
-                    {historyLoading
-                      ? t('home_history_loading_short')
-                      : t('common_record_unit', { count: historyCount ?? 0 })}
-                  </span>
-                </div>
-              ) : (
-                <div className="project-meta">{t('app_project_meta_empty')}</div>
-              )}
+              <div className="project-meta">{project ? projectMetaSummary : t('app_project_meta_empty')}</div>
             </div>
             <div className="top-actions">
               {project ? (
@@ -765,23 +748,6 @@ function AppContent() {
             <Route path="/plans" element={<PlansPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
-
-          <footer className="statusbar">
-            <span>
-              {t('app_beginner_mode', {
-                status: config?.settings.showAdvancedMode
-                  ? t('app_beginner_mode_off')
-                  : t('app_beginner_mode_on')
-              })}
-            </span>
-            <span>
-              {t('app_restore_guard', {
-                status: config?.settings.autoSnapshotBeforeRestore
-                  ? t('app_enabled')
-                  : t('app_disabled')
-              })}
-            </span>
-          </footer>
         </main>
       </div>
 

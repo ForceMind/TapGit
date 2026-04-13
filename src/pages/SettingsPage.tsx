@@ -623,17 +623,16 @@ export function SettingsPage() {
             </div>
 
             <div className="settings-stack-tight">
-              <div className="settings-status-card">
-                <span>{copy('\u5f53\u524d\u8fde\u63a5', 'Current remote')}</span>
-                <strong>{cloudStatus?.remoteUrl || copy('\u8fd8\u6ca1\u8fde\u4e0a', 'Not connected yet')}</strong>
-              </div>
-
-              <div className="settings-status-grid">
-                <div className="settings-status-card">
+              <div className="settings-fact-grid">
+                <article className="settings-fact-card settings-fact-card-wide">
+                  <span>{copy('\u5f53\u524d\u8fde\u63a5', 'Current remote')}</span>
+                  <strong>{cloudStatus?.remoteUrl || copy('\u8fd8\u6ca1\u8fde\u4e0a', 'Not connected yet')}</strong>
+                </article>
+                <article className="settings-fact-card">
                   <span>{copy('\u540c\u6b65\u72b6\u6001', 'Sync state')}</span>
                   <strong>{cloudStatus ? toCloudStatusText(cloudStatus, t) : copy('\u7b49\u5f85\u8fde\u63a5', 'Waiting for connection')}</strong>
-                </div>
-                <div className="settings-status-card">
+                </article>
+                <article className="settings-fact-card">
                   <span>{copy('\u5f53\u524d\u526f\u672c', 'Current copy')}</span>
                   <strong>
                     {cloudStatus
@@ -644,18 +643,15 @@ export function SettingsPage() {
                         )
                       : copy('\u4e3b\u7ebf', 'Main')}
                   </strong>
-                </div>
-              </div>
-
-              <div className="settings-status-grid">
-                <div className="settings-status-card">
+                </article>
+                <article className="settings-fact-card">
                   <span>{copy('\u8fd8\u6ca1\u4e0a\u4f20', 'Pending upload')}</span>
                   <strong>{t('common_record_unit', { count: cloudStatus?.pendingUpload ?? 0 })}</strong>
-                </div>
-                <div className="settings-status-card">
+                </article>
+                <article className="settings-fact-card">
                   <span>{copy('\u8fd8\u6ca1\u53d6\u56de', 'Pending download')}</span>
                   <strong>{t('common_record_unit', { count: cloudStatus?.pendingDownload ?? 0 })}</strong>
-                </div>
+                </article>
               </div>
 
               <div className="actions-row">
