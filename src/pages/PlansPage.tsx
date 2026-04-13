@@ -24,11 +24,12 @@ export function PlansPage() {
   const [selectedConflictFile, setSelectedConflictFile] = useState('');
   const [manualContent, setManualContent] = useState('');
 
+  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
+
   const stablePlan = useMemo(
     () => plans.find((item) => item.isMain) ?? plans.find((item) => item.name === 'main' || item.name === 'master'),
     [plans]
   );
-
   const ideaPlans = useMemo(() => plans.filter((item) => !item.isMain), [plans]);
   const currentPlan = useMemo(() => plans.find((item) => item.isCurrent) ?? null, [plans]);
   const fallbackPlan = useMemo<PlanInfo>(
@@ -48,7 +49,7 @@ export function PlansPage() {
   const needsFirstSave = (historyCount ?? 0) === 0;
   const hasUnsavedChanges = (project?.pendingChangeCount ?? 0) > 0;
   const ideasLocked = needsFirstSave || hasUnsavedChanges;
-  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
+  const noSavedNoteText = copy('还没有保存说明。', 'No saved note yet.');
 
   const selectedConflict = useMemo(
     () => mergeState?.conflicts.find((item) => item.filePath === selectedConflictFile) ?? mergeState?.conflicts[0],
@@ -73,14 +74,20 @@ export function PlansPage() {
   }, [mergeState, selectedConflictIndex]);
 
   function pickNextConflictFile(conflicts: MergeResult['conflicts'], previousFile: string) {
-    if (conflicts.length === 0) return '';
+    if (conflicts.length === 0) {
+      return '';
+    }
+
     const sameFile = conflicts.find((item) => item.filePath === previousFile);
-    if (sameFile) return sameFile.filePath;
+    if (sameFile) {
+      return sameFile.filePath;
+    }
 
     const previousIndex = mergeState?.conflicts.findIndex((item) => item.filePath === previousFile) ?? -1;
     if (previousIndex >= 0) {
       return conflicts[Math.min(previousIndex, conflicts.length - 1)]?.filePath ?? conflicts[0].filePath;
     }
+
     return conflicts[0].filePath;
   }
 
@@ -99,7 +106,10 @@ export function PlansPage() {
   }
 
   async function loadPlans() {
-    if (!project?.path || !project.isProtected) return;
+    if (!project?.path || !project.isProtected) {
+      return;
+    }
+
     setLoading(true);
     try {
       const [plansData, historyData] = await Promise.all([
@@ -131,13 +141,19 @@ export function PlansPage() {
   }, [project?.path, project?.isProtected]);
 
   async function handleCreatePlan() {
-    if (!project?.path || !newPlanName.trim() || ideasLocked) return;
+    if (!project?.path || !newPlanName.trim() || ideasLocked) {
+      return;
+    }
+
     setWorking(true);
     try {
       await unwrapResult(
         getBridge().createPlan(project.path, newPlanName.trim(), currentPlan?.name ?? stablePlan?.name)
       );
-      setNotice({ type: 'success', text: t('plans_notice_created', { name: newPlanName.trim() }) });
+      setNotice({
+        type: 'success',
+        text: copy(`已创建试验副本：${newPlanName.trim()}`, `Experiment copy created: ${newPlanName.trim()}`)
+      });
       setNewPlanName('');
       await refreshProject();
       await loadPlans();
@@ -152,11 +168,21 @@ export function PlansPage() {
   }
 
   async function handleSwitchPlan(planName: string) {
-    if (!project?.path || !planName || ideasLocked) return;
+    if (!project?.path || !planName || ideasLocked) {
+      return;
+    }
+
     setWorking(true);
     try {
       await unwrapResult(getBridge().switchPlan(project.path, planName));
-      setNotice({ type: 'success', text: t('plans_notice_switched', { name: planName }) });
+      const nextLabel =
+        plans.find((item) => item.name === planName) !== undefined
+          ? mapPlanLabel(plans.find((item) => item.name === planName) as PlanInfo, t)
+          : planName;
+      setNotice({
+        type: 'success',
+        text: copy(`现在正在查看：${nextLabel}`, `Now viewing: ${nextLabel}`)
+      });
       await refreshProject();
       await loadPlans();
     } catch (error) {
@@ -170,15 +196,24 @@ export function PlansPage() {
   }
 
   async function handleMerge() {
-    if (!project?.path || !stablePlan?.name || !mergeFrom || ideasLocked) return;
+    if (!project?.path || !stablePlan?.name || !mergeFrom || ideasLocked) {
+      return;
+    }
+
     setWorking(true);
     try {
       const result = await unwrapResult(getBridge().mergePlan(project.path, mergeFrom, stablePlan.name));
       if (result.status === 'merged') {
-        setNotice({ type: 'success', text: t('plans_notice_merged') });
+        setNotice({
+          type: 'success',
+          text: copy('这份试验副本已经带回稳定版本。', 'This idea copy has been brought back into the stable version.')
+        });
         applyMergeResult(result);
       } else {
-        setNotice({ type: 'info', text: t('plans_notice_need_decision') });
+        setNotice({
+          type: 'info',
+          text: copy('两边都改到了同一部分，需要你决定保留哪一边。', 'Both copies changed the same part. Choose which side to keep.')
+        });
         applyMergeResult(result, result.conflicts[0]?.filePath ?? '');
       }
       await refreshProject();
@@ -194,7 +229,10 @@ export function PlansPage() {
   }
 
   async function handleResolve(strategy: 'keepCurrent' | 'keepIncoming' | 'manual') {
-    if (!project?.path || !selectedConflict) return;
+    if (!project?.path || !selectedConflict) {
+      return;
+    }
+
     setWorking(true);
     try {
       const result = await unwrapResult(
@@ -205,15 +243,22 @@ export function PlansPage() {
           strategy === 'manual' ? manualContent : undefined
         )
       );
+
       if (result.status === 'needs_decision') {
         applyMergeResult(result, selectedConflict.filePath);
         setNotice({
           type: 'info',
-          text: t('plans_notice_remaining_conflicts', { count: result.conflicts.length })
+          text: copy(
+            `还剩 ${result.conflicts.length} 个文件需要决定。`,
+            `${result.conflicts.length} files still need a decision.`
+          )
         });
       } else {
         applyMergeResult(result);
-        setNotice({ type: 'info', text: t('plans_notice_conflicts_resolved') });
+        setNotice({
+          type: 'info',
+          text: copy('碰到一起的修改已经处理完，最后保存一下结果。', 'The overlapping edits are resolved. Save the result to finish.')
+        });
       }
     } catch (error) {
       setNotice({
@@ -226,7 +271,9 @@ export function PlansPage() {
   }
 
   async function handleResolveAll(strategy: 'keepCurrent' | 'keepIncoming') {
-    if (!project?.path || !mergeState?.conflicts.length) return;
+    if (!project?.path || !mergeState?.conflicts.length) {
+      return;
+    }
 
     setWorking(true);
     try {
@@ -244,10 +291,16 @@ export function PlansPage() {
       if (latestResult.status === 'needs_decision') {
         setNotice({
           type: 'info',
-          text: t('plans_notice_remaining_conflicts', { count: latestResult.conflicts.length })
+          text: copy(
+            `还剩 ${latestResult.conflicts.length} 个文件需要决定。`,
+            `${latestResult.conflicts.length} files still need a decision.`
+          )
         });
       } else {
-        setNotice({ type: 'info', text: t('plans_notice_conflicts_resolved') });
+        setNotice({
+          type: 'info',
+          text: copy('碰到一起的修改已经处理完，最后保存一下结果。', 'The overlapping edits are resolved. Save the result to finish.')
+        });
       }
     } catch (error) {
       setNotice({
@@ -260,17 +313,23 @@ export function PlansPage() {
   }
 
   async function handleCompleteMerge() {
-    if (!project?.path || !stablePlan?.name) return;
+    if (!project?.path || !stablePlan?.name) {
+      return;
+    }
+
     setWorking(true);
     try {
       await unwrapResult(
         getBridge().completeMerge(
           project.path,
-          t('plans_merge_commit_message', { from: mergeFrom, to: stablePlan.name })
+          copy(`带回试验副本：${mergeFrom} -> ${stablePlan.name}`, `Bring back idea copy: ${mergeFrom} -> ${stablePlan.name}`)
         )
       );
       setMergeState(null);
-      setNotice({ type: 'success', text: t('plans_notice_complete_saved') });
+      setNotice({
+        type: 'success',
+        text: copy('已保存带回后的结果。', 'The merged result has been saved.')
+      });
       await refreshProject();
       await loadPlans();
     } catch (error) {
@@ -287,13 +346,13 @@ export function PlansPage() {
     return (
       <div className="page">
         <section className="panel">
-          <h2>{t('plans_title')}</h2>
+          <h2>{copy('试新想法', 'Try Ideas')}</h2>
           <div className="empty-action-panel">
-            <h3>{t('common_project_open_required')}</h3>
-            <p>{t('common_project_open_help')}</p>
+            <h3>{copy('先打开一个项目。', 'Open a project first.')}</h3>
+            <p>{copy('打开项目后，才知道要从哪个稳定版本开始试。', 'Open a project before starting a safe experiment.')}</p>
             <div className="actions-row">
               <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-                {t('app_open_project')}
+                {copy('打开项目', 'Open Project')}
               </button>
             </div>
           </div>
@@ -306,13 +365,13 @@ export function PlansPage() {
     return (
       <div className="page">
         <section className="panel">
-          <h2>{t('plans_title')}</h2>
+          <h2>{copy('试新想法', 'Try Ideas')}</h2>
           <div className="empty-action-panel">
-            <h3>{t('common_protection_required')}</h3>
-            <p>{t('common_protection_help')}</p>
+            <h3>{copy('先开启版本保护。', 'Turn on protection first.')}</h3>
+            <p>{copy('这样试验副本和恢复才安全。', 'This makes idea copies and restore safe.')}</p>
             <div className="actions-row">
               <button className="btn btn-primary" onClick={() => void enableProtection()}>
-                {t('app_enable_protection')}
+                {copy('开启版本保护', 'Enable Protection')}
               </button>
             </div>
           </div>
@@ -326,17 +385,11 @@ export function PlansPage() {
       <section className="panel lab-hero">
         <div className="lab-hero-copy">
           <span className="pill">{copy('安全试验区', 'Safe Workspace')}</span>
-          <h1>{copy('试验区', 'Idea Lab')}</h1>
+          <h1>{copy('试新想法', 'Try Ideas')}</h1>
           <p>
             {ideasLocked
-              ? copy(
-                  '先把当前项目收成稳定状态，再来这里试新想法。',
-                  'First bring this project to a stable point, then use this page for risky ideas.'
-                )
-              : copy(
-                  '在单独副本里试想法，满意后再带回稳定版本。',
-                  'Use this page to try ideas in separate copies without disturbing the stable version.'
-                )}
+              ? copy('先把当前项目收成稳定版本，再来这里试。', 'Make one stable point first, then come back here.')
+              : copy('在单独副本里尝试，满意了再带回稳定版本。', 'Try ideas in a separate copy, then bring back only what works.')}
           </p>
         </div>
         <div className="lab-hero-metrics">
@@ -350,7 +403,11 @@ export function PlansPage() {
           </article>
           <article className="lab-metric-card">
             <span>{copy('当前状态', 'Current state')}</span>
-            <strong>{ideasLocked ? copy('还差一步', 'Needs one step first') : copy('可以开始试验', 'Ready to experiment')}</strong>
+            <strong>
+              {ideasLocked
+                ? copy('还差一步', 'Needs one step first')
+                : copy('可以开始试验', 'Ready to experiment')}
+            </strong>
           </article>
         </div>
       </section>
@@ -366,21 +423,15 @@ export function PlansPage() {
               </h2>
               <p className="panel-subtitle">
                 {needsFirstSave
-                  ? copy(
-                      '先留下一次稳定保存，试验副本才有意义。先去“修改”页保存一次。',
-                      'An idea copy only helps after you have one stable saved point. Save once in Changes first.'
-                    )
-                  : copy(
-                      '你手上还有未保存修改。先把这次工作收好，再开始试验。',
-                      'There are still unsaved changes. Save this work first, then start an experiment.'
-                    )}
+                  ? copy('先留下一次可回到的保存点，再开试验副本。', 'Create one safe point before starting an idea copy.')
+                  : copy('先把手上这批工作保存好，再开始试验。', 'Save this work first, then start the experiment.')}
               </p>
             </div>
             <span className="tone-badge attention">{copy('现在先做这个', 'Do this first')}</span>
           </div>
           <div className="actions-row">
             <Link className="btn btn-primary" to="/changes">
-              {copy('去保存当前修改', 'Go Save Current Work')}
+              {copy('去保存当前工作', 'Go Save Current Work')}
             </Link>
           </div>
         </section>
@@ -392,17 +443,17 @@ export function PlansPage() {
             <div>
               <h2>{copy('稳定版本', 'Stable Version')}</h2>
               <p className="panel-subtitle">
-                {copy('这是你随时可以回来的安全版本。', 'This is the version you can always come back to.')}
+                {copy('这是你随时可以回来的版本。', 'This is the version you can always return to.')}
               </p>
             </div>
             <span className="tag tag-main">
-              {stablePlan?.isCurrent ? copy('当前就在这里', 'You are here') : copy('稳定版本', 'Stable')}
+              {stablePlan?.isCurrent ? copy('你现在就在这里', 'You are here') : copy('稳定版本', 'Stable')}
             </span>
           </div>
           {stablePlan ? (
             <div className="lab-stack">
               <div className="item-title">{mapPlanLabel(stablePlan, t)}</div>
-              <div className="item-subtle">{stablePlan.lastMessage || t('plans_no_saved_record')}</div>
+              <div className="item-subtle">{stablePlan.lastMessage || noSavedNoteText}</div>
               {!stablePlan.isCurrent ? (
                 <div className="actions-row">
                   <button
@@ -416,7 +467,7 @@ export function PlansPage() {
               ) : null}
             </div>
           ) : (
-            <p className="muted">{t('plans_no_saved_record')}</p>
+            <p className="muted">{noSavedNoteText}</p>
           )}
         </section>
 
@@ -425,25 +476,17 @@ export function PlansPage() {
             <div>
               <h2>{copy('试验副本', 'Idea Copies')}</h2>
               <p className="panel-subtitle">
-                {copy(
-                  '每个试验副本都单独放着，满意后再带回稳定版本。',
-                  'Each idea copy stays separate until you decide to bring it back.'
-                )}
+                {copy('每个试验都单独放着，不会直接碰稳定版本。', 'Separate copies for risky attempts.')}
               </p>
             </div>
             <span className="pill">{ideaPlans.length}</span>
           </div>
           {loading ? (
-            <p className="muted">{t('plans_loading')}</p>
+            <p className="muted">{copy('正在读取试验副本。', 'Loading idea copies.')}</p>
           ) : ideaPlans.length === 0 ? (
             <div className="lab-empty-state">
               <strong>{copy('还没有试验副本', 'No idea copies yet')}</strong>
-              <p>
-                {copy(
-                  '等你准备试一个新想法时，在下面输入名字，马上开一个单独副本。',
-                  'When you are ready to try something new, create a separate copy below.'
-                )}
-              </p>
+              <p>{copy('下面输入一个名字，就能开一个单独副本。', 'Create one below when you are ready to try something new.')}</p>
             </div>
           ) : (
             <ul className="list lab-plan-list">
@@ -454,7 +497,7 @@ export function PlansPage() {
                       {mapPlanLabel(plan, t)}
                       {plan.isCurrent ? <span className="tag">{copy('当前在这里', 'You are here')}</span> : null}
                     </div>
-                    <div className="item-subtle">{plan.lastMessage || t('plans_no_saved_record')}</div>
+                    <div className="item-subtle">{plan.lastMessage || noSavedNoteText}</div>
                   </div>
                   {!plan.isCurrent ? (
                     <button
@@ -476,23 +519,20 @@ export function PlansPage() {
         <section className="panel lab-card">
           <div className="section-head">
             <div>
-              <h2>{copy('开始一个新试验', 'Start a New Experiment')}</h2>
+              <h2>{copy('开一个新试验', 'Start a New Experiment')}</h2>
               <p className="panel-subtitle">
-                {copy(
-                  '系统会从你当前看到的副本复制一份，稳定版本不会被直接改动。',
-                  'We will create a separate copy from what you are looking at now.'
-                )}
+                {copy('会从你现在看到的版本复制一份出去。', 'This starts from the version you are looking at now.')}
               </p>
             </div>
           </div>
           <p className="muted">
-            <strong>{copy('将从这里开始：', 'Starting from:')}</strong> {currentPlanLabel}
+            <strong>{copy('起点：', 'Starting from:')}</strong> {currentPlanLabel}
           </p>
           <div className="field-row">
             <input
               className="input-text"
               value={newPlanName}
-              placeholder={copy('例如：登录页新样式', 'Example: new login layout')}
+              placeholder={copy('例如：登录页新排版', 'Example: new login layout')}
               onChange={(event) => setNewPlanName(event.target.value)}
             />
             <button className="btn btn-primary" disabled={working || ideasLocked} onClick={() => void handleCreatePlan()}>
@@ -506,18 +546,15 @@ export function PlansPage() {
             <div>
               <h2>{copy('带回稳定版本', 'Bring Back to Stable')}</h2>
               <p className="panel-subtitle">
-                {copy(
-                  '某个试验已经满意了，就把它带回稳定版本。',
-                  'When an idea copy looks right, bring it back into the stable version.'
-                )}
+                {copy('哪个试验做对了，就把它带回来。', 'Bring back the idea copy that turned out right.')}
               </p>
             </div>
           </div>
           {ideaPlans.length === 0 ? (
-            <p className="muted">{copy('先创建一个试验副本，这里才会有可选内容。', 'Create one idea copy first.')}</p>
+            <p className="muted">{copy('先创建一个试验副本。', 'Create one idea copy first.')}</p>
           ) : (
             <div className="field-row">
-              <label>{copy('选择要带回的试验', 'Choose an idea copy')}</label>
+              <label>{copy('要带回哪个试验', 'Choose an idea copy')}</label>
               <select className="input-select" value={mergeFrom} onChange={(event) => setMergeFrom(event.target.value)}>
                 <option value="">{copy('请选择', 'Select')}</option>
                 {ideaPlans.map((plan) => (
@@ -527,7 +564,8 @@ export function PlansPage() {
                 ))}
               </select>
               <span className="lab-merge-summary">
-                {copy('会带回到：', 'Will be added into:')} <strong>{stablePlan ? mapPlanLabel(stablePlan, t) : t('common_main_plan')}</strong>
+                {copy('会带回到：', 'Will be added into:')}{' '}
+                <strong>{stablePlan ? mapPlanLabel(stablePlan, t) : copy('稳定版本', 'Stable Version')}</strong>
               </span>
               <button className="btn btn-primary" disabled={working || ideasLocked || !mergeFrom} onClick={() => void handleMerge()}>
                 {copy('带回稳定版本', 'Bring It Back')}
@@ -549,17 +587,14 @@ export function PlansPage() {
           <div className="conflict-summary-card">
             <div className="section-head">
               <div>
-                <h3>{copy('先做一个简单决定', 'Pick one side first')}</h3>
+                <h3>{copy('先选一边', 'Pick one side first')}</h3>
                 <p className="panel-subtitle">
-                  {copy(
-                    '如果大部分文件都想保留同一边，可以直接批量处理。',
-                    'If most files should keep the same side, use a bulk decision.'
-                  )}
+                  {copy('如果大部分文件都想保留同一边，可以先批量处理。', 'If most files should keep the same side, use a bulk decision first.')}
                 </p>
               </div>
               <span className="tone-badge attention">
                 {copy(
-                  `正在处理第 ${selectedConflictIndex + 1} / ${mergeState.conflicts.length} 个`,
+                  `正在处理 ${selectedConflictIndex + 1} / ${mergeState.conflicts.length}`,
                   `Working on ${selectedConflictIndex + 1} / ${mergeState.conflicts.length}`
                 )}
               </span>
@@ -608,7 +643,7 @@ export function PlansPage() {
           {selectedConflict ? (
             <div className="conflict-layout">
               <div className="conflict-col">
-                <h4>{copy('稳定版本这一边', 'Stable version')}</h4>
+                <h4>{copy('稳定版本这边', 'Stable version')}</h4>
                 <pre>{toLocalizedConflictContent(selectedConflict.currentContent, 'current', t)}</pre>
                 <button
                   className="btn btn-secondary"
@@ -619,7 +654,7 @@ export function PlansPage() {
                 </button>
               </div>
               <div className="conflict-col">
-                <h4>{copy('试验副本这一边', 'Idea copy')}</h4>
+                <h4>{copy('试验副本这边', 'Idea copy')}</h4>
                 <pre>{toLocalizedConflictContent(selectedConflict.incomingContent, 'incoming', t)}</pre>
                 <button
                   className="btn btn-secondary"
@@ -630,7 +665,7 @@ export function PlansPage() {
                 </button>
               </div>
               <div className="conflict-col">
-                <h4>{copy('自己整理后再保存', 'Edit it yourself')}</h4>
+                <h4>{copy('自己整理后保存', 'Edit it yourself')}</h4>
                 <textarea
                   className="input-textarea"
                   value={manualContent}
@@ -652,10 +687,10 @@ export function PlansPage() {
 
       {mergeState?.status === 'merged' ? (
         <section className="panel">
-          <h3>{copy('这个试验已经带回稳定版本，最后保存一下就好', 'This idea copy is ready to save into the stable version')}</h3>
+          <h3>{copy('这次带回已经准备好了，最后保存一下结果。', 'This merge is ready. Save the result to finish.')}</h3>
           <div className="actions-row">
             <button className="btn btn-primary" onClick={() => void handleCompleteMerge()}>
-              {copy('保存这次带回结果', 'Save This Merge')}
+              {copy('保存这次结果', 'Save This Merge')}
             </button>
           </div>
         </section>

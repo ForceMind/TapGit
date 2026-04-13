@@ -114,7 +114,7 @@ describe('PlansPage', () => {
     renderPlansPage('en-US');
 
     expect(await screen.findByText('Save one stable version first')).toBeInTheDocument();
-    expect(screen.getByText('Idea Lab')).toBeInTheDocument();
+    expect(screen.getByText('Try Ideas')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start This Idea' })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Go Save Current Work' })).toBeInTheDocument();
 
@@ -165,7 +165,7 @@ describe('PlansPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Stable Version' })).toBeInTheDocument();
     expect(screen.getByText('Idea Copies')).toBeInTheDocument();
-    expect(screen.getByText('Each idea copy stays separate until you decide to bring it back.')).toBeInTheDocument();
+    expect(screen.getByText('Separate copies for risky attempts.')).toBeInTheDocument();
     expect(screen.getAllByText('dark login refresh').length).toBeGreaterThan(0);
     expect(screen.getByText('Will be added into:')).toBeInTheDocument();
     expect(screen.getAllByText('Stable Version').length).toBeGreaterThan(0);
