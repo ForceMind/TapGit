@@ -650,22 +650,29 @@ function AppContent() {
       case 'protect':
         return {
           label: t('app_enable_protection'),
+          target: '/changes',
           onClick: () => void enableProtection()
         };
       case 'save':
         return {
           label: t('home_next_open_changes'),
+          target: '/changes',
           onClick: () => navigate('/changes')
         };
       case 'timeline':
         return {
           label: t('home_next_open_timeline'),
+          target: '/timeline',
           onClick: () => navigate('/timeline')
         };
       default:
         return null;
     }
   }, [enableProtection, navigate, primaryTaskKey, project, t]);
+
+  const showPrimaryAction = Boolean(
+    topbarPrimaryAction && topbarPrimaryAction.target !== location.pathname
+  );
 
   return (
     <AppActionsContext.Provider value={actions}>
@@ -686,26 +693,24 @@ function AppContent() {
               <div className="topbar-section-label">{currentSectionLabel}</div>
               <div className="project-title-row">
                 <div className="project-title">{project?.name ?? t('app_project_not_opened')}</div>
-                {project ? (
-                  <div className="project-links">
-                    <button className="link-quiet" onClick={() => void handleShowProjectInFolder()}>
-                      {t('app_show_in_folder')}
-                    </button>
-                    <button className="link-quiet" onClick={() => void openProjectFolder()}>
-                      {t('app_switch_project')}
-                    </button>
-                  </div>
-                ) : null}
               </div>
               <div className="project-meta">{project ? projectMetaSummary : t('app_project_meta_empty')}</div>
             </div>
             <div className="top-actions">
               {project ? (
-                topbarPrimaryAction ? (
-                  <button className="btn btn-primary" onClick={topbarPrimaryAction.onClick}>
-                    {topbarPrimaryAction.label}
+                <>
+                  {showPrimaryAction && topbarPrimaryAction ? (
+                    <button className="btn btn-primary" onClick={topbarPrimaryAction.onClick}>
+                      {topbarPrimaryAction.label}
+                    </button>
+                  ) : null}
+                  <button className="link-quiet topbar-link-action" onClick={() => void handleShowProjectInFolder()}>
+                    {t('app_show_in_folder')}
                   </button>
-                ) : null
+                  <button className="link-quiet topbar-link-action" onClick={() => void openProjectFolder()}>
+                    {t('app_switch_project')}
+                  </button>
+                </>
               ) : location.pathname !== '/' ? (
                 <>
                   <button className="btn btn-primary" onClick={() => void openProjectFolder()}>

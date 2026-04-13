@@ -69,8 +69,9 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
         label: label('\u5728\u6587\u4ef6\u5939\u4e2d\u67e5\u770b\u9879\u76ee', 'Show Project in Folder'),
         click: () => sendMenuCommand('show-project-in-folder')
       },
+      { type: 'separator' },
       {
-        label: label('\u9879\u76ee\u4e3b\u9875', 'Project Home'),
+        label: label('\u9879\u76ee\u9996\u9875', 'Project Home'),
         accelerator: 'CmdOrCtrl+1',
         click: () => sendMenuCommand('show-home')
       },
@@ -86,8 +87,8 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
     ]
   };
 
-  const workMenu: Electron.MenuItemConstructorOptions = {
-    label: label('\u5de5\u4f5c', 'Work'),
+  const progressMenu: Electron.MenuItemConstructorOptions = {
+    label: label('\u8fdb\u5ea6', 'Progress'),
     submenu: [
       {
         label: label('\u5f53\u524d\u4fee\u6539', 'Current Changes'),
@@ -103,7 +104,13 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
         label: label('\u5386\u53f2\u8bb0\u5f55', 'History'),
         accelerator: 'CmdOrCtrl+3',
         click: () => sendMenuCommand('show-timeline')
-      },
+      }
+    ]
+  };
+
+  const ideasMenu: Electron.MenuItemConstructorOptions = {
+    label: label('\u8bd5\u65b0\u60f3\u6cd5', 'Try Ideas'),
+    submenu: [
       {
         label: label('\u8bd5\u65b0\u60f3\u6cd5', 'Idea Lab'),
         accelerator: 'CmdOrCtrl+4',
@@ -113,18 +120,17 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
         label: label('\u65b0\u5efa\u4e00\u4e2a\u8bd5\u9a8c\u526f\u672c...', 'Start New Idea Copy...'),
         accelerator: 'CmdOrCtrl+Shift+N',
         click: () => sendMenuCommand('create-idea-copy')
+      },
+      {
+        label: label('\u56de\u5230\u7a33\u5b9a\u7248\u672c', 'Return to Stable Version'),
+        click: () => sendMenuCommand('switch-to-stable')
       }
     ]
   };
 
-  const syncMenu: Electron.MenuItemConstructorOptions = {
-    label: label('\u540c\u6b65', 'Sync'),
+  const cloudMenu: Electron.MenuItemConstructorOptions = {
+    label: label('\u4e91\u7aef', 'Cloud'),
     submenu: [
-      {
-        label: label('\u6253\u5f00\u540c\u6b65\u9875', 'Open Sync Workspace'),
-        accelerator: 'CmdOrCtrl+5',
-        click: () => sendMenuCommand('show-cloud')
-      },
       {
         label: label('\u4e0a\u4f20\u5230\u4e91\u7aef', 'Upload to Cloud'),
         click: () => sendMenuCommand('upload-cloud')
@@ -132,6 +138,11 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
       {
         label: label('\u83b7\u53d6\u4e91\u7aef\u6700\u65b0\u5185\u5bb9', 'Get Latest from Cloud'),
         click: () => sendMenuCommand('download-cloud')
+      },
+      {
+        label: label('\u4e91\u7aef\u8bbe\u7f6e', 'Cloud Settings'),
+        accelerator: 'CmdOrCtrl+5',
+        click: () => sendMenuCommand('show-cloud')
       }
     ]
   };
@@ -167,7 +178,7 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
     });
   }
 
-  template.push(projectMenu, workMenu, syncMenu, helpMenu);
+  template.push(projectMenu, progressMenu, ideasMenu, cloudMenu, helpMenu);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
