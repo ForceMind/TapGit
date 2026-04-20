@@ -24,6 +24,7 @@ import {
   restoreToSafetyBackup,
   restoreToRecord,
   saveProgress,
+  stopTrackingFile,
   switchPlan,
   testCloudConnection,
   uploadToCloud
@@ -112,7 +113,14 @@ export function registerIpcHandlers() {
   );
 
   register<[string], void>(IPC_CHANNELS.OPEN_IN_FILE_MANAGER, async (targetPath) => {
-    const result = await shell.openPath(targetPath);
+    const stat = await fs.stat(targetPath).catch(() => null);
+    if (stat?.isFile()) {
+      shell.showItemInFolder(targetPath);
+      return;
+    }
+
+    const directory = stat?.isDirectory() ? targetPath : path.dirname(targetPath);
+    const result = await shell.openPath(directory);
     if (result) {
       throw new Error(result);
     }
@@ -132,6 +140,7 @@ export function registerIpcHandlers() {
     IPC_CHANNELS.GET_CURRENT_CHANGES,
     getCurrentChanges
   );
+  register<[string, string], void>(IPC_CHANNELS.STOP_TRACKING_FILE, stopTrackingFile);
   register<[Parameters<TapGitBridge['saveProgress']>[0]], Awaited<ReturnType<typeof saveProgress>>>(
     IPC_CHANNELS.SAVE_PROGRESS,
     saveProgress
@@ -187,7 +196,7 @@ export function registerIpcHandlers() {
     IPC_CHANNELS.GET_GITHUB_AUTH_STATUS,
     getGitHubAuthStatus
   );
-  register<[], Awaited<ReturnType<typeof loginGitHub>>>(IPC_CHANNELS.LOGIN_GITHUB, loginGitHub);
+  register<[string | undefined], Awaited<ReturnType<typeof loginGitHub>>>(IPC_CHANNELS.LOGIN_GITHUB, loginGitHub);
   register<[string], Awaited<ReturnType<typeof logoutGitHub>>>(
     IPC_CHANNELS.LOGOUT_GITHUB,
     logoutGitHub
@@ -196,11 +205,11 @@ export function registerIpcHandlers() {
     IPC_CHANNELS.GET_CLOUD_SYNC_STATUS,
     getCloudSyncStatus
   );
-  register<[string, string], Awaited<ReturnType<typeof testCloudConnection>>>(
+  register<[string, string, string | undefined], Awaited<ReturnType<typeof testCloudConnection>>>(
     IPC_CHANNELS.TEST_CLOUD_CONNECTION,
     testCloudConnection
   );
-  register<[string, string], Awaited<ReturnType<typeof connectCloud>>>(
+  register<[string, string, string | undefined], Awaited<ReturnType<typeof connectCloud>>>(
     IPC_CHANNELS.CONNECT_CLOUD,
     connectCloud
   );

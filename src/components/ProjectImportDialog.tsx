@@ -1,14 +1,17 @@
 import { GitHubAuthStatus } from '../shared/contracts';
 import { useI18n } from '../i18n';
+import { parseRemoteUrl } from '../shared/remote-url';
 
 interface ProjectImportDialogProps {
   remoteUrl: string;
   folderName: string;
   destinationDirectory: string;
   authStatus: GitHubAuthStatus | null;
+  preferredAccount: string;
   authLoading: boolean;
   busy: boolean;
   onRemoteUrlChange: (value: string) => void;
+  onPreferredAccountChange: (value: string) => void;
   onFolderNameChange: (value: string) => void;
   onPickDestination: () => void;
   onLoginGitHub: () => void;
@@ -21,9 +24,11 @@ export function ProjectImportDialog({
   folderName,
   destinationDirectory,
   authStatus,
+  preferredAccount,
   authLoading,
   busy,
   onRemoteUrlChange,
+  onPreferredAccountChange,
   onFolderNameChange,
   onPickDestination,
   onLoginGitHub,
@@ -31,6 +36,7 @@ export function ProjectImportDialog({
   onConfirm
 }: ProjectImportDialogProps) {
   const { t } = useI18n();
+  const isGitHubRemote = parseRemoteUrl(remoteUrl).provider === 'github';
 
   return (
     <div className="dialog-backdrop" role="presentation" onClick={busy ? undefined : onCancel}>
@@ -97,6 +103,22 @@ export function ProjectImportDialog({
                 {t('home_import_auth_action')}
               </button>
             </div>
+            {isGitHubRemote && authStatus?.accounts.length ? (
+              <label className="field-stack">
+                <span className="field-label">{t('settings_cloud_account_use_for_project')}</span>
+                <select
+                  className="input-select"
+                  value={preferredAccount}
+                  onChange={(event) => onPreferredAccountChange(event.target.value)}
+                >
+                  {authStatus.accounts.map((account) => (
+                    <option key={account} value={account}>
+                      {account}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <p className="panel-subtitle">{t('home_import_note')}</p>
           </div>
         </div>

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "generate:icon": "powershell -ExecutionPolicy Bypass -File scripts/generate-icon.ps1",
     "pack:win": "npm run build && electron-builder --win nsis --publish never",
-    "pack:mac": "npm run build && electron-builder --mac dmg zip --publish never",
+    "pack:mac": "npm run build && electron-builder --mac dmg zip --x64 --arm64 --publish never",
     "pack:dir": "npm run build && electron-builder --dir --publish never",
     "test": "vitest run",
     "test:watch": "vitest"

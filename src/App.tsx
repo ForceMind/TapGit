@@ -22,6 +22,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { getBridge, unwrapResult } from './services/bridge';
 import { APP_EVENTS, GitHubAuthStatus } from './shared/contracts';
+import { parseRemoteUrl } from './shared/remote-url';
 import { useAppStore } from './stores/useAppStore';
 
 function toParentDirectory(projectPath: string) {
@@ -52,6 +53,7 @@ function AppContent() {
   const [cloneBusy, setCloneBusy] = useState(false);
   const [githubAuthStatus, setGitHubAuthStatus] = useState<GitHubAuthStatus | null>(null);
   const [githubAuthLoading, setGitHubAuthLoading] = useState(false);
+  const [clonePreferredAccount, setClonePreferredAccount] = useState('');
   const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
   const [ideaCopyName, setIdeaCopyName] = useState('');
   const [ideaBusy, setIdeaBusy] = useState(false);
@@ -146,8 +148,10 @@ function AppContent() {
     try {
       const status = await unwrapResult(getBridge().getGitHubAuthStatus());
       setGitHubAuthStatus(status);
+      return status;
     } catch {
       setGitHubAuthStatus(null);
+      return null;
     } finally {
       setGitHubAuthLoading(false);
     }
@@ -159,7 +163,8 @@ function AppContent() {
     setCloneFolderNameTouched(false);
     setCloneDestinationDirectory(project?.path ? toParentDirectory(project.path) : '');
     setCloneDialogOpen(true);
-    await refreshGitHubAuthStatus();
+    const status = await refreshGitHubAuthStatus();
+    setClonePreferredAccount(status?.activeAccount ?? status?.accounts[0] ?? '');
   }
 
   async function chooseCloneDestination() {
@@ -177,8 +182,9 @@ function AppContent() {
 
   async function loginGitHubForImport() {
     try {
-      const status = await unwrapResult(getBridge().loginGitHub());
+      const status = await unwrapResult(getBridge().loginGitHub(clonePreferredAccount || undefined));
       setGitHubAuthStatus(status);
+      setClonePreferredAccount((current) => current || status.activeAccount || status.accounts[0] || '');
       setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
     } catch (error) {
       setNotice({
@@ -195,7 +201,8 @@ function AppContent() {
         getBridge().cloneProjectFromGitHub({
           remoteUrl: cloneRemoteUrl,
           destinationDirectory: cloneDestinationDirectory,
-          folderName: cloneFolderName
+          folderName: cloneFolderName,
+          preferredAccount: clonePreferredAccount || undefined
         })
       );
       setProject(summary);
@@ -639,6 +646,11 @@ function AppContent() {
     if (!cloneFolderNameTouched || !cloneFolderName.trim()) {
       setCloneFolderName(toSuggestedFolderName(value));
     }
+    if (parseRemoteUrl(value).provider !== 'github') {
+      setClonePreferredAccount('');
+    } else if (!clonePreferredAccount && githubAuthStatus?.accounts.length) {
+      setClonePreferredAccount(githubAuthStatus.activeAccount ?? githubAuthStatus.accounts[0] ?? '');
+    }
   }
 
   const topbarPrimaryAction = useMemo(() => {
@@ -762,9 +774,11 @@ function AppContent() {
           folderName={cloneFolderName}
           destinationDirectory={cloneDestinationDirectory}
           authStatus={githubAuthStatus}
+          preferredAccount={clonePreferredAccount}
           authLoading={githubAuthLoading}
           busy={cloneBusy}
           onRemoteUrlChange={handleCloneRemoteUrlChange}
+          onPreferredAccountChange={setClonePreferredAccount}
           onFolderNameChange={(value) => {
             setCloneFolderNameTouched(true);
             setCloneFolderName(value);

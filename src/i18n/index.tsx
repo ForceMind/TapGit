@@ -30,6 +30,7 @@ const ERROR_KEY_MAP: Partial<Record<string, MessageKey>> = {
   PENDING_CHANGES: 'error_pending_changes',
   EMPTY_MESSAGE: 'error_empty_message',
   NOTHING_TO_SAVE: 'error_nothing_to_save',
+  STOP_TRACKING_FAILED: 'error_stop_tracking_failed',
   SAVE_FAILED: 'error_save_failed',
   NO_HISTORY: 'error_no_history',
   RESTORE_FAILED: 'error_restore_failed',

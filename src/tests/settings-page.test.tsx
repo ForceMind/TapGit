@@ -24,6 +24,7 @@ function createBridgeMock() {
     openInFileManager: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
+    stopTrackingFile: vi.fn(),
     saveProgress: vi.fn(),
     listHistory: vi.fn(),
     listSafetyBackups: vi.fn(),
@@ -133,7 +134,7 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('heading', { name: 'Sync Now' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'App Preferences' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Safety & Support' })).toBeInTheDocument();
-    expect(screen.getByText('force-mind')).toBeInTheDocument();
+    expect(screen.getAllByText('force-mind').length).toBeGreaterThan(0);
     expect(screen.getByText('https://github.com/force-mind/project-a.git')).toBeInTheDocument();
 
     await waitFor(() => {

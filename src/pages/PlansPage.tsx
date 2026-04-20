@@ -48,7 +48,8 @@ export function PlansPage() {
     : mapPlanLabel(stablePlan ?? fallbackPlan, t);
   const needsFirstSave = (historyCount ?? 0) === 0;
   const hasUnsavedChanges = (project?.pendingChangeCount ?? 0) > 0;
-  const ideasLocked = needsFirstSave || hasUnsavedChanges;
+  const switchLocked = needsFirstSave;
+  const ideaActionsLocked = needsFirstSave || hasUnsavedChanges;
   const noSavedNoteText = copy('还没有保存说明。', 'No saved note yet.');
 
   const selectedConflict = useMemo(
@@ -141,7 +142,7 @@ export function PlansPage() {
   }, [project?.path, project?.isProtected]);
 
   async function handleCreatePlan() {
-    if (!project?.path || !newPlanName.trim() || ideasLocked) {
+    if (!project?.path || !newPlanName.trim() || ideaActionsLocked) {
       return;
     }
 
@@ -168,7 +169,7 @@ export function PlansPage() {
   }
 
   async function handleSwitchPlan(planName: string) {
-    if (!project?.path || !planName || ideasLocked) {
+    if (!project?.path || !planName || switchLocked) {
       return;
     }
 
@@ -196,7 +197,7 @@ export function PlansPage() {
   }
 
   async function handleMerge() {
-    if (!project?.path || !stablePlan?.name || !mergeFrom || ideasLocked) {
+    if (!project?.path || !stablePlan?.name || !mergeFrom || ideaActionsLocked) {
       return;
     }
 
@@ -387,7 +388,7 @@ export function PlansPage() {
           <span className="pill">{copy('安全试验区', 'Safe Workspace')}</span>
           <h1>{copy('试新想法', 'Try Ideas')}</h1>
           <p>
-            {ideasLocked
+            {ideaActionsLocked
               ? copy('先把当前项目收成稳定版本，再来这里试。', 'Make one stable point first, then come back here.')
               : copy('在单独副本里尝试，满意了再带回稳定版本。', 'Try ideas in a separate copy, then bring back only what works.')}
           </p>
@@ -404,7 +405,7 @@ export function PlansPage() {
           <article className="lab-metric-card">
             <span>{copy('当前状态', 'Current state')}</span>
             <strong>
-              {ideasLocked
+              {ideaActionsLocked
                 ? copy('还差一步', 'Needs one step first')
                 : copy('可以开始试验', 'Ready to experiment')}
             </strong>
@@ -412,7 +413,7 @@ export function PlansPage() {
         </div>
       </section>
 
-      {ideasLocked ? (
+      {ideaActionsLocked ? (
         <section className="panel lab-blocker-card">
           <div className="section-head">
             <div>
@@ -458,7 +459,7 @@ export function PlansPage() {
                 <div className="actions-row">
                   <button
                     className="btn btn-secondary"
-                    disabled={working || ideasLocked}
+                    disabled={working || switchLocked}
                     onClick={() => void handleSwitchPlan(stablePlan.name)}
                   >
                     {copy('打开这个版本', 'Open this version')}
@@ -502,7 +503,7 @@ export function PlansPage() {
                   {!plan.isCurrent ? (
                     <button
                       className="btn btn-secondary"
-                      disabled={working || ideasLocked}
+                      disabled={working || switchLocked}
                       onClick={() => void handleSwitchPlan(plan.name)}
                     >
                       {copy('打开这个副本', 'Open this copy')}
@@ -535,7 +536,7 @@ export function PlansPage() {
               placeholder={copy('例如：登录页新排版', 'Example: new login layout')}
               onChange={(event) => setNewPlanName(event.target.value)}
             />
-            <button className="btn btn-primary" disabled={working || ideasLocked} onClick={() => void handleCreatePlan()}>
+            <button className="btn btn-primary" disabled={working || ideaActionsLocked} onClick={() => void handleCreatePlan()}>
               {copy('开始这个试验', 'Start This Idea')}
             </button>
           </div>
@@ -567,7 +568,7 @@ export function PlansPage() {
                 {copy('会带回到：', 'Will be added into:')}{' '}
                 <strong>{stablePlan ? mapPlanLabel(stablePlan, t) : copy('稳定版本', 'Stable Version')}</strong>
               </span>
-              <button className="btn btn-primary" disabled={working || ideasLocked || !mergeFrom} onClick={() => void handleMerge()}>
+              <button className="btn btn-primary" disabled={working || ideaActionsLocked || !mergeFrom} onClick={() => void handleMerge()}>
                 {copy('带回稳定版本', 'Bring It Back')}
               </button>
             </div>

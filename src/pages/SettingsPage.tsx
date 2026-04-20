@@ -17,6 +17,7 @@ import {
   GitEnvironment,
   GitHubAuthStatus
 } from '../shared/contracts';
+import { parseRemoteUrl } from '../shared/remote-url';
 
 type CloudPlatform = 'github' | 'gitlab' | 'custom';
 
@@ -42,6 +43,7 @@ export function SettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [authWorking, setAuthWorking] = useState(false);
   const [githubAuthStatus, setGitHubAuthStatus] = useState<GitHubAuthStatus | null>(null);
+  const [selectedGitHubAccount, setSelectedGitHubAccount] = useState('');
 
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
   const projectReadyForCloud = Boolean(project?.isProtected);
@@ -123,7 +125,8 @@ export function SettingsPage() {
       ? copy('\u8fde\u4e0a\u4e91\u7aef\u540e\uff0c\u5c31\u80fd\u628a\u672c\u5730\u8fdb\u5ea6\u4f20\u4e0a\u53bb\uff0c\u6216\u62ff\u5230\u4e91\u7aef\u7684\u6700\u65b0\u7248\u672c\u3002', 'Once connected, you can upload local progress or get the latest version from the cloud.')
       : toCloudStatusText(cloudStatus, t);
 
-  const activeGitHubAccount = githubAuthStatus?.activeAccount ?? githubAuthStatus?.accounts[0] ?? null;
+  const activeGitHubAccount =
+    selectedGitHubAccount || githubAuthStatus?.activeAccount || githubAuthStatus?.accounts[0] || null;
 
   const providerLabel = useMemo(() => {
     if (cloudPlatform === 'github') return 'GitHub';
@@ -157,16 +160,16 @@ export function SettingsPage() {
       setCloudStatus(status);
       if (status.remoteUrl) {
         setRemoteUrlInput(status.remoteUrl);
-        const githubMatch = status.remoteUrl.match(/github\.com[:/](.+?)\/(.+?)(\.git)?$/i);
-        const gitlabMatch = status.remoteUrl.match(/gitlab\.com[:/](.+?)\/(.+?)(\.git)?$/i);
-        if (githubMatch) {
+        const parsed = parseRemoteUrl(status.remoteUrl);
+        if (parsed.provider === 'github') {
           setCloudPlatform('github');
-          setCloudOwner(githubMatch[1]);
-          setCloudRepo(githubMatch[2].replace(/\.git$/i, ''));
-        } else if (gitlabMatch) {
+          setCloudOwner(parsed.owner ?? '');
+          setCloudRepo(parsed.repo ?? '');
+          setSelectedGitHubAccount(status.preferredAccount ?? '');
+        } else if (parsed.provider === 'gitlab') {
           setCloudPlatform('gitlab');
-          setCloudOwner(gitlabMatch[1]);
-          setCloudRepo(gitlabMatch[2].replace(/\.git$/i, ''));
+          setCloudOwner(parsed.owner ?? '');
+          setCloudRepo(parsed.repo ?? '');
         }
       }
     } catch (error) {
@@ -186,6 +189,7 @@ export function SettingsPage() {
     try {
       const status = await unwrapResult(getBridge().getGitHubAuthStatus());
       setGitHubAuthStatus(status);
+      setSelectedGitHubAccount((current) => current || status.activeAccount || status.accounts[0] || '');
     } catch {
       setGitHubAuthStatus({
         available: false,
@@ -297,9 +301,16 @@ export function SettingsPage() {
 
     setSyncing(true);
     try {
-      const status = await unwrapResult(getBridge().connectCloud(project.path, remoteUrlInput.trim()));
+      const status = await unwrapResult(
+        getBridge().connectCloud(
+          project.path,
+          remoteUrlInput.trim(),
+          cloudPlatform === 'github' ? selectedGitHubAccount || undefined : undefined
+        )
+      );
       setCloudStatus(status);
       setRemoteUrlInput(status.remoteUrl);
+      setSelectedGitHubAccount(status.preferredAccount ?? selectedGitHubAccount);
       setConnectionTest(null);
       setCloudAdvice('');
       setNotice({ type: 'success', text: t('settings_notice_cloud_connected') });
@@ -365,7 +376,13 @@ export function SettingsPage() {
 
     setSyncing(true);
     try {
-      const result = await unwrapResult(getBridge().testCloudConnection(project.path, remoteUrlInput.trim()));
+      const result = await unwrapResult(
+        getBridge().testCloudConnection(
+          project.path,
+          remoteUrlInput.trim(),
+          cloudPlatform === 'github' ? selectedGitHubAccount || undefined : undefined
+        )
+      );
       setConnectionTest(result);
       setCloudAdvice(result.reachable ? '' : toCloudTestMessage(result, t));
       setNotice({
@@ -388,8 +405,9 @@ export function SettingsPage() {
   async function handleGitHubLogin() {
     setAuthWorking(true);
     try {
-      const status = await unwrapResult(getBridge().loginGitHub());
+      const status = await unwrapResult(getBridge().loginGitHub(selectedGitHubAccount || undefined));
       setGitHubAuthStatus(status);
+      setSelectedGitHubAccount((current) => current || status.activeAccount || status.accounts[0] || '');
       setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
     } catch (error) {
       setNotice({
@@ -406,6 +424,7 @@ export function SettingsPage() {
     try {
       const status = await unwrapResult(getBridge().logoutGitHub(account));
       setGitHubAuthStatus(status);
+      setSelectedGitHubAccount(status.activeAccount ?? status.accounts[0] ?? '');
       setNotice({ type: 'success', text: t('settings_notice_github_logout_success') });
     } catch (error) {
       setNotice({
@@ -520,6 +539,22 @@ export function SettingsPage() {
                       </button>
                     )}
                   </div>
+                  {githubAuthStatus?.accounts.length ? (
+                    <label className="switch-row stacked">
+                      <span>{t('settings_cloud_account_use_for_project')}</span>
+                      <select
+                        className="input-select"
+                        value={selectedGitHubAccount}
+                        onChange={(event) => setSelectedGitHubAccount(event.target.value)}
+                      >
+                        {githubAuthStatus.accounts.map((account) => (
+                          <option key={account} value={account}>
+                            {account}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                 </div>
               ) : null}
 

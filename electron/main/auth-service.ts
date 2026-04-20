@@ -14,7 +14,11 @@ function parseAccounts(stdout: string) {
 
 async function runGitHubCredentialManager(args: string[]) {
   return execFileAsync('git', ['credential-manager', 'github', ...args], {
-    windowsHide: true
+    windowsHide: true,
+    env: {
+      ...process.env,
+      GCM_INTERACTIVE: 'always'
+    }
   });
 }
 
@@ -36,9 +40,13 @@ export async function getGitHubAuthStatus(): Promise<GitHubAuthStatus> {
   }
 }
 
-export async function loginGitHub(): Promise<GitHubAuthStatus> {
+export async function loginGitHub(username?: string): Promise<GitHubAuthStatus> {
   try {
-    await runGitHubCredentialManager(['login', '--web']);
+    const args = ['login', '--browser', '--force'];
+    if (username?.trim()) {
+      args.push('--username', username.trim());
+    }
+    await runGitHubCredentialManager(args);
     return getGitHubAuthStatus();
   } catch (error) {
     throw new AppError('GITHUB_LOGIN_FAILED', 'GitHub sign-in failed.', String(error));

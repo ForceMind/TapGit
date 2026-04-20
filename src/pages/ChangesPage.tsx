@@ -16,6 +16,7 @@ export function ChangesPage() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [fileActionBusy, setFileActionBusy] = useState(false);
 
   const checkedCount = selectedFiles.size;
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
@@ -105,6 +106,50 @@ export function ChangesPage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleShowInFolder() {
+    if (!project?.path || !selectedItem) {
+      return;
+    }
+
+    setFileActionBusy(true);
+    try {
+      await unwrapResult(getBridge().openInFileManager(`${project.path}/${selectedItem.path}`));
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'changes_notice_open_in_folder_failed')
+      });
+    } finally {
+      setFileActionBusy(false);
+    }
+  }
+
+  async function handleStopTracking() {
+    if (!project?.path || !selectedItem) {
+      return;
+    }
+
+    setFileActionBusy(true);
+    try {
+      await unwrapResult(getBridge().stopTrackingFile(project.path, selectedItem.path));
+      setNotice({ type: 'success', text: t('changes_notice_stop_tracking_success', { path: selectedItem.path }) });
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedItem.path);
+        return next;
+      });
+      await loadChanges();
+      await refreshProject();
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'changes_notice_stop_tracking_failed')
+      });
+    } finally {
+      setFileActionBusy(false);
     }
   }
 
@@ -216,9 +261,9 @@ export function ChangesPage() {
         </div>
 
         <div className="detail-panel workbench-panel">
-          <div className="section-head">
-            <div>
-              <h2>{copy('\u9884\u89c8', 'Preview')}</h2>
+            <div className="section-head">
+              <div>
+                <h2>{copy('\u9884\u89c8', 'Preview')}</h2>
               <p className="panel-subtitle">
                 {selectedItem
                   ? copy('\u770b\u8fd9\u4e2a\u6587\u4ef6\u7684\u53d8\u5316\u3002', 'See the change in this file.')
@@ -226,7 +271,21 @@ export function ChangesPage() {
               </p>
             </div>
             {selectedItem ? (
-              <span className="pill">{toChangeStatusLabel(selectedItem.changeType, t)}</span>
+              <div className="actions-row">
+                <span className="pill">{toChangeStatusLabel(selectedItem.changeType, t)}</span>
+                <button className="btn btn-secondary" disabled={fileActionBusy} onClick={() => void handleShowInFolder()}>
+                  {t('changes_delete_in_folder')}
+                </button>
+                {selectedItem.changeType !== 'deleted' ? (
+                  <button
+                    className="btn btn-secondary"
+                    disabled={fileActionBusy}
+                    onClick={() => void handleStopTracking()}
+                  >
+                    {t('changes_stop_tracking')}
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
           {!selectedItem ? (

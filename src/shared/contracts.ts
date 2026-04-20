@@ -31,6 +31,7 @@ export interface CloneProjectPayload {
   remoteUrl: string;
   destinationDirectory: string;
   folderName?: string;
+  preferredAccount?: string;
 }
 
 export interface SaveProgressResult {
@@ -112,6 +113,7 @@ export interface CloudSyncStatus {
   pendingUpload: number;
   pendingDownload: number;
   statusText: string;
+  preferredAccount?: string | null;
 }
 
 export interface CloudConnectionTestResult {
@@ -138,6 +140,7 @@ export interface TapGitBridge {
   openInFileManager(targetPath: string): Promise<Result<void>>;
   enableProtection(projectPath: string): Promise<Result<ProjectSummary>>;
   getCurrentChanges(projectPath: string): Promise<Result<ChangeItem[]>>;
+  stopTrackingFile(projectPath: string, filePath: string): Promise<Result<void>>;
   saveProgress(payload: SaveProgressPayload): Promise<Result<SaveProgressResult>>;
   listHistory(projectPath: string): Promise<Result<HistoryRecord[]>>;
   listSafetyBackups(projectPath: string): Promise<Result<SafetyBackup[]>>;
@@ -162,14 +165,19 @@ export interface TapGitBridge {
   updateSettings(settings: Partial<AppSettings>): Promise<Result<AppSettings>>;
   checkGitEnvironment(): Promise<Result<GitEnvironment>>;
   getGitHubAuthStatus(): Promise<Result<GitHubAuthStatus>>;
-  loginGitHub(): Promise<Result<GitHubAuthStatus>>;
+  loginGitHub(username?: string): Promise<Result<GitHubAuthStatus>>;
   logoutGitHub(account: string): Promise<Result<GitHubAuthStatus>>;
   getCloudSyncStatus(projectPath: string): Promise<Result<CloudSyncStatus>>;
   testCloudConnection(
     projectPath: string,
-    remoteUrl: string
+    remoteUrl: string,
+    preferredAccount?: string
   ): Promise<Result<CloudConnectionTestResult>>;
-  connectCloud(projectPath: string, remoteUrl: string): Promise<Result<CloudSyncStatus>>;
+  connectCloud(
+    projectPath: string,
+    remoteUrl: string,
+    preferredAccount?: string
+  ): Promise<Result<CloudSyncStatus>>;
   uploadToCloud(projectPath: string): Promise<Result<CloudSyncStatus>>;
   getCloudLatest(projectPath: string): Promise<Result<CloudSyncStatus>>;
   exportLogs(): Promise<Result<string>>;
@@ -184,6 +192,7 @@ export const IPC_CHANNELS = {
   OPEN_IN_FILE_MANAGER: 'tapgit:open-in-file-manager',
   ENABLE_PROTECTION: 'tapgit:enable-protection',
   GET_CURRENT_CHANGES: 'tapgit:get-current-changes',
+  STOP_TRACKING_FILE: 'tapgit:stop-tracking-file',
   SAVE_PROGRESS: 'tapgit:save-progress',
   LIST_HISTORY: 'tapgit:list-history',
   LIST_SAFETY_BACKUPS: 'tapgit:list-safety-backups',

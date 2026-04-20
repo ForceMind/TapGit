@@ -21,8 +21,10 @@ function createBridgeMock() {
     chooseCloneDestination: vi.fn(),
     openProject: vi.fn(),
     cloneProjectFromGitHub: vi.fn(),
+    openInFileManager: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
+    stopTrackingFile: vi.fn(),
     saveProgress: vi.fn(),
     listHistory: vi.fn(),
     listSafetyBackups: vi.fn(),
@@ -170,5 +172,70 @@ describe('PlansPage', () => {
     expect(screen.getByText('Will be added into:')).toBeInTheDocument();
     expect(screen.getAllByText('Stable Version').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Bring It Back' })).toBeEnabled();
+  });
+
+  it('still lets the user switch to an existing idea copy even when unsaved changes exist', async () => {
+    useAppStore.setState({
+      project: {
+        path: 'E:/demo/project-a',
+        name: 'project-a',
+        isProtected: true,
+        currentPlan: 'main',
+        pendingChangeCount: 2
+      },
+      notice: null,
+      config: {
+        recentProjects: [],
+        settings: {
+          showAdvancedMode: false,
+          showBeginnerGuide: false,
+          autoSnapshotBeforeRestore: true,
+          autoSnapshotBeforeMerge: true,
+          defaultSaveMessageTemplate: '',
+          language: 'en-US'
+        }
+      }
+    });
+
+    const bridge = createBridgeMock();
+    bridge.listPlans.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: 'main',
+          name: 'main',
+          isCurrent: true,
+          isMain: true,
+          lastSavedAt: 1712636100,
+          lastMessage: 'Stable login flow'
+        },
+        {
+          id: 'idea-dark-login',
+          name: 'dark login refresh',
+          isCurrent: false,
+          isMain: false,
+          lastSavedAt: 1712636200,
+          lastMessage: 'Try the darker card layout'
+        }
+      ]
+    });
+    bridge.listHistory.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: 'record-1',
+          message: 'Stable login flow',
+          timestamp: 1712636100,
+          changedFiles: 2,
+          files: ['src/login.tsx', 'src/auth.ts']
+        }
+      ]
+    });
+    window.tapgit = bridge as never;
+
+    renderPlansPage('en-US');
+
+    expect(await screen.findByRole('button', { name: 'Open this copy' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Start This Idea' })).toBeDisabled();
   });
 });

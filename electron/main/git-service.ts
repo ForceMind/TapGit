@@ -19,10 +19,16 @@ import {
   SaveProgressPayload,
   SaveProgressResult
 } from '../../src/shared/contracts';
+import {
+  applyPreferredAccountToRemoteUrl,
+  isGitHubRemoteUrl,
+  parseRemoteUrl
+} from '../../src/shared/remote-url';
 import { AppError } from './app-error';
 
 const execFileAsync = promisify(execFile);
 const SAFETY_PREFIX = 'safety/';
+const REF_FIELD_DELIMITER = ':::';
 
 function createGit(projectPath: string) {
   return simpleGit({
@@ -103,17 +109,22 @@ function parseSafetyBackupCreatedAt(name: string, fallbackTimestamp: number | nu
 }
 
 function toSafetyBackup(line: string): SafetyBackup | null {
-  const [name, tsRaw, ...subjectParts] = line.split('\t');
+  const parsed = splitFormattedRefLine(line);
+  if (!parsed) {
+    return null;
+  }
+
+  const { name, timestampRaw, subject } = parsed;
   if (!name || !isSafetyBackupRef(name)) {
     return null;
   }
 
-  const fallbackTimestamp = Number.isNaN(Number(tsRaw)) ? null : Number(tsRaw);
+  const fallbackTimestamp = Number.isNaN(Number(timestampRaw)) ? null : Number(timestampRaw);
   return {
     id: name,
     name,
     createdAt: parseSafetyBackupCreatedAt(name, fallbackTimestamp),
-    lastMessage: subjectParts.join('\t'),
+    lastMessage: subject,
     source: parseSafetyBackupSource(name)
   };
 }
@@ -135,6 +146,22 @@ function parseNumstat(output: string) {
     if (!Number.isNaN(del)) deletions += del;
   }
   return { additions, deletions };
+}
+
+function splitFormattedRefLine(line: string) {
+  const firstDelimiter = line.indexOf(REF_FIELD_DELIMITER);
+  const secondDelimiter =
+    firstDelimiter >= 0 ? line.indexOf(REF_FIELD_DELIMITER, firstDelimiter + REF_FIELD_DELIMITER.length) : -1;
+
+  if (firstDelimiter < 0 || secondDelimiter < 0) {
+    return null;
+  }
+
+  return {
+    name: line.slice(0, firstDelimiter),
+    timestampRaw: line.slice(firstDelimiter + REF_FIELD_DELIMITER.length, secondDelimiter),
+    subject: line.slice(secondDelimiter + REF_FIELD_DELIMITER.length)
+  };
 }
 
 async function getDiffText(projectPath: string, filePath: string, changeType: ChangeItem['changeType']) {
@@ -383,14 +410,51 @@ async function resolveRemote(projectPath: string) {
   const git = createGit(projectPath);
   const remotes = await git.getRemotes(true);
   if (remotes.length === 0) {
-    return { remoteLabel: '', remoteUrl: '' };
+    return { remoteLabel: '', remoteUrl: '', preferredAccount: null };
   }
   const preferred = remotes.find((item) => item.name === 'origin') ?? remotes[0];
-  const remoteUrl = preferred.refs.fetch || preferred.refs.push || '';
+  const parsed = parseRemoteUrl(preferred.refs.fetch || preferred.refs.push || '');
   return {
     remoteLabel: preferred.name,
-    remoteUrl
+    remoteUrl: parsed.sanitizedUrl,
+    preferredAccount: parsed.provider === 'github' ? parsed.preferredAccount : null
   };
+}
+
+async function configurePreferredAccount(projectPath: string, remoteUrl: string, preferredAccount?: string) {
+  const git = createGit(projectPath);
+  const parsed = parseRemoteUrl(remoteUrl);
+
+  if (parsed.provider !== 'github') {
+    await git.raw(['config', '--unset-all', 'credential.username']).catch(() => undefined);
+    return remoteUrl.trim();
+  }
+
+  const nextRemoteUrl = applyPreferredAccountToRemoteUrl(remoteUrl, preferredAccount);
+  await git.raw(['config', 'credential.useHttpPath', 'true']).catch(() => undefined);
+  if (preferredAccount?.trim()) {
+    await git.raw(['config', 'credential.username', preferredAccount.trim()]).catch(() => undefined);
+  } else {
+    await git.raw(['config', '--unset-all', 'credential.username']).catch(() => undefined);
+  }
+  return nextRemoteUrl;
+}
+
+async function appendExcludeRule(projectPath: string, filePath: string) {
+  const excludePath = path.join(projectPath, '.git', 'info', 'exclude');
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  const currentContent = await fs.readFile(excludePath, 'utf8').catch(() => '');
+  const existingRules = currentContent
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (existingRules.includes(normalizedPath)) {
+    return;
+  }
+
+  const nextContent = currentContent.endsWith('\n') || currentContent.length === 0 ? currentContent : `${currentContent}\n`;
+  await fs.writeFile(excludePath, `${nextContent}${normalizedPath}\n`, 'utf8');
 }
 
 function parseCloudConnectionError(detail: string): CloudConnectionTestResult {
@@ -470,6 +534,7 @@ export async function getCloudSyncStatus(projectPath: string): Promise<CloudSync
       hasTracking: false,
       pendingUpload: 0,
       pendingDownload: 0,
+      preferredAccount: null,
       statusText: buildCloudStatusText({
         connected: false,
         hasTracking: false,
@@ -501,6 +566,7 @@ export async function getCloudSyncStatus(projectPath: string): Promise<CloudSync
     hasTracking,
     pendingUpload,
     pendingDownload,
+    preferredAccount: remote.preferredAccount,
     statusText: buildCloudStatusText({
       connected: true,
       hasTracking,
@@ -512,10 +578,11 @@ export async function getCloudSyncStatus(projectPath: string): Promise<CloudSync
 
 export async function testCloudConnection(
   projectPath: string,
-  remoteUrl: string
+  remoteUrl: string,
+  preferredAccount?: string
 ): Promise<CloudConnectionTestResult> {
   await ensureProtectedProject(projectPath);
-  const url = remoteUrl.trim();
+  const url = (await configurePreferredAccount(projectPath, remoteUrl.trim(), preferredAccount)).trim();
   if (!url) {
     throw new AppError('EMPTY_REMOTE_URL', '请先填写云端地址');
   }
@@ -534,9 +601,13 @@ export async function testCloudConnection(
   }
 }
 
-export async function connectCloud(projectPath: string, remoteUrl: string): Promise<CloudSyncStatus> {
+export async function connectCloud(
+  projectPath: string,
+  remoteUrl: string,
+  preferredAccount?: string
+): Promise<CloudSyncStatus> {
   await ensureProtectedProject(projectPath);
-  const url = remoteUrl.trim();
+  const url = (await configurePreferredAccount(projectPath, remoteUrl.trim(), preferredAccount)).trim();
   if (!url) {
     throw new AppError('EMPTY_REMOTE_URL', '请先填写云端地址');
   }
@@ -639,7 +710,7 @@ export async function openProject(projectPath: string): Promise<ProjectSummary> 
 export async function cloneProjectFromGitHub(
   payload: CloneProjectPayload
 ): Promise<ProjectSummary> {
-  const remoteUrl = payload.remoteUrl.trim();
+  const remoteUrl = applyPreferredAccountToRemoteUrl(payload.remoteUrl.trim(), payload.preferredAccount);
   const destinationDirectory = payload.destinationDirectory.trim();
   const folderName = sanitizeFolderName(
     (payload.folderName && payload.folderName.trim()) || suggestFolderNameFromRemote(remoteUrl)
@@ -682,6 +753,7 @@ export async function cloneProjectFromGitHub(
 
   try {
     await execFileAsync('git', ['clone', remoteUrl, targetPath]);
+    await configurePreferredAccount(targetPath, remoteUrl, payload.preferredAccount);
   } catch (error) {
     throw new AppError(
       'CLONE_PROJECT_FAILED',
@@ -727,6 +799,26 @@ export async function getCurrentChanges(projectPath: string): Promise<ChangeItem
   }
 
   return items.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+export async function stopTrackingFile(projectPath: string, filePath: string) {
+  await ensureProtectedProject(projectPath);
+  const git = createGit(projectPath);
+  const absolutePath = path.join(projectPath, filePath);
+  const fileExists = await fs
+    .access(absolutePath)
+    .then(() => true)
+    .catch(() => false);
+
+  if (fileExists) {
+    await git.raw(['rm', '--cached', '--ignore-unmatch', '--', filePath]).catch((error) => {
+      throw new AppError('STOP_TRACKING_FAILED', '停止追踪失败，请稍后重试', String(error));
+    });
+  }
+
+  await appendExcludeRule(projectPath, filePath).catch((error) => {
+    throw new AppError('STOP_TRACKING_FAILED', '停止追踪失败，请稍后重试', String(error));
+  });
 }
 
 export async function saveProgress(payload: SaveProgressPayload): Promise<SaveProgressResult> {
@@ -792,7 +884,7 @@ export async function listSafetyBackups(projectPath: string): Promise<SafetyBack
   const raw = await git.raw([
     'for-each-ref',
     'refs/heads/safety',
-    '--format=%(refname:short)%x09%(committerdate:unix)%x09%(subject)'
+    `--format=%(refname:short)${REF_FIELD_DELIMITER}%(committerdate:unix)${REF_FIELD_DELIMITER}%(subject)`
   ]);
 
   return raw
@@ -856,7 +948,7 @@ export async function listPlans(projectPath: string): Promise<PlanInfo[]> {
   const raw = await git.raw([
     'for-each-ref',
     'refs/heads',
-    '--format=%(refname:short)%x09%(committerdate:unix)%x09%(subject)'
+    `--format=%(refname:short)${REF_FIELD_DELIMITER}%(committerdate:unix)${REF_FIELD_DELIMITER}%(subject)`
   ]);
 
   const list = raw
@@ -864,17 +956,21 @@ export async function listPlans(projectPath: string): Promise<PlanInfo[]> {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [name, tsRaw, ...subjectParts] = line.split('\t');
-      const timestamp = Number(tsRaw);
+      const parsed = splitFormattedRefLine(line);
+      if (!parsed) {
+        return null;
+      }
+      const timestamp = Number(parsed.timestampRaw);
       return {
-        id: name,
-        name,
-        isCurrent: name === current,
-        isMain: name === 'main' || name === 'master',
+        id: parsed.name,
+        name: parsed.name,
+        isCurrent: parsed.name === current,
+        isMain: parsed.name === 'main' || parsed.name === 'master',
         lastSavedAt: Number.isNaN(timestamp) ? null : timestamp,
-        lastMessage: subjectParts.join('\t')
+        lastMessage: parsed.subject
       } satisfies PlanInfo;
     })
+    .filter((plan): plan is PlanInfo => Boolean(plan))
     .filter((plan) => !isSafetyBackupRef(plan.name));
 
   if (list.length === 0 && current) {

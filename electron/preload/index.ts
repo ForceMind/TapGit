@@ -9,6 +9,8 @@ const bridge: TapGitBridge = {
   openInFileManager: (targetPath) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_IN_FILE_MANAGER, targetPath),
   enableProtection: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.ENABLE_PROTECTION, projectPath),
   getCurrentChanges: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CURRENT_CHANGES, projectPath),
+  stopTrackingFile: (projectPath, filePath) =>
+    ipcRenderer.invoke(IPC_CHANNELS.STOP_TRACKING_FILE, projectPath, filePath),
   saveProgress: (payload) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_PROGRESS, payload),
   listHistory: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.LIST_HISTORY, projectPath),
   listSafetyBackups: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.LIST_SAFETY_BACKUPS, projectPath),
@@ -29,13 +31,13 @@ const bridge: TapGitBridge = {
   updateSettings: (settings) => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_SETTINGS, settings),
   checkGitEnvironment: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_GIT_ENVIRONMENT),
   getGitHubAuthStatus: () => ipcRenderer.invoke(IPC_CHANNELS.GET_GITHUB_AUTH_STATUS),
-  loginGitHub: () => ipcRenderer.invoke(IPC_CHANNELS.LOGIN_GITHUB),
+  loginGitHub: (username) => ipcRenderer.invoke(IPC_CHANNELS.LOGIN_GITHUB, username),
   logoutGitHub: (account) => ipcRenderer.invoke(IPC_CHANNELS.LOGOUT_GITHUB, account),
   getCloudSyncStatus: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CLOUD_SYNC_STATUS, projectPath),
-  testCloudConnection: (projectPath, remoteUrl) =>
-    ipcRenderer.invoke(IPC_CHANNELS.TEST_CLOUD_CONNECTION, projectPath, remoteUrl),
-  connectCloud: (projectPath, remoteUrl) =>
-    ipcRenderer.invoke(IPC_CHANNELS.CONNECT_CLOUD, projectPath, remoteUrl),
+  testCloudConnection: (projectPath, remoteUrl, preferredAccount) =>
+    ipcRenderer.invoke(IPC_CHANNELS.TEST_CLOUD_CONNECTION, projectPath, remoteUrl, preferredAccount),
+  connectCloud: (projectPath, remoteUrl, preferredAccount) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONNECT_CLOUD, projectPath, remoteUrl, preferredAccount),
   uploadToCloud: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.UPLOAD_TO_CLOUD, projectPath),
   getCloudLatest: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CLOUD_LATEST, projectPath),
   exportLogs: () => ipcRenderer.invoke(IPC_CHANNELS.EXPORT_LOGS),
