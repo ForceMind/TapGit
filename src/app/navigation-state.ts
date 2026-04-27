@@ -1,7 +1,7 @@
 import { ProjectSummary } from '../shared/contracts';
 import { MessageKey } from '../i18n/messages';
 
-export type SidebarNavKey = 'home' | 'changes' | 'timeline' | 'plans' | 'settings';
+export type SidebarNavKey = 'home' | 'changes' | 'timeline' | 'backups' | 'plans' | 'settings';
 export type SidebarNavTone = 'ready' | 'next' | 'locked';
 
 export interface SidebarNavState {
@@ -67,6 +67,7 @@ export function resolveSidebarNavState(
         fallbackTo: '/changes'
       };
     case 'timeline':
+    case 'backups':
       if (!project) {
         return {
           enabled: false,
@@ -107,7 +108,7 @@ export function resolveSidebarNavState(
         enabled: true,
         tone: 'ready',
         hintKey: 'app_nav_hint_timeline',
-        fallbackTo: '/timeline'
+        fallbackTo: key === 'backups' ? '/backups' : '/timeline'
       };
     case 'plans':
       if (!project) {

@@ -10,6 +10,23 @@ export interface ProjectSummary {
   pendingChangeCount: number;
 }
 
+export interface ProjectFileEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  size: number | null;
+  modifiedAt: number | null;
+}
+
+export interface ProjectOverview {
+  files: ProjectFileEntry[];
+  projectSizeBytes: number;
+  savedRecordCount: number;
+  recentRecords: HistoryRecord[];
+  lastSavedAt: number | null;
+  lastSavedMessage: string;
+}
+
 export type ChangeType = 'added' | 'modified' | 'deleted' | 'renamed';
 
 export interface ChangeItem {
@@ -136,6 +153,7 @@ export interface TapGitBridge {
   chooseProjectFolder(): Promise<Result<string | null>>;
   chooseCloneDestination(): Promise<Result<string | null>>;
   openProject(projectPath: string): Promise<Result<ProjectSummary>>;
+  getProjectOverview(projectPath: string): Promise<Result<ProjectOverview>>;
   cloneProjectFromGitHub(payload: CloneProjectPayload): Promise<Result<ProjectSummary>>;
   openInFileManager(targetPath: string): Promise<Result<void>>;
   enableProtection(projectPath: string): Promise<Result<ProjectSummary>>;
@@ -188,6 +206,7 @@ export const IPC_CHANNELS = {
   CHOOSE_PROJECT_FOLDER: 'tapgit:choose-project-folder',
   CHOOSE_CLONE_DESTINATION: 'tapgit:choose-clone-destination',
   OPEN_PROJECT: 'tapgit:open-project',
+  GET_PROJECT_OVERVIEW: 'tapgit:get-project-overview',
   CLONE_PROJECT_FROM_GITHUB: 'tapgit:clone-project-from-github',
   OPEN_IN_FILE_MANAGER: 'tapgit:open-in-file-manager',
   ENABLE_PROTECTION: 'tapgit:enable-protection',

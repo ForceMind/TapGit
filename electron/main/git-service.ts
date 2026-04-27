@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -13,6 +14,8 @@ import {
   MergeConflict,
   MergeResult,
   PlanInfo,
+  ProjectFileEntry,
+  ProjectOverview,
   ProjectSummary,
   ResolveStrategy,
   SafetyBackup,
@@ -29,6 +32,18 @@ import { AppError } from './app-error';
 const execFileAsync = promisify(execFile);
 const SAFETY_PREFIX = 'safety/';
 const REF_FIELD_DELIMITER = ':::';
+const PROJECT_SIZE_SCAN_LIMIT = 3000;
+const PROJECT_OVERVIEW_FILE_LIMIT = 6;
+const IGNORED_SIZE_DIRECTORIES = new Set([
+  '.git',
+  'node_modules',
+  'release',
+  'dist',
+  'dist-electron',
+  '.next',
+  'out',
+  'build'
+]);
 
 function createGit(projectPath: string) {
   return simpleGit({
@@ -350,6 +365,89 @@ function parseCountPair(raw: string) {
     pendingDownload: parts[0],
     pendingUpload: parts[1]
   };
+}
+
+function toUnixTimestamp(ms: number | undefined) {
+  if (!ms) {
+    return null;
+  }
+  return Math.floor(ms / 1000);
+}
+
+async function getDirectorySize(projectPath: string) {
+  let scannedEntries = 0;
+
+  async function walk(currentPath: string): Promise<number> {
+    if (scannedEntries >= PROJECT_SIZE_SCAN_LIMIT) {
+      return 0;
+    }
+
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(currentPath, { withFileTypes: true });
+    } catch {
+      return 0;
+    }
+
+    let total = 0;
+    for (const entry of entries) {
+      if (scannedEntries >= PROJECT_SIZE_SCAN_LIMIT) {
+        break;
+      }
+      if (entry.name.startsWith('.') && entry.name !== '.env' && entry.name !== '.gitignore') {
+        continue;
+      }
+      if (entry.isDirectory() && IGNORED_SIZE_DIRECTORIES.has(entry.name)) {
+        continue;
+      }
+
+      scannedEntries += 1;
+      const absolutePath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        total += await walk(absolutePath);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        const stat = await fs.stat(absolutePath).catch(() => null);
+        total += stat?.size ?? 0;
+      }
+    }
+
+    return total;
+  }
+
+  return walk(projectPath);
+}
+
+async function listProjectTopLevelFiles(projectPath: string): Promise<ProjectFileEntry[]> {
+  const entries = await fs.readdir(projectPath, { withFileTypes: true }).catch(() => []);
+  const files: ProjectFileEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.name === '.git') {
+      continue;
+    }
+
+    const absolutePath = path.join(projectPath, entry.name);
+    const stat = await fs.stat(absolutePath).catch(() => null);
+    files.push({
+      name: entry.name,
+      path: entry.name,
+      type: entry.isDirectory() ? 'folder' : 'file',
+      size: entry.isDirectory() ? null : stat?.size ?? null,
+      modifiedAt: toUnixTimestamp(stat?.mtimeMs)
+    });
+  }
+
+  return files
+    .sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'folder' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, PROJECT_OVERVIEW_FILE_LIMIT);
 }
 
 async function ensureProtectedProject(projectPath: string) {
@@ -704,6 +802,24 @@ export async function openProject(projectPath: string): Promise<ProjectSummary> 
     isProtected: true,
     currentPlan,
     pendingChangeCount: status.files.length
+  };
+}
+
+export async function getProjectOverview(projectPath: string): Promise<ProjectOverview> {
+  const [files, projectSizeBytes, history] = await Promise.all([
+    listProjectTopLevelFiles(projectPath),
+    getDirectorySize(projectPath),
+    listHistory(projectPath)
+  ]);
+  const latestRecord = history[0] ?? null;
+
+  return {
+    files,
+    projectSizeBytes,
+    savedRecordCount: history.length,
+    recentRecords: history.slice(0, 4),
+    lastSavedAt: latestRecord?.timestamp ?? null,
+    lastSavedMessage: latestRecord?.message ?? ''
   };
 }
 

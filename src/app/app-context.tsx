@@ -7,6 +7,11 @@ export interface AppActionsContextValue {
   enableProtection: () => Promise<void>;
   refreshProject: () => Promise<void>;
   refreshConfig: () => Promise<void>;
+  showProjectInFolder: () => Promise<void>;
+  saveAllProgress: () => Promise<void>;
+  uploadCloud: () => Promise<void>;
+  getLatestFromCloud: () => Promise<void>;
+  openIdeaCopyDialog: () => void;
 }
 
 export const AppActionsContext = createContext<AppActionsContextValue | null>(null);

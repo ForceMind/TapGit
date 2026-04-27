@@ -1,4 +1,16 @@
-import dayjs from 'dayjs';
+﻿import dayjs from 'dayjs';
+import {
+  ChevronDown,
+  Clock3,
+  Code2,
+  Folder,
+  GitBranch,
+  History,
+  RotateCcw,
+  Settings,
+  Sparkles,
+  UserCircle
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppActionsContext } from './app/app-context';
@@ -66,12 +78,13 @@ function AppContent() {
   const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
-  const navItems = [
-    { key: 'home' as const, to: '/', label: t('app_nav_home') },
-    { key: 'changes' as const, to: '/changes', label: t('app_nav_changes') },
-    { key: 'timeline' as const, to: '/timeline', label: t('app_nav_timeline') },
-    { key: 'plans' as const, to: '/plans', label: t('app_nav_plans') },
-    { key: 'settings' as const, to: '/settings', label: t('app_nav_settings') }
+  const sidebarItems = [
+    { key: 'home' as const, to: '/', label: copy('\u6211\u7684\u9879\u76ee', 'My Projects'), icon: Folder },
+    { key: 'changes' as const, to: '/changes', label: copy('\u53d8\u66f4', 'Changes'), icon: GitBranch },
+    { key: 'timeline' as const, to: '/timeline', label: copy('\u63d0\u4ea4\u5386\u53f2', 'History'), icon: Clock3 },
+    { key: 'backups' as const, to: '/backups', label: copy('\u5907\u4efd\u4e0e\u6062\u590d', 'Backups'), icon: RotateCcw },
+    { key: 'plans' as const, to: '/plans', label: copy('\u8bd5\u65b0\u60f3\u6cd5', 'Idea Lab'), icon: Sparkles },
+    { key: 'settings' as const, to: '/settings', label: t('app_nav_settings'), icon: Settings }
   ];
   const sourcePlanLabel = useMemo(() => {
     if (!project?.currentPlan) {
@@ -112,10 +125,11 @@ function AppContent() {
   const currentSectionLabel = useMemo(() => {
     if (location.pathname === '/changes') return t('app_nav_changes');
     if (location.pathname === '/timeline') return t('app_nav_timeline');
+    if (location.pathname === '/backups') return copy('\u5907\u4efd\u4e0e\u6062\u590d', 'Backups');
     if (location.pathname === '/plans') return t('app_nav_plans');
     if (location.pathname === '/settings') return t('app_nav_settings');
     return t('app_nav_home');
-  }, [location.pathname, t]);
+  }, [copy, location.pathname, t]);
 
   async function refreshConfig() {
     const nextConfig = await unwrapResult(getBridge().getConfig());
@@ -463,6 +477,10 @@ function AppContent() {
   }, [setNotice, t]);
 
   useEffect(() => {
+    void refreshGitHubAuthStatus();
+  }, []);
+
+  useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 2600);
     return () => window.clearTimeout(timer);
@@ -535,7 +553,12 @@ function AppContent() {
     openProjectByPath,
     enableProtection,
     refreshProject,
-    refreshConfig
+    refreshConfig,
+    showProjectInFolder: handleShowProjectInFolder,
+    saveAllProgress: handleSaveAllProgress,
+    uploadCloud: handleUploadCloud,
+    getLatestFromCloud: handleGetLatestFromCloud,
+    openIdeaCopyDialog
   };
 
   const gettingStartedBanner = (() => {
@@ -606,9 +629,10 @@ function AppContent() {
     );
   }
 
-  function renderNavItem(item: (typeof navItems)[number]) {
+  function renderNavItem(item: (typeof sidebarItems)[number]) {
     const state = resolveSidebarNavState(item.key, project, historyCount, historyLoading);
     const hint = t(state.hintKey as never);
+    const Icon = item.icon;
 
     if (state.enabled) {
       return (
@@ -618,6 +642,7 @@ function AppContent() {
           end={item.to === '/'}
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >
+          <Icon size={22} strokeWidth={1.9} />
           <span className="nav-link-title">{item.label}</span>
         </NavLink>
       );
@@ -636,6 +661,7 @@ function AppContent() {
           }
         }}
       >
+        <Icon size={22} strokeWidth={1.9} />
         <span className="nav-link-title">{item.label}</span>
       </button>
     );
@@ -685,22 +711,63 @@ function AppContent() {
   const showPrimaryAction = Boolean(
     topbarPrimaryAction && topbarPrimaryAction.target !== location.pathname
   );
+  const activeGitHubAccount = githubAuthStatus?.activeAccount ?? githubAuthStatus?.accounts[0] ?? '';
+  const showTopbar = location.pathname !== '/';
+  const brandTitle = copy('\u7801\u8ff9', 'TapGit');
+  const brandSubtitle = copy('\u8ba9\u4ee3\u7801\u7ba1\u7406\u66f4\u7b80\u5355', 'Code management made simple');
+  const aiAssistantTitle = copy('AI \u52a9\u624b', 'AI Assistant');
+  const aiAssistantDescription = copy(
+    '\u5e2e\u4f60\u5199\u63d0\u4ea4\u4fe1\u606f\u3001\u89e3\u91ca\u4ee3\u7801\u3001\u89e3\u51b3\u95ee\u9898',
+    'Draft notes, explain changes, and help fix issues'
+  );
+  const aiAssistantStatus = copy('\u6682\u672a\u5f00\u653e', 'Coming soon');
+  const accountName = activeGitHubAccount || copy('\u672a\u767b\u5f55', 'Not signed in');
+  const accountStatus = activeGitHubAccount
+    ? copy('\u5df2\u8fde\u63a5 GitHub', 'GitHub connected')
+    : copy('\u672a\u8fde\u63a5 GitHub', 'GitHub not connected');
 
   return (
     <AppActionsContext.Provider value={actions}>
-      <div className="shell">
+      <div className="shell shell-v2">
         <aside className="sidebar">
           <div className="brand">
-            <div className="brand-title">{t('app_brand_title')}</div>
-            <div className="brand-sub">{t('app_brand_sub')}</div>
+            <div className="brand-mark">
+              <Code2 size={24} strokeWidth={2.2} />
+            </div>
+            <div>
+              <div className="brand-title">{brandTitle}</div>
+              <div className="brand-sub">{brandSubtitle}</div>
+            </div>
           </div>
           <nav className="nav">
-            {navItems.map((item) => renderNavItem(item))}
+            {sidebarItems.map((item) => renderNavItem(item))}
           </nav>
+          <div className="sidebar-spacer" />
+          <section className="ai-card" aria-label={aiAssistantTitle}>
+            <div className="ai-card-icon">
+              <Sparkles size={20} />
+            </div>
+            <strong>{aiAssistantTitle}</strong>
+            <span>{aiAssistantDescription}</span>
+            <button type="button" className="ai-card-button" disabled>
+              {aiAssistantStatus}
+            </button>
+          </section>
+          <section className="account-card">
+            <UserCircle size={38} />
+            <div className="account-card-copy">
+              <strong>{accountName}</strong>
+              <span>
+                <span className={`account-dot ${activeGitHubAccount ? 'connected' : ''}`} />
+                {accountStatus}
+              </span>
+            </div>
+            <ChevronDown size={18} />
+          </section>
         </aside>
 
         <main className="main">
-          <header className="topbar">
+          {showTopbar ? <header className="topbar">
             <div className="project-info">
               <div className="topbar-section-label">{currentSectionLabel}</div>
               <div className="project-title-row">
@@ -734,7 +801,7 @@ function AppContent() {
                 </>
               ) : null}
             </div>
-          </header>
+          </header> : null}
 
           {project && !project.isProtected ? (
             <div className="warning-banner">{t('app_protection_warning')}</div>
@@ -762,6 +829,7 @@ function AppContent() {
             <Route path="/" element={<HomePage />} />
             <Route path="/changes" element={<ChangesPage />} />
             <Route path="/timeline" element={<TimelinePage />} />
+            <Route path="/backups" element={<TimelinePage />} />
             <Route path="/plans" element={<PlansPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
@@ -824,3 +892,5 @@ export function App() {
     </HashRouter>
   );
 }
+
+

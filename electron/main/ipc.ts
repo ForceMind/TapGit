@@ -15,6 +15,7 @@ import {
   getCloudLatest,
   getCloudSyncStatus,
   getCurrentChanges,
+  getProjectOverview,
   listHistory,
   listSafetyBackups,
   listPlans,
@@ -100,6 +101,11 @@ export function registerIpcHandlers() {
     await logInfo('OPEN_PROJECT', projectPath);
     return summary;
   });
+
+  register<[string], Awaited<ReturnType<typeof getProjectOverview>>>(
+    IPC_CHANNELS.GET_PROJECT_OVERVIEW,
+    getProjectOverview
+  );
 
   register<[Parameters<TapGitBridge['cloneProjectFromGitHub']>[0]], Awaited<ReturnType<typeof cloneProjectFromGitHub>>>(
     IPC_CHANNELS.CLONE_PROJECT_FROM_GITHUB,

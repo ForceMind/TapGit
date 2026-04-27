@@ -13,7 +13,12 @@ const defaultActions = {
   openProjectByPath: async () => undefined,
   enableProtection: async () => undefined,
   refreshProject: async () => undefined,
-  refreshConfig: async () => undefined
+  refreshConfig: async () => undefined,
+  showProjectInFolder: async () => undefined,
+  saveAllProgress: async () => undefined,
+  uploadCloud: async () => undefined,
+  getLatestFromCloud: async () => undefined,
+  openIdeaCopyDialog: () => undefined
 };
 
 function createBridgeMock() {
@@ -21,9 +26,12 @@ function createBridgeMock() {
     chooseProjectFolder: vi.fn(),
     chooseCloneDestination: vi.fn(),
     openProject: vi.fn(),
+    getProjectOverview: vi.fn(),
     cloneProjectFromGitHub: vi.fn(),
+    openInFileManager: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
+    stopTrackingFile: vi.fn(),
     saveProgress: vi.fn(),
     listHistory: vi.fn(),
     listSafetyBackups: vi.fn(),
@@ -100,9 +108,9 @@ describe('HomePage', () => {
 
     renderHomePage('zh-CN');
 
-    expect(screen.getByText('\u5148\u9009\u4e00\u4e2a\u9879\u76ee\u5f00\u59cb')).toBeInTheDocument();
+    expect(screen.getByText('\u9009\u62e9\u4e00\u4e2a\u9879\u76ee\u5f00\u59cb')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '\u6253\u5f00\u672c\u5730\u9879\u76ee' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '\u4ece GitHub \u83b7\u53d6\u9879\u76ee' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '\u4ece GitHub \u83b7\u53d6' })).toBeInTheDocument();
     expect(screen.getByText('\u6700\u8fd1\u9879\u76ee')).toBeInTheDocument();
   });
 
@@ -139,6 +147,40 @@ describe('HomePage', () => {
   it('shows a project dashboard with one clear next step after a project is already open', async () => {
     const bridge = createBridgeMock();
     bridge.listHistory.mockResolvedValue({ ok: true, data: [] });
+    bridge.getProjectOverview.mockResolvedValue({
+      ok: true,
+      data: {
+        files: [
+          {
+            name: 'src',
+            path: 'src',
+            type: 'folder',
+            size: null,
+            modifiedAt: 1710000000
+          },
+          {
+            name: 'README.md',
+            path: 'README.md',
+            type: 'file',
+            size: 1200,
+            modifiedAt: 1710000000
+          }
+        ],
+        projectSizeBytes: 2400000,
+        savedRecordCount: 2,
+        recentRecords: [
+          {
+            id: 'a1b2c3d4e5f6',
+            message: 'Test save',
+            timestamp: 1710000000,
+            changedFiles: 2,
+            files: ['README.md']
+          }
+        ],
+        lastSavedAt: 1710000000,
+        lastSavedMessage: 'Test save'
+      }
+    });
     window.tapgit = bridge as never;
 
     useAppStore.setState({
@@ -166,20 +208,20 @@ describe('HomePage', () => {
     renderHomePage('en-US');
 
     expect(screen.getByText('project-a')).toBeInTheDocument();
-    expect(screen.getByText('Current Project')).toBeInTheDocument();
-    expect(screen.getByText('Save this work first')).toBeInTheDocument();
+    expect(screen.getByText('Local project')).toBeInTheDocument();
     expect(screen.getByText('Current copy')).toBeInTheDocument();
-    expect(screen.getByText('Unsaved')).toBeInTheDocument();
     expect(screen.getByText('Saved points')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review Changes' })).toBeInTheDocument();
-    expect(screen.getByText('Changes')).toBeInTheDocument();
-    expect(screen.getByText('History')).toBeInTheDocument();
-    expect(screen.getByText('Idea Lab')).toBeInTheDocument();
-    expect(screen.queryByText('What to do next')).not.toBeInTheDocument();
+    expect(screen.getByText('Files')).toBeInTheDocument();
+    expect(screen.getByText('Recent Saves')).toBeInTheDocument();
+    expect(screen.getByText('Quick Actions')).toBeInTheDocument();
     expect(screen.queryByText('Recent Projects')).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
+      expect(bridge.getProjectOverview).toHaveBeenCalledWith('E:/demo/project-a');
+      expect(screen.getByText('README.md')).toBeInTheDocument();
+      expect(screen.getAllByText('Test save').length).toBeGreaterThan(0);
     });
   });
 });

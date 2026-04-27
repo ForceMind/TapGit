@@ -12,7 +12,12 @@ const defaultActions = {
   openProjectByPath: async () => undefined,
   enableProtection: async () => undefined,
   refreshProject: async () => undefined,
-  refreshConfig: async () => undefined
+  refreshConfig: async () => undefined,
+  showProjectInFolder: async () => undefined,
+  saveAllProgress: async () => undefined,
+  uploadCloud: async () => undefined,
+  getLatestFromCloud: async () => undefined,
+  openIdeaCopyDialog: () => undefined
 };
 
 function createBridgeMock() {
@@ -20,6 +25,7 @@ function createBridgeMock() {
     chooseProjectFolder: vi.fn(),
     chooseCloneDestination: vi.fn(),
     openProject: vi.fn(),
+    getProjectOverview: vi.fn(),
     cloneProjectFromGitHub: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
