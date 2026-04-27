@@ -32,6 +32,7 @@ export type ChangeType = 'added' | 'modified' | 'deleted' | 'renamed';
 export interface ChangeItem {
   path: string;
   changeType: ChangeType;
+  area?: 'worktree' | 'ready';
   statusLabel: string;
   additions: number;
   deletions: number;
@@ -70,7 +71,7 @@ export interface SafetyBackup {
   name: string;
   createdAt: number | null;
   lastMessage: string;
-  source: 'restore' | 'merge' | 'unknown';
+  source: 'restore' | 'merge' | 'manual' | 'discard' | 'unknown';
 }
 
 export interface PlanInfo {
@@ -159,9 +160,11 @@ export interface TapGitBridge {
   enableProtection(projectPath: string): Promise<Result<ProjectSummary>>;
   getCurrentChanges(projectPath: string): Promise<Result<ChangeItem[]>>;
   stopTrackingFile(projectPath: string, filePath: string): Promise<Result<void>>;
+  discardAllChanges(projectPath: string): Promise<Result<void>>;
   saveProgress(payload: SaveProgressPayload): Promise<Result<SaveProgressResult>>;
   listHistory(projectPath: string): Promise<Result<HistoryRecord[]>>;
   listSafetyBackups(projectPath: string): Promise<Result<SafetyBackup[]>>;
+  createSafetyBackup(projectPath: string): Promise<Result<SafetyBackup>>;
   restoreToRecord(projectPath: string, recordId: string): Promise<Result<void>>;
   restoreToSafetyBackup(projectPath: string, backupId: string): Promise<Result<void>>;
   listPlans(projectPath: string): Promise<Result<PlanInfo[]>>;
@@ -212,9 +215,11 @@ export const IPC_CHANNELS = {
   ENABLE_PROTECTION: 'tapgit:enable-protection',
   GET_CURRENT_CHANGES: 'tapgit:get-current-changes',
   STOP_TRACKING_FILE: 'tapgit:stop-tracking-file',
+  DISCARD_ALL_CHANGES: 'tapgit:discard-all-changes',
   SAVE_PROGRESS: 'tapgit:save-progress',
   LIST_HISTORY: 'tapgit:list-history',
   LIST_SAFETY_BACKUPS: 'tapgit:list-safety-backups',
+  CREATE_SAFETY_BACKUP: 'tapgit:create-safety-backup',
   RESTORE_TO_RECORD: 'tapgit:restore-to-record',
   RESTORE_TO_SAFETY_BACKUP: 'tapgit:restore-to-safety-backup',
   LIST_PLANS: 'tapgit:list-plans',

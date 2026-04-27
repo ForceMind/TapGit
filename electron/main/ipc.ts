@@ -11,6 +11,8 @@ import {
   connectCloud,
   completeMerge,
   createPlan,
+  createSafetyBackup,
+  discardAllChanges,
   enableProtection,
   getCloudLatest,
   getCloudSyncStatus,
@@ -147,6 +149,7 @@ export function registerIpcHandlers() {
     getCurrentChanges
   );
   register<[string, string], void>(IPC_CHANNELS.STOP_TRACKING_FILE, stopTrackingFile);
+  register<[string], void>(IPC_CHANNELS.DISCARD_ALL_CHANGES, discardAllChanges);
   register<[Parameters<TapGitBridge['saveProgress']>[0]], Awaited<ReturnType<typeof saveProgress>>>(
     IPC_CHANNELS.SAVE_PROGRESS,
     saveProgress
@@ -155,6 +158,10 @@ export function registerIpcHandlers() {
   register<[string], Awaited<ReturnType<typeof listSafetyBackups>>>(
     IPC_CHANNELS.LIST_SAFETY_BACKUPS,
     listSafetyBackups
+  );
+  register<[string], Awaited<ReturnType<typeof createSafetyBackup>>>(
+    IPC_CHANNELS.CREATE_SAFETY_BACKUP,
+    createSafetyBackup
   );
 
   register<[string, string], void>(IPC_CHANNELS.RESTORE_TO_RECORD, async (projectPath, recordId) => {

@@ -1,10 +1,12 @@
 import dayjs from 'dayjs';
+import { BarChart3, Clock3, Copy, FileText, Filter, GitBranch, Search } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { toLocalizedErrorMessage, toSafetyBackupSourceLabel, useI18n } from '../i18n';
-import { HistoryRecord, SafetyBackup } from '../shared/contracts';
+import { toLocalizedErrorMessage, useI18n } from '../i18n';
+import { HistoryRecord } from '../shared/contracts';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
 
@@ -15,53 +17,54 @@ function formatDateTime(timestamp: number | null) {
   return dayjs.unix(timestamp).format('YYYY-MM-DD HH:mm:ss');
 }
 
-function formatShortDateTime(timestamp: number | null) {
+function formatRelative(timestamp: number | null, locale: string) {
   if (!timestamp) {
     return '-';
   }
-  return dayjs.unix(timestamp).format('MM-DD HH:mm');
+  const hours = Math.max(1, Math.round((Date.now() / 1000 - timestamp) / 3600));
+  if (hours < 24) {
+    return locale === 'zh-CN' ? `${hours} 小时前` : `${hours}h ago`;
+  }
+  const days = Math.round(hours / 24);
+  return locale === 'zh-CN' ? `${days} 天前` : `${days}d ago`;
 }
 
 export function TimelinePage() {
   const { project, config, setNotice } = useAppStore();
   const { openProjectFolder, enableProtection, refreshProject } = useAppActions();
   const { locale, t } = useI18n();
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [backupsLoading, setBackupsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<HistoryRecord[]>([]);
-  const [backups, setBackups] = useState<SafetyBackup[]>([]);
   const [selectedId, setSelectedId] = useState('');
-  const [selectedBackupId, setSelectedBackupId] = useState('');
+  const [query, setQuery] = useState('');
   const [restoring, setRestoring] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
-  const [backupDialogOpen, setBackupDialogOpen] = useState(false);
 
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
+  const filteredRecords = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return records;
+    return records.filter((item) => {
+      return (
+        item.message.toLowerCase().includes(keyword) ||
+        item.id.toLowerCase().includes(keyword) ||
+        item.files.some((file) => file.toLowerCase().includes(keyword))
+      );
+    });
+  }, [query, records]);
+
   const selectedRecord = useMemo(
-    () => records.find((item) => item.id === selectedId) ?? records[0] ?? null,
-    [records, selectedId]
+    () => records.find((item) => item.id === selectedId) ?? filteredRecords[0] ?? null,
+    [filteredRecords, records, selectedId]
   );
-
-  const selectedBackup = useMemo(
-    () => backups.find((item) => item.id === selectedBackupId) ?? backups[0] ?? null,
-    [backups, selectedBackupId]
-  );
-
-  const timelineStateLabel = historyLoading || backupsLoading
-    ? copy('\u6b63\u5728\u6574\u7406', 'Loading')
-    : records.length === 0
-      ? copy('\u5148\u4fdd\u5b58\u4e00\u6b21', 'Save once first')
-      : backups.length > 0
-        ? copy('\u53ef\u4ee5\u5b89\u5168\u56de\u5230\u4ee5\u524d', 'Ready to go back safely')
-        : copy('\u5386\u53f2\u5df2\u53ef\u7528', 'History is ready');
 
   async function loadRecords() {
     if (!project?.path || !project.isProtected) {
       return;
     }
 
-    setHistoryLoading(true);
+    setLoading(true);
     try {
       const data = await unwrapResult(getBridge().listHistory(project.path));
       setRecords(data);
@@ -72,36 +75,12 @@ export function TimelinePage() {
         text: toLocalizedErrorMessage(error, t, 'timeline_notice_load_failed')
       });
     } finally {
-      setHistoryLoading(false);
+      setLoading(false);
     }
-  }
-
-  async function loadBackups() {
-    if (!project?.path || !project.isProtected) {
-      return;
-    }
-
-    setBackupsLoading(true);
-    try {
-      const data = await unwrapResult(getBridge().listSafetyBackups(project.path));
-      setBackups(data);
-      setSelectedBackupId((current) => data.find((item) => item.id === current)?.id ?? data[0]?.id ?? '');
-    } catch (error) {
-      setNotice({
-        type: 'error',
-        text: toLocalizedErrorMessage(error, t, 'timeline_backup_notice_load_failed')
-      });
-    } finally {
-      setBackupsLoading(false);
-    }
-  }
-
-  async function refreshTimelineData() {
-    await Promise.all([loadRecords(), loadBackups()]);
   }
 
   useEffect(() => {
-    void refreshTimelineData();
+    void loadRecords();
   }, [project?.path, project?.isProtected]);
 
   async function handleRestoreRecord() {
@@ -115,7 +94,7 @@ export function TimelinePage() {
       setNotice({ type: 'success', text: t('timeline_notice_restored') });
       setRestoreDialogOpen(false);
       await refreshProject();
-      await refreshTimelineData();
+      await loadRecords();
     } catch (error) {
       setNotice({
         type: 'error',
@@ -126,250 +105,178 @@ export function TimelinePage() {
     }
   }
 
-  async function handleRestoreBackup() {
-    if (!project?.path || !selectedBackup) {
-      return;
-    }
-
-    setRestoring(true);
-    try {
-      await unwrapResult(getBridge().restoreToSafetyBackup(project.path, selectedBackup.id));
-      setNotice({ type: 'success', text: t('timeline_backup_notice_restored') });
-      setBackupDialogOpen(false);
-      await refreshProject();
-      await refreshTimelineData();
-    } catch (error) {
-      setNotice({
-        type: 'error',
-        text: toLocalizedErrorMessage(error, t, 'timeline_notice_restore_failed')
-      });
-    } finally {
-      setRestoring(false);
-    }
+  function renderEmptyState(title: string, description: string, action: ReactNode) {
+    return (
+      <div className="page page-v2">
+        <section className="state-card-v2">
+          <h1>{title}</h1>
+          <p>{description}</p>
+          <div className="actions-row">{action}</div>
+        </section>
+      </div>
+    );
   }
 
   if (!project) {
-    return (
-      <div className="page">
-        <section className="panel">
-          <h2>{copy('\u5386\u53f2', 'History')}</h2>
-          <div className="empty-action-panel">
-            <h3>{t('common_project_open_required')}</h3>
-            <p>{t('common_project_open_help')}</p>
-            <div className="actions-row">
-              <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-                {t('app_open_project')}
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
+    return renderEmptyState(
+      copy('先打开一个项目', 'Open a project first'),
+      t('common_project_open_help'),
+      <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
+        {t('app_open_project')}
+      </button>
     );
   }
 
   if (!project.isProtected) {
-    return (
-      <div className="page">
-        <section className="panel">
-          <h2>{copy('\u5386\u53f2', 'History')}</h2>
-          <div className="empty-action-panel">
-            <h3>{t('common_protection_required')}</h3>
-            <p>{t('common_protection_help')}</p>
-            <div className="actions-row">
-              <button className="btn btn-primary" onClick={() => void enableProtection()}>
-                {t('app_enable_protection')}
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
+    return renderEmptyState(
+      copy('先开启版本保护', 'Turn on protection first'),
+      t('common_protection_help'),
+      <button className="btn btn-primary" onClick={() => void enableProtection()}>
+        {t('app_enable_protection')}
+      </button>
     );
   }
 
   return (
-    <div className="page">
-      <section className="panel timeline-hero">
-        <div className="timeline-hero-copy">
-          <span className="pill">{copy('\u5386\u53f2\u4e0e\u6062\u590d', 'History & Restore')}</span>
-          <h1>{copy('\u5b89\u5168\u56de\u5230\u4ee5\u524d', 'Go Back Safely')}</h1>
-          <p>{copy('\u67e5\u770b\u4fdd\u5b58\u70b9\uff0c\u6216\u56de\u5230\u5b89\u5168\u5907\u4efd\u3002', 'Review saved points or go back safely.')}</p>
+    <div className="page page-v2 history-page-v2">
+      <header className="section-header-v2">
+        <div>
+          <h1>{copy('提交历史', 'Save History')}</h1>
+          <p>{copy('查看项目的提交记录和历史变更', 'Review saved records and project changes')}</p>
         </div>
-        <div className="timeline-hero-metrics">
-          <article className="timeline-metric-card">
-            <span>{copy('\u4fdd\u5b58\u70b9', 'Saved points')}</span>
-            <strong>{historyLoading ? copy('\u6b63\u5728\u8bfb\u53d6', 'Loading') : records.length}</strong>
-          </article>
-          <article className="timeline-metric-card">
-            <span>{copy('\u5b89\u5168\u5907\u4efd', 'Safety backups')}</span>
-            <strong>{backupsLoading ? copy('\u6b63\u5728\u8bfb\u53d6', 'Loading') : backups.length}</strong>
-          </article>
-          <article className="timeline-metric-card">
-            <span>{copy('\u5f53\u524d\u72b6\u6001', 'Current state')}</span>
-            <strong>{timelineStateLabel}</strong>
-          </article>
+        <div className="header-actions-v2">
+          <button className="btn btn-secondary" disabled>
+            <BarChart3 size={18} />
+            {copy('图表视图', 'Graph View')}
+          </button>
+          <button className="btn btn-secondary" disabled>
+            <GitBranch size={18} />
+            {copy('比较提交', 'Compare Saves')}
+          </button>
         </div>
-      </section>
+      </header>
 
-      <section className="panel split-panel">
-        <div className="list-panel">
-          <div className="section-head">
-            <h2>{copy('\u4fdd\u5b58\u70b9', 'Saved Points')}</h2>
-            <span className="pill">{t('common_record_unit', { count: records.length })}</span>
-          </div>
-          {historyLoading ? (
-            <p className="muted">{t('timeline_loading')}</p>
-          ) : records.length === 0 ? (
-            <div className="empty-action-panel">
-              <h3>{copy('\u8fd8\u6ca1\u6709\u4fdd\u5b58\u70b9', 'No saved points yet')}</h3>
-              <p>{t('timeline_empty')}</p>
-              <div className="actions-row">
-                <Link className="btn btn-primary" to="/changes">
-                  {t('timeline_empty_action')}
-                </Link>
-              </div>
+      <div className="history-filter-row-v2">
+        <button className="history-branch-select-v2">
+          <GitBranch size={18} />
+          {project.currentPlan}
+        </button>
+        <label className="search-input-v2">
+          <Search size={18} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={copy('搜索提交信息、作者...', 'Search save notes, files...')}
+          />
+        </label>
+        <button className="btn btn-secondary">
+          <Filter size={18} />
+          {copy('筛选', 'Filter')}
+        </button>
+      </div>
+
+      <section className="history-layout-v2">
+        <aside className="history-list-panel-v2">
+          {loading ? (
+            <p className="history-empty-v2">{t('timeline_loading')}</p>
+          ) : filteredRecords.length === 0 ? (
+            <div className="history-empty-v2">
+              <strong>{copy('还没有保存记录', 'No saved records yet')}</strong>
+              <span>{t('timeline_empty')}</span>
+              <Link className="btn btn-primary" to="/changes">
+                {t('timeline_empty_action')}
+              </Link>
             </div>
           ) : (
-            <ul className="list">
-              {records.map((item) => (
-                <li
-                  key={item.id}
-                  className={`list-item ${selectedRecord?.id === item.id ? 'active' : ''}`}
-                  onClick={() => setSelectedId(item.id)}
-                >
-                  <div className="flex-grow">
-                    <div className="item-title">{item.message}</div>
-                    <div className="item-subtle">
-                      {dayjs.unix(item.timestamp).format('YYYY-MM-DD HH:mm')} ·{' '}
-                      {t('common_file_unit', { count: item.changedFiles })}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="history-day-label-v2">{copy('今天', 'Today')}</div>
+              <ul className="history-list-v2">
+                {filteredRecords.map((record, index) => (
+                  <li key={record.id}>
+                    <button
+                      type="button"
+                      className={`history-row-v2 ${selectedRecord?.id === record.id ? 'active' : ''}`}
+                      onClick={() => setSelectedId(record.id)}
+                    >
+                      <span className="history-dot-v2" />
+                      <span className="history-icon-v2">
+                        {index === 0 ? <GitBranch size={18} /> : <FileText size={18} />}
+                      </span>
+                      <span className="history-copy-v2">
+                        <strong>{record.message}</strong>
+                        <small>
+                          {copy('本机用户', 'Local user')} · {formatRelative(record.timestamp, locale)}
+                        </small>
+                      </span>
+                      <span className="history-id-v2">
+                        {record.id.slice(0, 7)}
+                        <Copy size={16} />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="history-end-v2">{copy('没有更多提交了', 'No more saved records')}</div>
+            </>
           )}
-        </div>
+        </aside>
 
-        <div className="detail-panel workbench-panel">
-          <div className="section-head">
-            <div>
-              <h2>{copy('\u9009\u4e2d\u7684\u4fdd\u5b58\u70b9', 'Selected Point')}</h2>
-              <p className="panel-subtitle">
-                {copy('\u5982\u679c\u5c31\u662f\u8fd9\u4e2a\u7248\u672c\uff0c\u5c31\u56de\u5230\u5b83\u3002', 'Return to this save if this is the version you want.')}
-              </p>
-            </div>
-            <div className="actions-row">
-              {selectedRecord && config?.settings.showAdvancedMode ? (
-                <span className="pill">{selectedRecord.id.slice(0, 8)}</span>
-              ) : null}
-              {selectedRecord ? (
-                <button className="btn btn-danger" disabled={restoring} onClick={() => setRestoreDialogOpen(true)}>
-                  {copy('\u56de\u5230\u8fd9\u4e2a\u4fdd\u5b58\u70b9', 'Return to This Save')}
-                </button>
-              ) : null}
-            </div>
-          </div>
+        <main className="history-detail-panel-v2">
           {!selectedRecord ? (
-            <p className="muted">{t('timeline_select_record')}</p>
+            <div className="history-empty-v2">{t('timeline_select_record')}</div>
           ) : (
-            <div className="detail-stack">
-              <div className="detail-fact-grid">
-                <article className="detail-fact-card">
-                  <span>{copy('\u8bf4\u660e', 'Note')}</span>
-                  <strong>{selectedRecord.message}</strong>
-                </article>
-                <article className="detail-fact-card">
-                  <span>{copy('\u4fdd\u5b58\u65f6\u95f4', 'Saved at')}</span>
-                  <strong>{formatDateTime(selectedRecord.timestamp)}</strong>
-                </article>
-                <article className="detail-fact-card">
-                  <span>{copy('\u6d89\u53ca\u6587\u4ef6', 'Files in this save')}</span>
-                  <strong>{t('common_file_unit', { count: selectedRecord.changedFiles })}</strong>
-                </article>
+            <>
+              <div className="history-detail-head-v2">
+                <div>
+                  <h2>
+                    {selectedRecord.message}
+                    {records[0]?.id === selectedRecord.id ? (
+                      <span>{copy('最新提交', 'Latest')}</span>
+                    ) : null}
+                  </h2>
+                  <div className="history-id-line-v2">
+                    <code>{selectedRecord.id.slice(0, 8)}</code>
+                    <Copy size={16} />
+                  </div>
+                </div>
+                <button className="btn btn-secondary" onClick={() => setRestoreDialogOpen(true)}>
+                  {t('timeline_restore_button')}
+                </button>
               </div>
-              <div className="detail-list-box">
-                <strong>{copy('\u6587\u4ef6\u6e05\u5355', 'Files')}</strong>
-                <ul className="mini-list">
-                  {selectedRecord.files.slice(0, 20).map((file) => (
-                    <li key={file}>{file}</li>
+
+              <div className="history-meta-v2">
+                <span>
+                  <Clock3 size={18} />
+                  {formatDateTime(selectedRecord.timestamp)}
+                </span>
+                <span>{t('common_file_unit', { count: selectedRecord.changedFiles })}</span>
+              </div>
+
+              <div className="history-message-box-v2">{selectedRecord.message}</div>
+
+              <div className="history-file-summary-v2">
+                <span>{copy(`此提交涉及 ${selectedRecord.changedFiles} 个文件的变更`, `This save changed ${selectedRecord.changedFiles} files`)}</span>
+                <Link to="/changes">{copy('查看当前变更', 'View Current Changes')}</Link>
+              </div>
+
+              <div className="history-file-card-v2">
+                <header>
+                  <FileText size={22} />
+                  <strong>{selectedRecord.files[0] ?? copy('文件列表', 'Files')}</strong>
+                  <span>+{selectedRecord.changedFiles}</span>
+                </header>
+                <ul>
+                  {selectedRecord.files.slice(0, 24).map((file) => (
+                    <li key={file}>
+                      <FileText size={17} />
+                      {file}
+                    </li>
                   ))}
                 </ul>
               </div>
-            </div>
+            </>
           )}
-        </div>
-      </section>
-
-      <section className="panel split-panel">
-        <div className="list-panel">
-          <div className="section-head">
-            <h2>{copy('\u5b89\u5168\u5907\u4efd', 'Safety Backups')}</h2>
-            <span className="pill">{t('common_record_unit', { count: backups.length })}</span>
-          </div>
-          {backupsLoading ? (
-            <p className="muted">{t('timeline_backups_loading')}</p>
-          ) : backups.length === 0 ? (
-            <p className="muted">{t('timeline_backups_empty')}</p>
-          ) : (
-            <ul className="list">
-              {backups.map((backup) => (
-                <li
-                  key={backup.id}
-                  className={`list-item ${selectedBackup?.id === backup.id ? 'active' : ''}`}
-                  onClick={() => setSelectedBackupId(backup.id)}
-                >
-                  <div className="flex-grow">
-                    <div className="item-title">
-                      {toSafetyBackupSourceLabel(backup.source, t)}
-                      <span className="tag">{formatShortDateTime(backup.createdAt)}</span>
-                    </div>
-                    <div className="item-subtle">{backup.lastMessage || t('timeline_backup_no_record')}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="detail-panel workbench-panel">
-          <div className="section-head">
-            <div>
-              <h2>{copy('\u9009\u4e2d\u7684\u5b89\u5168\u5907\u4efd', 'Selected Backup')}</h2>
-              <p className="panel-subtitle">
-                {copy('\u8fd9\u662f\u98ce\u9669\u64cd\u4f5c\u524d\u81ea\u52a8\u7559\u4e0b\u7684\u5907\u4efd\u3002', 'This backup was kept before a risky action.')}
-              </p>
-            </div>
-            <div className="actions-row">
-              {selectedBackup && config?.settings.showAdvancedMode ? (
-                <span className="pill">{selectedBackup.id}</span>
-              ) : null}
-              {selectedBackup ? (
-                <button className="btn btn-secondary" disabled={restoring} onClick={() => setBackupDialogOpen(true)}>
-                  {copy('\u56de\u5230\u8fd9\u4e2a\u5b89\u5168\u5907\u4efd', 'Return to This Backup')}
-                </button>
-              ) : null}
-            </div>
-          </div>
-          {!selectedBackup ? (
-            <p className="muted">{t('timeline_backups_empty')}</p>
-          ) : (
-            <div className="detail-stack">
-              <div className="detail-fact-grid">
-                <article className="detail-fact-card">
-                  <span>{copy('\u6765\u6e90', 'Created because')}</span>
-                  <strong>{toSafetyBackupSourceLabel(selectedBackup.source, t)}</strong>
-                </article>
-                <article className="detail-fact-card">
-                  <span>{copy('\u521b\u5efa\u65f6\u95f4', 'Created at')}</span>
-                  <strong>{formatDateTime(selectedBackup.createdAt)}</strong>
-                </article>
-                <article className="detail-fact-card">
-                  <span>{copy('\u5f53\u65f6\u6700\u65b0\u7684\u4fdd\u5b58', 'Latest saved note at that time')}</span>
-                  <strong>{selectedBackup.lastMessage || t('timeline_backup_no_record')}</strong>
-                </article>
-              </div>
-            </div>
-          )}
-        </div>
+        </main>
       </section>
 
       {restoreDialogOpen && selectedRecord ? (
@@ -391,31 +298,6 @@ export function TimelinePage() {
           busy={restoring}
           onCancel={() => setRestoreDialogOpen(false)}
           onConfirm={() => void handleRestoreRecord()}
-        />
-      ) : null}
-
-      {backupDialogOpen && selectedBackup ? (
-        <ConfirmDialog
-          title={t('timeline_backup_dialog_title')}
-          description={t('timeline_backup_dialog_description')}
-          details={[
-            t('timeline_backup_dialog_created', {
-              time: formatDateTime(selectedBackup.createdAt)
-            }),
-            `${t('timeline_backup_source_label')} ${toSafetyBackupSourceLabel(selectedBackup.source, t)}`,
-            selectedBackup.lastMessage
-              ? t('timeline_backup_dialog_message', { message: selectedBackup.lastMessage })
-              : t('timeline_backup_no_record'),
-            config?.settings.autoSnapshotBeforeRestore
-              ? t('timeline_restore_dialog_snapshot_on')
-              : t('timeline_restore_dialog_snapshot_off')
-          ]}
-          cancelLabel={t('common_cancel')}
-          confirmLabel={t('timeline_backup_restore_button')}
-          confirmKind="danger"
-          busy={restoring}
-          onCancel={() => setBackupDialogOpen(false)}
-          onConfirm={() => void handleRestoreBackup()}
         />
       ) : null}
     </div>

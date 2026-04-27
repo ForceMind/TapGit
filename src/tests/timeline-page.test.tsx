@@ -29,9 +29,12 @@ function createBridgeMock() {
     cloneProjectFromGitHub: vi.fn(),
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
+    stopTrackingFile: vi.fn(),
+    discardAllChanges: vi.fn(),
     saveProgress: vi.fn(),
     listHistory: vi.fn(),
     listSafetyBackups: vi.fn(),
+    createSafetyBackup: vi.fn(),
     restoreToRecord: vi.fn(),
     restoreToSafetyBackup: vi.fn(),
     listPlans: vi.fn(),
@@ -99,7 +102,7 @@ describe('TimelinePage', () => {
     window.tapgit = undefined as never;
   });
 
-  it('shows automatic safety backups separately from saved records', async () => {
+  it('shows saved records in the focused history view', async () => {
     const bridge = createBridgeMock();
     bridge.listHistory.mockResolvedValue({
       ok: true,
@@ -113,32 +116,18 @@ describe('TimelinePage', () => {
         }
       ]
     });
-    bridge.listSafetyBackups.mockResolvedValue({
-      ok: true,
-      data: [
-        {
-          id: 'safety/restore-20260409-123000',
-          name: 'safety/restore-20260409-123000',
-          createdAt: 1712637000,
-          lastMessage: 'Before trying the older version',
-          source: 'restore'
-        }
-      ]
-    });
+    bridge.listSafetyBackups.mockResolvedValue({ ok: true, data: [] });
     window.tapgit = bridge as never;
 
     renderTimelinePage('en-US');
 
-    expect(await screen.findByText('Go Back Safely')).toBeInTheDocument();
-    expect(screen.getByText('Saved Points')).toBeInTheDocument();
-    expect(await screen.findByText('Safety Backups')).toBeInTheDocument();
-    expect(screen.getAllByText('Created before restore').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Before trying the older version').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Return to This Backup' })).toBeInTheDocument();
+    expect(await screen.findByText('Save History')).toBeInTheDocument();
+    expect(screen.getAllByText('Fix login save flow').length).toBeGreaterThan(0);
+    expect(screen.getByText('This save changed 3 files')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restore to This Point' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
-      expect(bridge.listSafetyBackups).toHaveBeenCalledWith('E:/demo/project-a');
     });
   });
 });

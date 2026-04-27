@@ -27,6 +27,7 @@ import {
 } from './i18n';
 import { IdeaCopyDialog } from './components/IdeaCopyDialog';
 import { ProjectImportDialog } from './components/ProjectImportDialog';
+import { BackupPage } from './pages/BackupPage';
 import { ChangesPage } from './pages/ChangesPage';
 import { HomePage } from './pages/HomePage';
 import { PlansPage } from './pages/PlansPage';
@@ -829,7 +830,7 @@ function AppContent() {
             <Route path="/" element={<HomePage />} />
             <Route path="/changes" element={<ChangesPage />} />
             <Route path="/timeline" element={<TimelinePage />} />
-            <Route path="/backups" element={<TimelinePage />} />
+            <Route path="/backups" element={<BackupPage />} />
             <Route path="/plans" element={<PlansPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>

@@ -322,6 +322,8 @@ export const EN_MESSAGES = {
   timeline_backup_notice_restored: 'Returned to the selected safety backup',
   timeline_backup_source_restore: 'Created before restore',
   timeline_backup_source_merge: 'Created before merge',
+  timeline_backup_source_manual: 'Manual backup',
+  timeline_backup_source_discard: 'Saved before discarding changes',
   timeline_backup_source_unknown: 'Automatic safety backup',
 
   plans_title: 'Try New Ideas',
@@ -867,6 +869,8 @@ export const ZH_MESSAGES: Record<MessageKey, string> = {
   timeline_backup_notice_restored: '已回到选中的安全备份',
   timeline_backup_source_restore: '恢复前自动创建',
   timeline_backup_source_merge: '合并前自动创建',
+  timeline_backup_source_manual: '手动备份',
+  timeline_backup_source_discard: '丢弃变更前保存',
   timeline_backup_source_unknown: '自动安全备份',
 
   plans_title: '试新想法',

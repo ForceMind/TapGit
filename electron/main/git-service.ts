@@ -101,12 +101,14 @@ function parseSafetyBackupSource(name: string): SafetyBackup['source'] {
   const raw = name.slice(SAFETY_PREFIX.length);
   if (raw.startsWith('restore-')) return 'restore';
   if (raw.startsWith('merge-')) return 'merge';
+  if (raw.startsWith('manual-')) return 'manual';
+  if (raw.startsWith('discard-')) return 'discard';
   return 'unknown';
 }
 
 function parseSafetyBackupCreatedAt(name: string, fallbackTimestamp: number | null) {
   const raw = name.slice(SAFETY_PREFIX.length);
-  const match = raw.match(/(?:restore-|merge-)?(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
+  const match = raw.match(/(?:restore-|merge-|manual-|discard-)?(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
   if (!match) {
     return fallbackTimestamp;
   }
@@ -907,6 +909,7 @@ export async function getCurrentChanges(projectPath: string): Promise<ChangeItem
     items.push({
       path: file.path,
       changeType,
+      area: file.index && file.index !== ' ' && file.index !== '?' ? 'ready' : 'worktree',
       statusLabel: mapStatusLabel(changeType),
       additions: stats.additions,
       deletions: stats.deletions,
@@ -935,6 +938,41 @@ export async function stopTrackingFile(projectPath: string, filePath: string) {
   await appendExcludeRule(projectPath, filePath).catch((error) => {
     throw new AppError('STOP_TRACKING_FAILED', '停止追踪失败，请稍后重试', String(error));
   });
+}
+
+export async function discardAllChanges(projectPath: string) {
+  await ensureProtectedProject(projectPath);
+
+  if (!(await hasCommits(projectPath))) {
+    throw new AppError('NO_HISTORY', '请先保存一次进度，再丢弃当前变更');
+  }
+
+  const changes = await getCurrentChanges(projectPath);
+  if (changes.length === 0) {
+    return;
+  }
+
+  const git = createGit(projectPath);
+  const current = await getCurrentPlan(projectPath);
+  const snapshotBranch = formatSnapshotName('discard');
+
+  await ensureIdentity(projectPath);
+
+  try {
+    await git.raw(['switch', '-c', snapshotBranch]);
+    await git.add(['-A']);
+    await git.commit(`Safety backup before discarding changes at ${new Date().toISOString()}`);
+    await git.raw(['switch', current]);
+    await git.raw(['reset', '--hard', 'HEAD']);
+    await git.raw(['clean', '-fd']);
+  } catch (error) {
+    await git.raw(['switch', current]).catch(() => undefined);
+    throw new AppError(
+      'DISCARD_CHANGES_FAILED',
+      '这次清理没有成功，当前内容没有被继续处理。请稍后再试。',
+      String(error)
+    );
+  }
 }
 
 export async function saveProgress(payload: SaveProgressPayload): Promise<SaveProgressResult> {
@@ -1010,6 +1048,29 @@ export async function listSafetyBackups(projectPath: string): Promise<SafetyBack
     .map((line) => toSafetyBackup(line))
     .filter((item): item is SafetyBackup => Boolean(item))
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+export async function createSafetyBackup(projectPath: string): Promise<SafetyBackup> {
+  await ensureProtectedProject(projectPath);
+
+  if (!(await hasCommits(projectPath))) {
+    throw new AppError('NO_HISTORY', '请先保存一次进度，再创建安全备份');
+  }
+
+  const git = createGit(projectPath);
+  const snapshotBranch = formatSnapshotName('manual');
+  await git.raw(['branch', snapshotBranch]).catch((error) => {
+    throw new AppError('CREATE_BACKUP_FAILED', '这次备份没有成功，请稍后再试', String(error));
+  });
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  return {
+    id: snapshotBranch,
+    name: snapshotBranch,
+    createdAt: timestamp,
+    lastMessage: 'Manual safety backup',
+    source: 'manual'
+  };
 }
 
 async function restoreToRef(

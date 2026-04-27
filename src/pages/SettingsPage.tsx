@@ -1,12 +1,6 @@
+import { Cloud, GitBranch, Info, MonitorCog, Palette, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  toCloudAdvice,
-  toCloudStatusText,
-  toCloudTestMessage,
-  toLocalizedErrorMessage,
-  toPlanLabel,
-  useI18n
-} from '../i18n';
+import { toCloudAdvice, toCloudStatusText, toCloudTestMessage, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
 import { useAppActions } from '../app/app-context';
 import { BridgeError, getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
@@ -20,6 +14,7 @@ import {
 import { parseRemoteUrl } from '../shared/remote-url';
 
 type CloudPlatform = 'github' | 'gitlab' | 'custom';
+type SettingsTab = 'general' | 'git' | 'appearance' | 'sync' | 'safety' | 'about';
 
 interface CloudProviderLinks {
   signInUrl?: string;
@@ -31,6 +26,7 @@ export function SettingsPage() {
   const { project, config, setConfig, setNotice } = useAppStore();
   const { locale, t } = useI18n();
   const { openProjectFolder, enableProtection } = useAppActions();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [gitEnv, setGitEnv] = useState<GitEnvironment | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus | null>(null);
   const [remoteUrlInput, setRemoteUrlInput] = useState('');
@@ -47,6 +43,15 @@ export function SettingsPage() {
 
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
   const projectReadyForCloud = Boolean(project?.isProtected);
+
+  const tabs: Array<{ key: SettingsTab; label: string }> = [
+    { key: 'general', label: copy('通用', 'General') },
+    { key: 'git', label: 'Git' },
+    { key: 'appearance', label: copy('外观', 'Appearance') },
+    { key: 'sync', label: copy('同步', 'Sync') },
+    { key: 'safety', label: copy('安全', 'Safety') },
+    { key: 'about', label: copy('关于', 'About') }
+  ];
 
   const providerLinks: CloudProviderLinks = (() => {
     const repoName = cloudRepo.trim().replace(/\.git$/i, '');
@@ -80,58 +85,13 @@ export function SettingsPage() {
     return {};
   })();
 
-  const heroTitle = project
-    ? copy(`${project.name} \u7684\u540c\u6b65`, `${project.name} Sync`)
-    : copy('\u4e91\u7aef\u4e0e\u5e94\u7528', 'Cloud & App');
-
-  const heroDescription = !project
-    ? copy(
-        '\u5148\u6253\u5f00\u4e00\u4e2a\u9879\u76ee\u3002',
-        'Open a project first.'
-      )
-    : !project.isProtected
-      ? copy(
-          '\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4\u3002',
-          'Turn on protection first.'
-        )
-      : copy(
-          '\u5148\u8fde\u63a5\uff0c\u6216\u8005\u73b0\u5728\u540c\u6b65\u3002',
-          'Connect this project or sync now.'
-        );
-
-  const connectionStateLabel = !project
-    ? copy('\u5148\u6253\u5f00\u9879\u76ee', 'Open a project first')
-    : !project.isProtected
-      ? copy('\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4', 'Turn on protection first')
-      : !cloudStatus
-        ? copy('\u6b63\u5728\u68c0\u67e5', 'Checking')
-        : cloudStatus.connected
-          ? copy('\u5df2\u8fde\u63a5', 'Connected')
-          : copy('\u8fd8\u6ca1\u8fde\u4e0a', 'Not connected yet');
-
-  const syncStateLabel = !projectReadyForCloud
-    ? copy('\u6682\u672a\u5c31\u7eea', 'Not ready yet')
-    : !cloudStatus?.connected
-      ? copy('\u9700\u8981\u5148\u8fde\u63a5', 'Connect first')
-      : cloudStatus.pendingUpload > 0
-        ? copy('\u6709\u65b0\u8fdb\u5ea6\u53ef\u4e0a\u4f20', 'Ready to upload')
-        : cloudStatus.pendingDownload > 0
-          ? copy('\u4e91\u7aef\u6709\u66f4\u65b0', 'Updates are waiting')
-          : copy('\u5df2\u7ecf\u540c\u6b65', 'Already in sync');
-
-  const syncSummary = !projectReadyForCloud
-    ? copy('\u5148\u628a\u9879\u76ee\u51c6\u5907\u597d\uff0c\u4e91\u7aef\u529f\u80fd\u624d\u4f1a\u6253\u5f00\u3002', 'Prepare the project first to unlock cloud sync.')
-    : !cloudStatus?.connected
-      ? copy('\u8fde\u4e0a\u4e91\u7aef\u540e\uff0c\u5c31\u80fd\u628a\u672c\u5730\u8fdb\u5ea6\u4f20\u4e0a\u53bb\uff0c\u6216\u62ff\u5230\u4e91\u7aef\u7684\u6700\u65b0\u7248\u672c\u3002', 'Once connected, you can upload local progress or get the latest version from the cloud.')
-      : toCloudStatusText(cloudStatus, t);
-
   const activeGitHubAccount =
     selectedGitHubAccount || githubAuthStatus?.activeAccount || githubAuthStatus?.accounts[0] || null;
 
   const providerLabel = useMemo(() => {
     if (cloudPlatform === 'github') return 'GitHub';
     if (cloudPlatform === 'gitlab') return 'GitLab';
-    return copy('\u5176\u4ed6\u4ed3\u5e93', 'Other Remote');
+    return copy('其他仓库', 'Other Remote');
   }, [cloudPlatform, locale]);
 
   async function loadGitEnvironment() {
@@ -436,397 +396,352 @@ export function SettingsPage() {
     }
   }
 
-  return (
-    <div className="page">
-      <section className="panel settings-hero">
-        <div className="settings-hero-copy">
-          <span className="pill">{copy('\u9879\u76ee\u4e91\u7aef', 'Project Cloud')}</span>
-          <h1>{heroTitle}</h1>
-          <p>{heroDescription}</p>
-        </div>
-        <div className="settings-hero-metrics">
-          <article className="settings-metric-card">
-            <span>{copy('\u8fde\u63a5\u72b6\u6001', 'Connection')}</span>
-            <strong>{connectionStateLabel}</strong>
-          </article>
-          <article className="settings-metric-card">
-            <span>{copy('\u7b49\u5f85\u4e0a\u4f20', 'Waiting to upload')}</span>
-            <strong>{cloudStatus?.connected ? cloudStatus.pendingUpload : '-'}</strong>
-          </article>
-          <article className="settings-metric-card">
-            <span>{copy('\u7b49\u5f85\u83b7\u53d6', 'Waiting to get')}</span>
-            <strong>{cloudStatus?.connected ? cloudStatus.pendingDownload : gitEnv?.available ? copy('\u73af\u5883\u5df2\u5c31\u7eea', 'Git ready') : copy('\u9700\u8981 Git', 'Need Git')}</strong>
-          </article>
-        </div>
-      </section>
+  const syncStateText = !projectReadyForCloud
+    ? copy('先打开项目并开启保护', 'Open and protect a project first')
+    : !cloudStatus?.connected
+      ? copy('尚未连接云端', 'Cloud not connected')
+      : toCloudStatusText(cloudStatus, t);
 
-      {!project ? (
-        <section className="panel">
-          <div className="empty-action-panel">
-            <h3>{copy('\u5148\u6253\u5f00\u4e00\u4e2a\u9879\u76ee', 'Open a project first')}</h3>
-            <p>{copy('\u53ea\u6709\u6253\u5f00\u4e86\u9879\u76ee\uff0c\u6211\u4eec\u624d\u80fd\u5e2e\u4f60\u914d\u7f6e\u8fd9\u4e2a\u9879\u76ee\u7684\u4e91\u7aef\u540c\u6b65\u3002', 'We can only set up cloud sync after a project is open.')}</p>
-            <div className="actions-row">
-              <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-                {t('app_open_project')}
+  function renderGeneral() {
+    return (
+      <div className="settings-grid-v2">
+        <section className="settings-card-v2">
+          <h2>{copy('常规设置', 'General')}</h2>
+          <label className="settings-field-v2">
+            <span>{copy('启动时打开', 'Open on launch')}</span>
+            <select className="input-select" value="projects" disabled>
+              <option value="projects">{copy('我的项目', 'My Projects')}</option>
+            </select>
+          </label>
+          <label className="settings-field-v2">
+            <span>{copy('默认项目路径', 'Default project path')}</span>
+            <div className="settings-inline-v2">
+              <input className="input-text" value={project?.path ?? ''} readOnly placeholder="E:\\Privy\\Projects" />
+              <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
+                {copy('更改', 'Change')}
               </button>
             </div>
-          </div>
-        </section>
-      ) : !project.isProtected ? (
-        <section className="panel">
-          <div className="empty-action-panel">
-            <h3>{copy('\u5148\u5f00\u542f\u7248\u672c\u4fdd\u62a4', 'Turn on protection first')}</h3>
-            <p>{copy('\u8fd9\u4e2a\u9879\u76ee\u8fd8\u6ca1\u6709\u5f00\u542f\u7248\u672c\u4fdd\u62a4\uff0c\u6240\u4ee5\u4e91\u7aef\u4e0a\u4f20\u548c\u83b7\u53d6\u8fd8\u4e0d\u5b89\u5168\u3002', 'This project is not protected yet, so cloud upload and download are not ready.')}</p>
-            <div className="actions-row">
-              <button className="btn btn-primary" onClick={() => void enableProtection()}>
-                {t('app_enable_protection')}
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {projectReadyForCloud ? (
-        <div className="settings-grid">
-          <section className="panel settings-card">
-            <div className="section-head">
-              <div>
-                <h2>{copy('\u8fde\u63a5\u8fd9\u4e2a\u9879\u76ee', 'Connect This Project')}</h2>
-                <p className="panel-subtitle">
-                  {copy('\u9009\u62e9\u540c\u6b65\u5730\u65b9\u3002', 'Choose the sync destination.')}
-                </p>
-              </div>
-              <span className="pill">{providerLabel}</span>
-            </div>
-
-            <div className="settings-stack-tight">
-              <label className="switch-row stacked">
-                <span>{copy('\u4e91\u7aef\u5e73\u53f0', 'Cloud provider')}</span>
-                <select
-                  className="input-select"
-                  value={cloudPlatform}
-                  onChange={(event) => setCloudPlatform(event.target.value as CloudPlatform)}
-                >
-                  <option value="github">GitHub</option>
-                  <option value="gitlab">GitLab</option>
-                  <option value="custom">{t('settings_cloud_platform_custom')}</option>
-                </select>
-              </label>
-
-              {cloudPlatform === 'github' ? (
-                <div className="settings-status-card">
-                  <span>{copy('GitHub \u8d26\u53f7', 'GitHub account')}</span>
-                  <strong>
-                    {githubAuthStatus?.available
-                      ? activeGitHubAccount ?? copy('\u8fd8\u6ca1\u767b\u5f55', 'Not signed in yet')
-                      : copy('\u8fd9\u53f0\u7535\u8111\u8fd8\u6ca1\u51c6\u5907\u597d', 'Not available on this device')}
-                  </strong>
-                  <div className="actions-row">
-                    <button className="btn btn-secondary" disabled={authWorking} onClick={() => void loadGitHubAuthStatus()}>
-                      {copy('\u5237\u65b0\u72b6\u6001', 'Refresh')}
-                    </button>
-                    {activeGitHubAccount ? (
-                      <button
-                        className="btn btn-secondary"
-                        disabled={authWorking}
-                        onClick={() => void handleGitHubLogout(activeGitHubAccount)}
-                      >
-                        {copy('\u9000\u51fa\u8fd9\u4e2a\u8d26\u53f7', 'Sign Out')}
-                      </button>
-                    ) : (
-                      <button className="btn btn-primary" disabled={authWorking} onClick={() => void handleGitHubLogin()}>
-                        {copy('\u767b\u5f55 GitHub', 'Sign In to GitHub')}
-                      </button>
-                    )}
-                  </div>
-                  {githubAuthStatus?.accounts.length ? (
-                    <label className="switch-row stacked">
-                      <span>{t('settings_cloud_account_use_for_project')}</span>
-                      <select
-                        className="input-select"
-                        value={selectedGitHubAccount}
-                        onChange={(event) => setSelectedGitHubAccount(event.target.value)}
-                      >
-                        {githubAuthStatus.accounts.map((account) => (
-                          <option key={account} value={account}>
-                            {account}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {cloudPlatform === 'custom' ? (
-                <div className="settings-note">
-                  <strong>{copy('\u81ea\u5b9a\u4e49\u4ed3\u5e93\u5730\u5740', 'Custom remote address')}</strong>
-                  <p>{t('settings_cloud_helper_custom_desc')}</p>
-                </div>
-              ) : (
-                <div className="settings-inline-grid">
-                  <input
-                    className="input-text"
-                    value={cloudOwner}
-                    onChange={(event) => setCloudOwner(event.target.value)}
-                    placeholder={t('settings_cloud_owner_placeholder')}
-                  />
-                  <input
-                    className="input-text"
-                    value={cloudRepo}
-                    onChange={(event) => setCloudRepo(event.target.value)}
-                    placeholder={t('settings_cloud_repo_placeholder')}
-                  />
-                  <button className="btn btn-secondary" disabled={syncing} onClick={() => applyWizardUrl()}>
-                    {copy('\u751f\u6210\u4ed3\u5e93\u5730\u5740', 'Fill Address')}
-                  </button>
-                </div>
-              )}
-
-              <label className="switch-row stacked">
-                <span>{copy('\u4ed3\u5e93\u5730\u5740', 'Repository address')}</span>
-                <input
-                  className="input-text"
-                  value={remoteUrlInput}
-                  onChange={(event) => setRemoteUrlInput(event.target.value)}
-                  placeholder={t('settings_cloud_url_placeholder')}
-                />
-              </label>
-
-              <div className="actions-row">
-                <button
-                  className="btn btn-primary"
-                  disabled={syncing || !remoteUrlInput.trim()}
-                  onClick={() => void handleConnectCloud()}
-                >
-                  {copy('\u8fde\u63a5\u8fd9\u4e2a\u9879\u76ee', 'Connect This Project')}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  disabled={syncing || !remoteUrlInput.trim()}
-                  onClick={() => void handleTestCloudConnection()}
-                >
-                  {copy('\u5148\u6d4b\u8bd5\u4e00\u4e0b', 'Test First')}
-                </button>
-              </div>
-
-              <div className="actions-row">
-                <button
-                  className="btn btn-secondary"
-                  disabled={syncing || authWorking || !providerLinks.signInUrl}
-                  onClick={() =>
-                    void (cloudPlatform === 'github' ? handleGitHubLogin() : openExternalUrl(providerLinks.signInUrl))
-                  }
-                >
-                  {cloudPlatform === 'github'
-                    ? copy('\u767b\u5f55 GitHub', 'Sign In to GitHub')
-                    : t('settings_cloud_helper_sign_in')}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  disabled={syncing || authWorking || !providerLinks.createRepoUrl}
-                  onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}
-                >
-                  {copy('\u53bb\u521b\u5efa\u4ed3\u5e93', 'Create Repository')}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  disabled={syncing || authWorking || !providerLinks.repoPageUrl}
-                  onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}
-                >
-                  {copy('\u6253\u5f00\u8fd9\u4e2a\u4ed3\u5e93', 'Open Repository')}
-                </button>
-              </div>
-
-              {connectionTest ? (
-                <p className={connectionTest.reachable ? 'success-text' : 'muted'}>
-                  {toCloudTestMessage(connectionTest, t)}
-                </p>
-              ) : null}
-
-              {cloudAdvice ? <p className="muted">{cloudAdvice}</p> : null}
-            </div>
-          </section>
-
-          <section className="panel settings-card">
-            <div className="section-head">
-              <div>
-                <h2>{copy('\u73b0\u5728\u540c\u6b65', 'Sync Now')}</h2>
-                <p className="panel-subtitle">{syncSummary}</p>
-              </div>
-              <span className="pill">{syncStateLabel}</span>
-            </div>
-
-            <div className="settings-stack-tight">
-              <div className="settings-fact-grid">
-                <article className="settings-fact-card settings-fact-card-wide">
-                  <span>{copy('\u5f53\u524d\u8fde\u63a5', 'Current remote')}</span>
-                  <strong>{cloudStatus?.remoteUrl || copy('\u8fd8\u6ca1\u8fde\u4e0a', 'Not connected yet')}</strong>
-                </article>
-                <article className="settings-fact-card">
-                  <span>{copy('\u540c\u6b65\u72b6\u6001', 'Sync state')}</span>
-                  <strong>{cloudStatus ? toCloudStatusText(cloudStatus, t) : copy('\u7b49\u5f85\u8fde\u63a5', 'Waiting for connection')}</strong>
-                </article>
-                <article className="settings-fact-card">
-                  <span>{copy('\u5f53\u524d\u526f\u672c', 'Current copy')}</span>
-                  <strong>
-                    {cloudStatus
-                      ? toPlanLabel(
-                          cloudStatus.currentPlan,
-                          cloudStatus.currentPlan === 'main' || cloudStatus.currentPlan === 'master',
-                          t
-                        )
-                      : copy('\u4e3b\u7ebf', 'Main')}
-                  </strong>
-                </article>
-                <article className="settings-fact-card">
-                  <span>{copy('\u8fd8\u6ca1\u4e0a\u4f20', 'Pending upload')}</span>
-                  <strong>{t('common_record_unit', { count: cloudStatus?.pendingUpload ?? 0 })}</strong>
-                </article>
-                <article className="settings-fact-card">
-                  <span>{copy('\u8fd8\u6ca1\u53d6\u56de', 'Pending download')}</span>
-                  <strong>{t('common_record_unit', { count: cloudStatus?.pendingDownload ?? 0 })}</strong>
-                </article>
-              </div>
-
-              <div className="actions-row">
-                <button
-                  className="btn btn-primary"
-                  disabled={syncing || !cloudStatus?.connected}
-                  onClick={() => void handleUploadToCloud()}
-                >
-                  {t('settings_cloud_upload')}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  disabled={syncing || !cloudStatus?.connected}
-                  onClick={() => void handleGetCloudLatest()}
-                >
-                  {t('settings_cloud_get_latest')}
-                </button>
-                <button className="btn btn-secondary" disabled={syncing} onClick={() => void loadCloudStatus()}>
-                  {copy('\u5237\u65b0\u72b6\u6001', 'Refresh Status')}
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      <div className="settings-grid settings-grid-secondary">
-        <section className="panel settings-card">
-          <div className="section-head">
-            <div>
-                <h2>{copy('\u5e94\u7528\u504f\u597d', 'App Preferences')}</h2>
-                <p className="panel-subtitle">
-                  {copy('\u8bed\u8a00\u548c\u9ed8\u8ba4\u6587\u6848\u3002', 'Language and default notes.')}
-                </p>
-              </div>
-          </div>
-          {!config ? (
-            <p className="muted">{t('settings_pref_loading')}</p>
-          ) : (
-            <div className="settings-stack-tight">
-              <label className="switch-row stacked">
-                <span>{t('settings_pref_language')}</span>
-                <select
-                  className="input-select"
-                  value={config.settings.language}
-                  onChange={(event) => void patchSettings({ language: event.target.value as AppLanguagePreference })}
-                >
-                  <option value="auto">{t('settings_pref_language_auto')}</option>
-                  <option value="en-US">{t('settings_pref_language_en')}</option>
-                  <option value="zh-CN">{t('settings_pref_language_zh')}</option>
-                </select>
-              </label>
-
-              <label className="switch-row stacked">
-                <span>{t('settings_pref_save_template')}</span>
-                <input
-                  className="input-text"
-                  type="text"
-                  value={config.settings.defaultSaveMessageTemplate}
-                  onChange={(event) => void patchSettings({ defaultSaveMessageTemplate: event.target.value })}
-                  placeholder={t('settings_pref_save_template_placeholder')}
-                />
-              </label>
-
-              <label className="switch-row">
-                <span>{t('settings_pref_show_guide')}</span>
-                <input
-                  type="checkbox"
-                  checked={config.settings.showBeginnerGuide}
-                  onChange={(event) => void patchSettings({ showBeginnerGuide: event.target.checked })}
-                />
-              </label>
-
-              <label className="switch-row">
-                <span>{t('settings_pref_show_advanced')}</span>
-                <input
-                  type="checkbox"
-                  checked={config.settings.showAdvancedMode}
-                  onChange={(event) => void patchSettings({ showAdvancedMode: event.target.checked })}
-                />
-              </label>
-            </div>
-          )}
+          </label>
+          <label className="switch-row">
+            <span>{t('settings_pref_show_guide')}</span>
+            <input
+              type="checkbox"
+              checked={config?.settings.showBeginnerGuide ?? true}
+              onChange={(event) => void patchSettings({ showBeginnerGuide: event.target.checked })}
+            />
+          </label>
         </section>
 
-        <section className="panel settings-card">
-          <div className="section-head">
-            <div>
-                <h2>{copy('\u5b89\u5168\u4e0e\u652f\u6301', 'Safety & Support')}</h2>
-                <p className="panel-subtitle">
-                  {copy('\u6062\u590d\u4fdd\u62a4\u548c\u65e5\u5fd7\u3002', 'Recovery protection and logs.')}
-                </p>
-              </div>
+        <section className="settings-card-v2">
+          <h2>{copy('提交设置', 'Save Settings')}</h2>
+          <label className="settings-field-v2">
+            <span>{t('settings_pref_save_template')}</span>
+            <input
+              className="input-text"
+              value={config?.settings.defaultSaveMessageTemplate ?? ''}
+              onChange={(event) => void patchSettings({ defaultSaveMessageTemplate: event.target.value })}
+              placeholder={t('settings_pref_save_template_placeholder')}
+            />
+          </label>
+          <div className="settings-radio-row-v2">
+            <label><input type="radio" checked readOnly /> {copy('仅提交', 'Save only')}</label>
+            <label><input type="radio" readOnly /> {copy('提交并推送', 'Save and upload')}</label>
+            <label><input type="radio" readOnly /> {copy('提交并拉取', 'Save and get latest')}</label>
           </div>
+          <label className="switch-row">
+            <span>{copy('提交前确认', 'Confirm before saving')}</span>
+            <input type="checkbox" checked readOnly />
+          </label>
+        </section>
 
-          {!config ? (
-            <p className="muted">{t('settings_pref_loading')}</p>
-          ) : (
-            <div className="settings-stack-tight">
-              <label className="switch-row">
-                <span>{t('settings_pref_snapshot_restore')}</span>
-                <input
-                  type="checkbox"
-                  checked={config.settings.autoSnapshotBeforeRestore}
-                  onChange={(event) => void patchSettings({ autoSnapshotBeforeRestore: event.target.checked })}
-                />
-              </label>
-
-              <label className="switch-row">
-                <span>{t('settings_pref_snapshot_merge')}</span>
-                <input
-                  type="checkbox"
-                  checked={config.settings.autoSnapshotBeforeMerge}
-                  onChange={(event) => void patchSettings({ autoSnapshotBeforeMerge: event.target.checked })}
-                />
-              </label>
-
-              <div className="settings-status-card">
-                <span>{copy('Git \u73af\u5883', 'Git environment')}</span>
-                <strong>
-                  {!gitEnv
-                    ? copy('\u6b63\u5728\u68c0\u67e5', 'Checking')
-                    : gitEnv.available
-                      ? t('settings_env_available', { version: gitEnv.version })
-                      : t('settings_env_missing')}
-                </strong>
-              </div>
-
-              <div className="actions-row">
-                <button className="btn btn-secondary" disabled={checking} onClick={() => void loadGitEnvironment()}>
-                  {t('settings_env_recheck')}
-                </button>
-                <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>
-                  {t('settings_trouble_export_logs')}
-                </button>
-              </div>
+        <section className="settings-card-v2">
+          <h2>{copy('用户信息', 'User')}</h2>
+          <label className="settings-field-v2">
+            <span>{copy('用户名', 'Name')}</span>
+            <input className="input-text" value={activeGitHubAccount ?? 'TapGit User'} readOnly />
+          </label>
+          <label className="settings-field-v2">
+            <span>{copy('签名预览', 'Signature Preview')}</span>
+            <div className="settings-preview-v2">
+              {activeGitHubAccount ?? 'TapGit User'} &lt;tapgit@local.dev&gt;
             </div>
-          )}
+          </label>
+        </section>
+
+        <section className="settings-card-v2">
+          <h2>{copy('其他设置', 'Other Settings')}</h2>
+          <label className="settings-field-v2">
+            <span>{copy('默认文本编辑器', 'Default editor')}</span>
+            <select className="input-select" disabled>
+              <option>{copy('内置编辑器', 'Built-in editor')}</option>
+            </select>
+          </label>
+          <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>
+            {copy('导出设置与日志', 'Export Settings and Logs')}
+          </button>
         </section>
       </div>
+    );
+  }
+
+  function renderGit() {
+    return (
+      <div className="settings-grid-v2">
+        <section className="settings-card-v2">
+          <h2>Git</h2>
+          <div className="settings-status-card-v2">
+            <MonitorCog size={24} />
+            <div>
+              <strong>
+                {!gitEnv
+                  ? copy('正在检查', 'Checking')
+                  : gitEnv.available
+                    ? t('settings_env_available', { version: gitEnv.version })
+                    : t('settings_env_missing')}
+              </strong>
+              <span>{copy('码迹在后台调用 Git，但默认不会让普通用户学习命令。', 'TapGit uses Git in the background without exposing commands by default.')}</span>
+            </div>
+          </div>
+          <button className="btn btn-secondary" disabled={checking} onClick={() => void loadGitEnvironment()}>
+            <RefreshCw size={18} />
+            {t('settings_env_recheck')}
+          </button>
+        </section>
+
+        <section className="settings-card-v2">
+          <h2>GitHub</h2>
+          <div className="settings-status-card-v2">
+            <GitBranch size={24} />
+            <div>
+              <strong>{activeGitHubAccount ?? copy('未登录', 'Not signed in')}</strong>
+              <span>{githubAuthStatus?.available ? copy('这台电脑可以使用 GitHub 授权。', 'GitHub auth is available on this device.') : copy('GitHub 授权暂不可用。', 'GitHub auth is not available.')}</span>
+            </div>
+          </div>
+          {githubAuthStatus?.accounts.length ? (
+            <label className="settings-field-v2">
+              <span>{t('settings_cloud_account_use_for_project')}</span>
+              <select className="input-select" value={selectedGitHubAccount} onChange={(event) => setSelectedGitHubAccount(event.target.value)}>
+                {githubAuthStatus.accounts.map((account) => (
+                  <option key={account} value={account}>{account}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="actions-row">
+            <button className="btn btn-primary" disabled={authWorking} onClick={() => void handleGitHubLogin()}>
+              {copy('登录 GitHub', 'Sign In to GitHub')}
+            </button>
+            {activeGitHubAccount ? (
+              <button className="btn btn-secondary" disabled={authWorking} onClick={() => void handleGitHubLogout(activeGitHubAccount)}>
+                {copy('退出当前账号', 'Sign Out')}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  function renderAppearance() {
+    return (
+      <div className="settings-grid-v2">
+        <section className="settings-card-v2">
+          <h2>{copy('外观', 'Appearance')}</h2>
+          <label className="settings-field-v2">
+            <span>{t('settings_pref_language')}</span>
+            <select
+              className="input-select"
+              value={config?.settings.language ?? 'auto'}
+              onChange={(event) => void patchSettings({ language: event.target.value as AppLanguagePreference })}
+            >
+              <option value="auto">{t('settings_pref_language_auto')}</option>
+              <option value="en-US">{t('settings_pref_language_en')}</option>
+              <option value="zh-CN">{t('settings_pref_language_zh')}</option>
+            </select>
+          </label>
+          <label className="switch-row">
+            <span>{t('settings_pref_show_advanced')}</span>
+            <input
+              type="checkbox"
+              checked={config?.settings.showAdvancedMode ?? false}
+              onChange={(event) => void patchSettings({ showAdvancedMode: event.target.checked })}
+            />
+          </label>
+        </section>
+
+        <section className="settings-card-v2">
+          <h2>{copy('视觉方向', 'Visual Direction')}</h2>
+          <div className="appearance-preview-v2">
+            <Palette size={30} />
+            <strong>{copy('轻量、清晰、像普通桌面 App', 'Light, clear, consumer-app style')}</strong>
+            <span>{copy('复杂功能只在需要时出现。', 'Complex controls appear only when needed.')}</span>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  function renderSync() {
+    if (!project) {
+      return (
+        <section className="state-card-v2">
+          <h1>{copy('先打开一个项目', 'Open a project first')}</h1>
+          <p>{copy('打开项目后才能配置云端同步。', 'Open a project before configuring cloud sync.')}</p>
+          <button className="btn btn-primary" onClick={() => void openProjectFolder()}>{t('app_open_project')}</button>
+        </section>
+      );
+    }
+
+    if (!project.isProtected) {
+      return (
+        <section className="state-card-v2">
+          <h1>{copy('先开启版本保护', 'Turn on protection first')}</h1>
+          <p>{copy('开启保护后才能安全上传和获取云端内容。', 'Protection is required before safe cloud sync.')}</p>
+          <button className="btn btn-primary" onClick={() => void enableProtection()}>{t('app_enable_protection')}</button>
+        </section>
+      );
+    }
+
+    return (
+      <div className="settings-grid-v2">
+        <section className="settings-card-v2 wide">
+          <h2>{copy('连接云端', 'Connect Cloud')}</h2>
+          <div className="settings-status-card-v2">
+            <Cloud size={24} />
+            <div>
+              <strong>{syncStateText}</strong>
+              <span>{cloudStatus?.remoteUrl || copy('尚未连接仓库地址。', 'No repository address connected yet.')}</span>
+            </div>
+          </div>
+          <label className="settings-field-v2">
+            <span>{copy('云端平台', 'Cloud provider')}</span>
+            <select className="input-select" value={cloudPlatform} onChange={(event) => setCloudPlatform(event.target.value as CloudPlatform)}>
+              <option value="github">GitHub</option>
+              <option value="gitlab">GitLab</option>
+              <option value="custom">{t('settings_cloud_platform_custom')}</option>
+            </select>
+          </label>
+          {cloudPlatform !== 'custom' ? (
+            <div className="settings-inline-v2">
+              <input className="input-text" value={cloudOwner} onChange={(event) => setCloudOwner(event.target.value)} placeholder={t('settings_cloud_owner_placeholder')} />
+              <input className="input-text" value={cloudRepo} onChange={(event) => setCloudRepo(event.target.value)} placeholder={t('settings_cloud_repo_placeholder')} />
+              <button className="btn btn-secondary" disabled={syncing} onClick={() => applyWizardUrl()}>{copy('生成地址', 'Fill Address')}</button>
+            </div>
+          ) : null}
+          <label className="settings-field-v2">
+            <span>{copy('仓库地址', 'Repository address')}</span>
+            <input className="input-text" value={remoteUrlInput} onChange={(event) => setRemoteUrlInput(event.target.value)} placeholder={t('settings_cloud_url_placeholder')} />
+          </label>
+          <div className="actions-row">
+            <button className="btn btn-primary" disabled={syncing || !remoteUrlInput.trim()} onClick={() => void handleConnectCloud()}>{copy('连接这个项目', 'Connect This Project')}</button>
+            <button className="btn btn-secondary" disabled={syncing || !remoteUrlInput.trim()} onClick={() => void handleTestCloudConnection()}>{copy('测试连接', 'Test Connection')}</button>
+            <button className="btn btn-secondary" disabled={syncing || !providerLinks.createRepoUrl} onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}>{copy('创建仓库', 'Create Repository')}</button>
+            <button className="btn btn-secondary" disabled={syncing || !providerLinks.repoPageUrl} onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}>{copy('打开仓库', 'Open Repository')}</button>
+          </div>
+          <span className="settings-subtle-v2">{providerLabel}</span>
+          {connectionTest ? <p className={connectionTest.reachable ? 'success-text' : 'muted'}>{toCloudTestMessage(connectionTest, t)}</p> : null}
+          {cloudAdvice ? <p className="muted">{cloudAdvice}</p> : null}
+        </section>
+
+        <section className="settings-card-v2">
+          <h2>{copy('现在同步', 'Sync Now')}</h2>
+          <div className="settings-mini-stats-v2">
+            <span>{copy('等待上传', 'Pending upload')} <strong>{cloudStatus?.pendingUpload ?? 0}</strong></span>
+            <span>{copy('等待获取', 'Pending download')} <strong>{cloudStatus?.pendingDownload ?? 0}</strong></span>
+            <span>{copy('当前分支', 'Current copy')} <strong>{cloudStatus ? toPlanLabel(cloudStatus.currentPlan, cloudStatus.currentPlan === 'main' || cloudStatus.currentPlan === 'master', t) : project.currentPlan}</strong></span>
+          </div>
+          <div className="actions-row">
+            <button className="btn btn-primary" disabled={syncing || !cloudStatus?.connected} onClick={() => void handleUploadToCloud()}>{t('settings_cloud_upload')}</button>
+            <button className="btn btn-secondary" disabled={syncing || !cloudStatus?.connected} onClick={() => void handleGetCloudLatest()}>{t('settings_cloud_get_latest')}</button>
+            <button className="btn btn-secondary" disabled={syncing} onClick={() => void loadCloudStatus()}>{copy('刷新状态', 'Refresh')}</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  function renderSafety() {
+    return (
+      <div className="settings-grid-v2">
+        <section className="settings-card-v2">
+          <h2>{copy('恢复保护', 'Recovery Protection')}</h2>
+          <label className="switch-row">
+            <span>{t('settings_pref_snapshot_restore')}</span>
+            <input
+              type="checkbox"
+              checked={config?.settings.autoSnapshotBeforeRestore ?? true}
+              onChange={(event) => void patchSettings({ autoSnapshotBeforeRestore: event.target.checked })}
+            />
+          </label>
+          <label className="switch-row">
+            <span>{t('settings_pref_snapshot_merge')}</span>
+            <input
+              type="checkbox"
+              checked={config?.settings.autoSnapshotBeforeMerge ?? true}
+              onChange={(event) => void patchSettings({ autoSnapshotBeforeMerge: event.target.checked })}
+            />
+          </label>
+        </section>
+        <section className="settings-card-v2">
+          <h2>{copy('支持', 'Support')}</h2>
+          <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>{t('settings_trouble_export_logs')}</button>
+          <button className="btn btn-secondary" disabled>{copy('清理本地缓存', 'Clear Local Cache')}</button>
+        </section>
+      </div>
+    );
+  }
+
+  function renderAbout() {
+    return (
+      <section className="settings-card-v2 wide about-card-v2">
+        <Info size={34} />
+        <h2>{copy('码迹 TapGit', 'TapGit')}</h2>
+        <p>{copy('让普通人也敢用的代码进度保存与恢复软件。', 'A code progress save and restore app for non-Git users.')}</p>
+        <span>v{import.meta.env.PACKAGE_VERSION ?? '1.0.9'}</span>
+      </section>
+    );
+  }
+
+  return (
+    <div className="page page-v2 settings-page-v2">
+      <header className="section-header-v2">
+        <div>
+          <h1>{copy('设置', 'Settings')}</h1>
+          <p>{copy('自定义码迹的偏好设置', 'Customize TapGit preferences')}</p>
+        </div>
+        <div className="header-actions-v2">
+          <button className="btn btn-secondary" onClick={() => void loadGitEnvironment()}>
+            <RefreshCw size={18} />
+            {copy('刷新', 'Refresh')}
+          </button>
+          <button className="btn btn-primary project-header-primary" onClick={() => setNotice({ type: 'success', text: t('settings_notice_saved') })}>
+            <Save size={18} />
+            {copy('保存设置', 'Save Settings')}
+          </button>
+        </div>
+      </header>
+
+      <div className="settings-tabs-v2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            className={activeTab === tab.key ? 'active' : ''}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.key === 'general' ? <SlidersHorizontal size={18} /> : null}
+            {tab.key === 'sync' ? <Cloud size={18} /> : null}
+            {tab.key === 'safety' ? <ShieldCheck size={18} /> : null}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'general' ? renderGeneral() : null}
+      {activeTab === 'git' ? renderGit() : null}
+      {activeTab === 'appearance' ? renderAppearance() : null}
+      {activeTab === 'sync' ? renderSync() : null}
+      {activeTab === 'safety' ? renderSafety() : null}
+      {activeTab === 'about' ? renderAbout() : null}
     </div>
   );
 }

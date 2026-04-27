@@ -12,9 +12,11 @@ const bridge: TapGitBridge = {
   getCurrentChanges: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.GET_CURRENT_CHANGES, projectPath),
   stopTrackingFile: (projectPath, filePath) =>
     ipcRenderer.invoke(IPC_CHANNELS.STOP_TRACKING_FILE, projectPath, filePath),
+  discardAllChanges: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.DISCARD_ALL_CHANGES, projectPath),
   saveProgress: (payload) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_PROGRESS, payload),
   listHistory: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.LIST_HISTORY, projectPath),
   listSafetyBackups: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.LIST_SAFETY_BACKUPS, projectPath),
+  createSafetyBackup: (projectPath) => ipcRenderer.invoke(IPC_CHANNELS.CREATE_SAFETY_BACKUP, projectPath),
   restoreToRecord: (projectPath, recordId) =>
     ipcRenderer.invoke(IPC_CHANNELS.RESTORE_TO_RECORD, projectPath, recordId),
   restoreToSafetyBackup: (projectPath, backupId) =>

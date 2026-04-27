@@ -154,6 +154,10 @@ export function toSafetyBackupSourceLabel(source: SafetyBackup['source'], t: Tra
       return t('timeline_backup_source_restore');
     case 'merge':
       return t('timeline_backup_source_merge');
+    case 'manual':
+      return t('timeline_backup_source_manual');
+    case 'discard':
+      return t('timeline_backup_source_discard');
     default:
       return t('timeline_backup_source_unknown');
   }

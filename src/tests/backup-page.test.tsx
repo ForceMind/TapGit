@@ -1,9 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppActionsContext } from '../app/app-context';
 import { I18nProvider } from '../i18n';
-import { SettingsPage } from '../pages/SettingsPage';
+import { BackupPage } from '../pages/BackupPage';
 import { useAppStore } from '../stores/useAppStore';
 
 const defaultActions = {
@@ -60,19 +60,19 @@ function createBridgeMock() {
   };
 }
 
-function renderSettingsPage(locale: 'en-US' | 'zh-CN') {
+function renderBackupPage(locale: 'en-US' | 'zh-CN') {
   render(
     <MemoryRouter>
       <I18nProvider locale={locale}>
         <AppActionsContext.Provider value={defaultActions}>
-          <SettingsPage />
+          <BackupPage />
         </AppActionsContext.Provider>
       </I18nProvider>
     </MemoryRouter>
   );
 }
 
-describe('SettingsPage', () => {
+describe('BackupPage', () => {
   beforeEach(() => {
     useAppStore.setState({
       project: {
@@ -103,56 +103,31 @@ describe('SettingsPage', () => {
     window.tapgit = undefined as never;
   });
 
-  it('shows the redesigned settings sections and keeps sync tools available', async () => {
+  it('loads safety backups and exposes restore action', async () => {
     const bridge = createBridgeMock();
-    bridge.checkGitEnvironment.mockResolvedValue({
+    bridge.listSafetyBackups.mockResolvedValue({
       ok: true,
-      data: {
-        available: true,
-        version: '2.48.1'
-      }
-    });
-    bridge.getCloudSyncStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        connected: true,
-        remoteLabel: 'origin',
-        remoteUrl: 'https://github.com/force-mind/project-a.git',
-        currentPlan: 'main',
-        hasTracking: true,
-        pendingUpload: 2,
-        pendingDownload: 1,
-        statusText: 'local changes waiting'
-      }
-    });
-    bridge.getGitHubAuthStatus.mockResolvedValue({
-      ok: true,
-      data: {
-        available: true,
-        accounts: ['force-mind'],
-        activeAccount: 'force-mind'
-      }
+      data: [
+        {
+          id: 'safety/restore-20260409-123000',
+          name: 'safety/restore-20260409-123000',
+          createdAt: 1712637000,
+          lastMessage: 'Before trying the older version',
+          source: 'restore'
+        }
+      ]
     });
     window.tapgit = bridge as never;
 
-    renderSettingsPage('en-US');
+    renderBackupPage('en-US');
 
-    expect(await screen.findByText('Settings')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Save Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'User' })).toBeInTheDocument();
-    expect(screen.getByDisplayValue('force-mind')).toBeInTheDocument();
-    expect(screen.getByText('force-mind <tapgit@local.dev>')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sync' }));
-
-    expect(await screen.findByRole('heading', { name: 'Connect Cloud' })).toBeInTheDocument();
-    expect(screen.getByText('https://github.com/force-mind/project-a.git')).toBeInTheDocument();
+    expect(await screen.findByText('Backups & Restore')).toBeInTheDocument();
+    expect(screen.getByText('Backup List')).toBeInTheDocument();
+    expect(screen.getAllByText('Before trying the older version').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Restore' }).length).toBeGreaterThan(0);
 
     await waitFor(() => {
-      expect(bridge.checkGitEnvironment).toHaveBeenCalledTimes(1);
-      expect(bridge.getCloudSyncStatus).toHaveBeenCalledWith('E:/demo/project-a');
-      expect(bridge.getGitHubAuthStatus).toHaveBeenCalledTimes(1);
+      expect(bridge.listSafetyBackups).toHaveBeenCalledWith('E:/demo/project-a');
     });
   });
 });

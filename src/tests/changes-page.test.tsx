@@ -31,9 +31,11 @@ function createBridgeMock() {
     enableProtection: vi.fn(),
     getCurrentChanges: vi.fn(),
     stopTrackingFile: vi.fn(),
+    discardAllChanges: vi.fn(),
     saveProgress: vi.fn(),
     listHistory: vi.fn(),
     listSafetyBackups: vi.fn(),
+    createSafetyBackup: vi.fn(),
     restoreToRecord: vi.fn(),
     restoreToSafetyBackup: vi.fn(),
     listPlans: vi.fn(),
@@ -123,19 +125,15 @@ describe('ChangesPage', () => {
 
     renderChangesPage('en-US');
 
-    expect(await screen.findByText('Current Work')).toBeInTheDocument();
-    expect(screen.getByText('Review first, then save.')).toBeInTheDocument();
-    expect(screen.getByText('Changed Files')).toBeInTheDocument();
-    expect(screen.getByText('Save This Work')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save Only Checked Files' })).toBeDisabled();
-    expect(
-      screen.getByText('No files are checked. If you only want part of this page, check those files first.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Changes')).toBeInTheDocument();
+    expect(screen.getByText('Review and manage your code changes')).toBeInTheDocument();
+    expect(screen.getByText('Work Area Changes')).toBeInTheDocument();
+    expect(screen.getByText('Save Note')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save 0 checked' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select src/login.tsx for a partial save' }));
 
-    expect(screen.getByRole('button', { name: 'Save Only Checked Files' })).toBeEnabled();
-    expect(screen.getByText('1 files are checked for a partial save.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save 1 checked' })).toBeEnabled();
 
     await waitFor(() => {
       expect(bridge.getCurrentChanges).toHaveBeenCalledWith('E:/demo/project-a');
@@ -166,7 +164,7 @@ describe('ChangesPage', () => {
       openProjectFolder
     });
 
-    expect(screen.getByText('Open a project from Home first.')).toBeInTheDocument();
+    expect(screen.getByText('Open a project first')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Project' }));
 
