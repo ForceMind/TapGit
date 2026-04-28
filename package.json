@@ -1,6 +1,6 @@
 {
   "name": "tapgit",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "TapGit desktop app for saving and restoring code progress",
   "main": "dist-electron/main/index.js",
   "scripts": {
