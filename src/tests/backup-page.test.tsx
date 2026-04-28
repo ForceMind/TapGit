@@ -123,8 +123,8 @@ describe('BackupPage', () => {
 
     expect(await screen.findByText('Backups & Restore')).toBeInTheDocument();
     expect(screen.getByText('Backup List')).toBeInTheDocument();
-    expect(screen.getAllByText('Before trying the older version').length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'Restore' }).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Before trying the older version')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole('button', { name: 'Restore' })).length).toBeGreaterThan(0);
 
     await waitFor(() => {
       expect(bridge.listSafetyBackups).toHaveBeenCalledWith('E:/demo/project-a');
