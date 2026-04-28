@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import path from 'node:path';
 import { promisify } from 'node:util';
 import { shell } from 'electron';
 import { GitHubAuthStatus } from '../../src/shared/contracts';
@@ -6,6 +7,7 @@ import { AppError } from './app-error';
 
 const execFileAsync = promisify(execFile);
 const GITHUB_LOGIN_URL = 'https://github.com/login';
+const MAC_TOOL_PATHS = ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin'];
 
 function parseAccounts(stdout: string) {
   return stdout
@@ -14,13 +16,25 @@ function parseAccounts(stdout: string) {
     .filter(Boolean);
 }
 
+function createToolEnv() {
+  const inheritedPath = process.env.PATH || process.env.Path || '';
+  const toolPath =
+    process.platform === 'darwin'
+      ? [...MAC_TOOL_PATHS, inheritedPath].filter(Boolean).join(path.delimiter)
+      : inheritedPath;
+
+  return {
+    ...process.env,
+    PATH: toolPath,
+    Path: toolPath,
+    GCM_INTERACTIVE: 'always'
+  };
+}
+
 async function runGitHubCredentialManager(args: string[]) {
   return execFileAsync('git', ['credential-manager', 'github', ...args], {
     windowsHide: true,
-    env: {
-      ...process.env,
-      GCM_INTERACTIVE: 'always'
-    }
+    env: createToolEnv()
   });
 }
 
@@ -58,11 +72,20 @@ async function runGitHubLogin(username?: string) {
 }
 
 async function openGitHubLoginFallback(): Promise<GitHubAuthStatus> {
-  await shell.openExternal(GITHUB_LOGIN_URL);
+  let browserLoginOpened = false;
+
+  try {
+    await shell.openExternal(GITHUB_LOGIN_URL);
+    browserLoginOpened = true;
+  } catch {
+    browserLoginOpened = false;
+  }
+
   const status = await getGitHubAuthStatus();
   return {
     ...status,
-    browserLoginOpened: true,
+    browserLoginOpened,
+    manualLoginRequired: !browserLoginOpened,
     helpUrl: GITHUB_LOGIN_URL
   };
 }

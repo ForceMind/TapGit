@@ -391,12 +391,15 @@ export function SettingsPage() {
       setGitHubAuthStatus(status);
       setSelectedGitHubAccount((current) => current || status.activeAccount || status.accounts[0] || '');
       window.dispatchEvent(new Event('tapgit:github-auth-changed'));
-      const needsBrowserCompletion = status.browserLoginOpened && !status.activeAccount;
+      const needsBrowserCompletion = !status.activeAccount && status.browserLoginOpened;
+      const needsManualLogin = !status.activeAccount && status.manualLoginRequired;
       setNotice({
-        type: needsBrowserCompletion ? 'info' : 'success',
-        text: needsBrowserCompletion
-          ? t('settings_notice_github_browser_opened')
-          : t('settings_notice_github_login_success')
+        type: needsBrowserCompletion || needsManualLogin ? 'info' : 'success',
+        text: needsManualLogin
+          ? t('settings_notice_github_manual_open')
+          : needsBrowserCompletion
+            ? t('settings_notice_github_browser_opened')
+            : t('settings_notice_github_login_success')
       });
     } catch (error) {
       setNotice({

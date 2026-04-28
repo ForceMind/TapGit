@@ -133,6 +133,7 @@ export interface GitHubAuthStatus {
   accounts: string[];
   activeAccount: string | null;
   browserLoginOpened?: boolean;
+  manualLoginRequired?: boolean;
   helpUrl?: string;
 }
 

@@ -147,12 +147,15 @@ function AppContent() {
   }
 
   function showGitHubLoginNotice(status: GitHubAuthStatus) {
-    const needsBrowserCompletion = status.browserLoginOpened && !status.activeAccount;
+    const needsBrowserCompletion = !status.activeAccount && status.browserLoginOpened;
+    const needsManualLogin = !status.activeAccount && status.manualLoginRequired;
     setNotice({
-      type: needsBrowserCompletion ? 'info' : 'success',
-      text: needsBrowserCompletion
-        ? t('settings_notice_github_browser_opened')
-        : t('settings_notice_github_login_success')
+      type: needsBrowserCompletion || needsManualLogin ? 'info' : 'success',
+      text: needsManualLogin
+        ? t('settings_notice_github_manual_open')
+        : needsBrowserCompletion
+          ? t('settings_notice_github_browser_opened')
+          : t('settings_notice_github_login_success')
     });
   }
 
