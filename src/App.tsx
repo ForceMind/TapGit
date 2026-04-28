@@ -5,18 +5,15 @@ import {
   Code2,
   Folder,
   GitBranch,
-  History,
   RotateCcw,
   Settings,
   Sparkles,
   UserCircle
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { HashRouter, Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AppActionsContext } from './app/app-context';
-import { resolveGettingStartedState } from './app/getting-started';
 import { resolveSidebarNavState } from './app/navigation-state';
-import { resolvePrimaryTaskKey } from './app/primary-task';
 import { useProjectHistoryCount } from './app/use-project-history-count';
 import {
   I18nProvider,
@@ -75,8 +72,6 @@ function AppContent() {
     project?.isProtected,
     `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
   );
-  const gettingStarted = resolveGettingStartedState(project, historyCount);
-  const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   const sidebarItems = [
@@ -97,40 +92,6 @@ function AppContent() {
       t
     );
   }, [project?.currentPlan, t]);
-
-  const projectMetaSummary = useMemo(() => {
-    if (!project) {
-      return t('app_project_meta_empty');
-    }
-    const historyText = historyLoading
-      ? copy('\u6b63\u5728\u6574\u7406\u5386\u53f2', 'Loading history')
-      : copy(`${historyCount ?? 0} \u4e2a\u4fdd\u5b58\u70b9`, `${historyCount ?? 0} saved points`);
-    const changesText =
-      project.pendingChangeCount > 0
-        ? copy(
-            `${project.pendingChangeCount} \u4e2a\u672a\u4fdd\u5b58\u6587\u4ef6`,
-            `${project.pendingChangeCount} unsaved files`
-          )
-        : copy('\u6ca1\u6709\u672a\u4fdd\u5b58\u4fee\u6539', 'No unsaved changes');
-    return [
-      toPlanLabel(
-        project.currentPlan,
-        project.currentPlan === 'main' || project.currentPlan === 'master',
-        t
-      ),
-      changesText,
-      historyText
-    ].join(' · ');
-  }, [copy, historyCount, historyLoading, project, t]);
-
-  const currentSectionLabel = useMemo(() => {
-    if (location.pathname === '/changes') return t('app_nav_changes');
-    if (location.pathname === '/timeline') return t('app_nav_timeline');
-    if (location.pathname === '/backups') return copy('\u5907\u4efd\u4e0e\u6062\u590d', 'Backups');
-    if (location.pathname === '/plans') return t('app_nav_plans');
-    if (location.pathname === '/settings') return t('app_nav_settings');
-    return t('app_nav_home');
-  }, [copy, location.pathname, t]);
 
   async function refreshConfig() {
     const nextConfig = await unwrapResult(getBridge().getConfig());
@@ -562,74 +523,6 @@ function AppContent() {
     openIdeaCopyDialog
   };
 
-  const gettingStartedBanner = (() => {
-    if (!gettingStarted.isActive) {
-      return null;
-    }
-
-    switch (gettingStarted.key) {
-      case 'open':
-        return {
-          title: t('app_getting_started_open_title'),
-          detail: t('app_getting_started_open_desc'),
-          actionLabel: t('app_getting_started_open_action'),
-          actionType: 'button' as const,
-          actionTo: '/',
-          onAction: openProjectFolder
-        };
-      case 'protect':
-        return {
-          title: t('app_getting_started_protect_title'),
-          detail: t('app_getting_started_protect_desc', { name: project?.name ?? '' }),
-          actionLabel: t('app_getting_started_protect_action'),
-          actionType: 'button' as const,
-          actionTo: '/changes',
-          onAction: enableProtection
-        };
-      case 'save':
-        return {
-          title: t('app_getting_started_save_title'),
-          detail: historyLoading
-            ? t('app_getting_started_save_loading')
-            : (project?.pendingChangeCount ?? 0) > 0
-              ? t('app_getting_started_save_desc_pending', {
-                  count: project?.pendingChangeCount ?? 0
-                })
-              : t('app_getting_started_save_desc_empty'),
-          actionLabel: t('app_getting_started_save_action'),
-          actionType: 'link' as const,
-          actionTo: '/changes'
-        };
-      default:
-        return null;
-    }
-  })();
-
-  function renderGettingStartedAction() {
-    if (!gettingStartedBanner) {
-      return null;
-    }
-
-    const alreadyHere = gettingStartedBanner.actionTo === location.pathname;
-    if (alreadyHere) {
-      return <span className="getting-started-here">{t('app_getting_started_here')}</span>;
-    }
-
-    if (gettingStartedBanner.actionType === 'button') {
-      return (
-        <button className="btn btn-primary" onClick={() => void gettingStartedBanner.onAction?.()}>
-          {gettingStartedBanner.actionLabel}
-        </button>
-      );
-    }
-
-    return (
-      <Link className="btn btn-primary" to={gettingStartedBanner.actionTo ?? '/'}>
-        {gettingStartedBanner.actionLabel}
-      </Link>
-    );
-  }
-
   function renderNavItem(item: (typeof sidebarItems)[number]) {
     const state = resolveSidebarNavState(item.key, project, historyCount, historyLoading);
     const hint = t(state.hintKey as never);
@@ -680,40 +573,7 @@ function AppContent() {
     }
   }
 
-  const topbarPrimaryAction = useMemo(() => {
-    if (!project) {
-      return null;
-    }
-
-    switch (primaryTaskKey) {
-      case 'protect':
-        return {
-          label: t('app_enable_protection'),
-          target: '/changes',
-          onClick: () => void enableProtection()
-        };
-      case 'save':
-        return {
-          label: t('home_next_open_changes'),
-          target: '/changes',
-          onClick: () => navigate('/changes')
-        };
-      case 'timeline':
-        return {
-          label: t('home_next_open_timeline'),
-          target: '/timeline',
-          onClick: () => navigate('/timeline')
-        };
-      default:
-        return null;
-    }
-  }, [enableProtection, navigate, primaryTaskKey, project, t]);
-
-  const showPrimaryAction = Boolean(
-    topbarPrimaryAction && topbarPrimaryAction.target !== location.pathname
-  );
   const activeGitHubAccount = githubAuthStatus?.activeAccount ?? githubAuthStatus?.accounts[0] ?? '';
-  const showTopbar = location.pathname !== '/';
   const brandTitle = copy('\u7801\u8ff9', 'TapGit');
   const brandSubtitle = copy('\u8ba9\u4ee3\u7801\u7ba1\u7406\u66f4\u7b80\u5355', 'Code management made simple');
   const aiAssistantTitle = copy('AI \u52a9\u624b', 'AI Assistant');
@@ -768,62 +628,6 @@ function AppContent() {
         </aside>
 
         <main className="main">
-          {showTopbar ? <header className="topbar">
-            <div className="project-info">
-              <div className="topbar-section-label">{currentSectionLabel}</div>
-              <div className="project-title-row">
-                <div className="project-title">{project?.name ?? t('app_project_not_opened')}</div>
-              </div>
-              <div className="project-meta">{project ? projectMetaSummary : t('app_project_meta_empty')}</div>
-            </div>
-            <div className="top-actions">
-              {project ? (
-                <>
-                  {showPrimaryAction && topbarPrimaryAction ? (
-                    <button className="btn btn-primary" onClick={topbarPrimaryAction.onClick}>
-                      {topbarPrimaryAction.label}
-                    </button>
-                  ) : null}
-                  <button className="link-quiet topbar-link-action" onClick={() => void handleShowProjectInFolder()}>
-                    {t('app_show_in_folder')}
-                  </button>
-                  <button className="link-quiet topbar-link-action" onClick={() => void openProjectFolder()}>
-                    {t('app_switch_project')}
-                  </button>
-                </>
-              ) : location.pathname !== '/' ? (
-                <>
-                  <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-                    {t('app_open_project')}
-                  </button>
-                  <button className="btn btn-secondary" onClick={() => void openCloneProjectDialog()}>
-                    {t('app_get_from_github')}
-                  </button>
-                </>
-              ) : null}
-            </div>
-          </header> : null}
-
-          {project && !project.isProtected ? (
-            <div className="warning-banner">{t('app_protection_warning')}</div>
-          ) : null}
-
-          {gettingStartedBanner && location.pathname !== '/' ? (
-            <div className="getting-started-strip">
-              <div className="getting-started-copy">
-                <div className="getting-started-step">
-                  {t('app_getting_started_step', {
-                    current: gettingStarted.stepNumber,
-                    total: gettingStarted.totalSteps
-                  })}
-                </div>
-                <strong>{gettingStartedBanner.title}</strong>
-                <span>{gettingStartedBanner.detail}</span>
-              </div>
-              <div className="getting-started-actions">{renderGettingStartedAction()}</div>
-            </div>
-          ) : null}
-
           {notice ? <div className={`toast ${notice.type}`}>{notice.text}</div> : null}
 
           <Routes>

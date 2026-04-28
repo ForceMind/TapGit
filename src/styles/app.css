@@ -2282,6 +2282,16 @@ pre {
   color: #16a34a;
 }
 
+.stat-icon-v2.clean {
+  background: #e8f8ee;
+  color: #16a34a;
+}
+
+.stat-icon-v2.danger {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
 .stat-card-v2 span,
 .stat-card-v2 small {
   color: #667085;
@@ -3821,5 +3831,339 @@ pre {
   .floating-selection-v2 {
     position: static;
     border-radius: 14px;
+  }
+}
+
+/* Product-level layout consolidation: pages own their header/actions, the app shell only frames them. */
+.shell,
+.shell-v2 {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell-v2 .main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell-v2 .topbar,
+.shell-v2 .warning-banner,
+.shell-v2 .getting-started-strip {
+  display: none;
+}
+
+.main > .page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.page-v2,
+.project-v2-page,
+.home-v2-start {
+  min-height: 0;
+  overflow: hidden;
+  padding: 24px 28px;
+}
+
+.section-header-v2.compact {
+  align-items: center;
+}
+
+.section-header-v2.compact h1,
+.section-header-v2 h1 {
+  font-size: 28px;
+}
+
+.section-header-v2.compact p,
+.section-header-v2 p {
+  margin-top: 6px;
+}
+
+.changes-page-v2,
+.history-page-v2,
+.backups-page-v2,
+.settings-page-v2,
+.plans-page-v2,
+.project-v2-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.changes-layout-v2,
+.history-layout-v2,
+.plans-workbench-v2 {
+  min-height: 0;
+  flex: 1;
+}
+
+.changes-sidebar-v2,
+.changes-detail-v2,
+.history-list-panel-v2,
+.history-detail-panel-v2,
+.plans-main-card-v2,
+.plans-side-stack-v2,
+.settings-grid-v2,
+.backup-table-panel-v2 {
+  min-height: 0;
+  overflow: auto;
+}
+
+.commit-bar-v2 {
+  flex: 0 0 auto;
+}
+
+.plans-status-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.problem-strip-v2 {
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  background: #fff7ed;
+  color: #9a3412;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.problem-strip-v2.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.problem-strip-v2 strong,
+.problem-strip-v2 span {
+  display: block;
+}
+
+.problem-strip-v2 span {
+  margin-top: 3px;
+  line-height: 1.45;
+  color: #667085;
+}
+
+.plans-workbench-v2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.plans-main-card-v2,
+.plans-side-card-v2,
+.collision-panel-v2 {
+  border: 1px solid #e1e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(37, 70, 105, 0.05);
+}
+
+.plans-main-card-v2 {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plans-card-head-v2 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.plans-card-head-v2 h2,
+.plans-side-card-v2 h2,
+.collision-panel-v2 h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.plans-card-head-v2 p,
+.plans-side-card-v2 p,
+.collision-panel-v2 p {
+  margin: 7px 0 0;
+  color: #667085;
+  line-height: 1.55;
+}
+
+.plan-copy-list-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.plan-copy-card-v2 {
+  border: 1px solid #e1e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.plan-copy-card-v2.active {
+  border-color: #bcd4ff;
+  background: linear-gradient(145deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.plan-copy-icon-v2 {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-copy-icon-v2.stable {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.plan-copy-icon-v2.idea {
+  background: #f0e7ff;
+  color: #7c3aed;
+}
+
+.plan-copy-body-v2 {
+  min-width: 0;
+}
+
+.plan-copy-title-v2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.plan-copy-title-v2 strong {
+  color: #111827;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.plan-copy-title-v2 span {
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1458f5;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plan-copy-body-v2 p {
+  margin: 6px 0 4px;
+  color: #344054;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-copy-body-v2 small {
+  color: #667085;
+}
+
+.plans-side-stack-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plans-side-card-v2 {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.plans-side-card-v2 .btn {
+  width: 100%;
+}
+
+.collision-panel-v2 {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 0 1 46%;
+  min-height: 0;
+}
+
+.collision-actions-v2 {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 10px;
+}
+
+.collision-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.collision-grid-v2 article {
+  min-height: 0;
+  border: 1px solid #e1e8f0;
+  border-radius: 14px;
+  background: #f8fbff;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.collision-grid-v2 h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+}
+
+.collision-grid-v2 pre,
+.collision-grid-v2 textarea {
+  flex: 1;
+  min-height: 120px;
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid #dbe5ef;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+  color: #111827;
+  font: 12px/1.55 'Cascadia Mono', Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1260px) {
+  .plans-status-grid-v2 {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .plans-workbench-v2,
+  .collision-grid-v2,
+  .collision-actions-v2 {
+    grid-template-columns: 1fr;
   }
 }

@@ -121,10 +121,10 @@ describe('PlansPage', () => {
 
     renderPlansPage('en-US');
 
-    expect(await screen.findByText('Save one stable version first')).toBeInTheDocument();
-    expect(screen.getByText('Try Ideas')).toBeInTheDocument();
+    expect(await screen.findByText('Save a recoverable version first')).toBeInTheDocument();
+    expect(screen.getByText('Idea Lab')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start This Idea' })).toBeDisabled();
-    expect(screen.getByRole('link', { name: 'Go Save Current Work' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Handle Now' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listPlans).toHaveBeenCalledWith('E:/demo/project-a');
@@ -171,13 +171,13 @@ describe('PlansPage', () => {
 
     renderPlansPage('en-US');
 
-    expect(await screen.findByRole('heading', { name: 'Stable Version' })).toBeInTheDocument();
-    expect(screen.getByText('Idea Copies')).toBeInTheDocument();
-    expect(screen.getByText('Separate copies for risky attempts.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Version Copies' })).toBeInTheDocument();
+    expect(screen.getByText('Idea copies')).toBeInTheDocument();
+    expect(screen.getByText('Stable is your safe version. Idea copies are for experiments.')).toBeInTheDocument();
     expect(screen.getAllByText('dark login refresh').length).toBeGreaterThan(0);
-    expect(screen.getByText('Will be added into:')).toBeInTheDocument();
+    expect(screen.getByText('Choose an idea')).toBeInTheDocument();
     expect(screen.getAllByText('Stable Version').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Bring It Back' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Bring Back' })).toBeEnabled();
   });
 
   it('still lets the user switch to an existing idea copy even when unsaved changes exist', async () => {
@@ -241,7 +241,7 @@ describe('PlansPage', () => {
 
     renderPlansPage('en-US');
 
-    expect(await screen.findByRole('button', { name: 'Open this copy' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Switch Here' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Start This Idea' })).toBeDisabled();
   });
 });
