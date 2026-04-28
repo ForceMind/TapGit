@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { toLocalizedConflictContent, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
-import { MergeResult, PlanInfo } from '../shared/contracts';
+import { HistoryRecord, MergeResult, PlanInfo } from '../shared/contracts';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
 
@@ -26,12 +26,13 @@ function formatSavedTime(timestamp: number | null, locale: string) {
     return locale === 'zh-CN' ? '还没有保存记录' : 'No saved record yet';
   }
 
+  const milliseconds = timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
   return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(new Date(timestamp));
+  }).format(new Date(milliseconds));
 }
 
 export function PlansPage() {
@@ -41,6 +42,7 @@ export function PlansPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [historyCount, setHistoryCount] = useState<number | null>(null);
+  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
   const [plans, setPlans] = useState<PlanInfo[]>([]);
   const [newPlanName, setNewPlanName] = useState('');
   const [working, setWorking] = useState(false);
@@ -66,6 +68,7 @@ export function PlansPage() {
   const hasUnsavedChanges = (project?.pendingChangeCount ?? 0) > 0;
   const isBlocked = needsFirstSave || hasUnsavedChanges;
   const activeIdeaPlan = currentPlan && !currentPlan.isMain ? currentPlan : null;
+  const recentHistoryRecords = useMemo(() => historyRecords.slice(0, 4).reverse(), [historyRecords]);
 
   const selectedConflict = useMemo(
     () => mergeState?.conflicts.find((item) => item.filePath === selectedConflictFile) ?? mergeState?.conflicts[0],
@@ -93,6 +96,7 @@ export function PlansPage() {
       ]);
       setPlans(plansData);
       setHistoryCount(historyData.length);
+      setHistoryRecords(historyData);
 
       const nextIdea = plansData.find((item) => !item.isMain)?.name ?? '';
       setMergeFrom((current) => {
@@ -387,6 +391,58 @@ export function PlansPage() {
             <small>{hasUnsavedChanges ? copy(`${project.pendingChangeCount} 个文件还没保存`, `${project.pendingChangeCount} unsaved files`) : copy('工作区干净', 'Work area is clean')}</small>
           </div>
         </article>
+      </section>
+
+      <section className="branch-map-v2">
+        <div className="branch-map-head-v2">
+          <div>
+            <h2>{copy('按保存节点推进', 'Work by Save Points')}</h2>
+            <p>{copy('每次修改先形成一个保存节点；需要试错时，从某个节点拉出一条新路线。', 'Every change becomes a save point; risky work starts as a separate path from a saved point.')}</p>
+          </div>
+          <span>{copy('图形化路线', 'Visual path')}</span>
+        </div>
+
+        <div className="branch-rail-v2">
+          <div className="branch-rail-label-v2">{copy('稳定路线', 'Stable path')}</div>
+          <div className="branch-rail-line-v2">
+            {recentHistoryRecords.length === 0 ? (
+              <article className="branch-node-v2 empty">
+                <i />
+                <strong>{copy('先保存一次', 'Save once first')}</strong>
+                <small>{copy('有了节点后才能安全试新想法', 'A save point makes ideas safe')}</small>
+              </article>
+            ) : (
+              recentHistoryRecords.map((record, index) => (
+                <article key={record.id} className={`branch-node-v2 ${index === recentHistoryRecords.length - 1 ? 'latest' : ''}`}>
+                  <i />
+                  <strong>{record.message || copy('未填写说明', 'No note')}</strong>
+                  <small>{formatSavedTime(record.timestamp, locale)}</small>
+                </article>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="branch-ideas-v2">
+          <div className="branch-rail-label-v2">{copy('想法路线', 'Idea paths')}</div>
+          <div className="branch-idea-list-v2">
+            {ideaPlans.length === 0 ? (
+              <article className="branch-idea-card-v2 empty">
+                <Sparkles size={18} />
+                <strong>{copy('还没有新路线', 'No idea path yet')}</strong>
+                <span>{copy('在右侧输入名字后创建', 'Name one on the right to create it')}</span>
+              </article>
+            ) : (
+              ideaPlans.map((plan) => (
+                <article key={plan.name} className={`branch-idea-card-v2 ${plan.isCurrent ? 'active' : ''}`}>
+                  <Sparkles size={18} />
+                  <strong>{planLabel(plan, t)}</strong>
+                  <span>{plan.lastMessage || copy('等待保存这个想法', 'Waiting for this idea to be saved')}</span>
+                </article>
+              ))
+            )}
+          </div>
+        </div>
       </section>
 
       {isBlocked ? (

@@ -123,6 +123,7 @@ describe('PlansPage', () => {
 
     expect(await screen.findByText('Save a recoverable version first')).toBeInTheDocument();
     expect(screen.getByText('Idea Lab')).toBeInTheDocument();
+    expect(screen.getByText('Work by Save Points')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start This Idea' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Handle Now' })).toBeInTheDocument();
 
@@ -172,6 +173,7 @@ describe('PlansPage', () => {
     renderPlansPage('en-US');
 
     expect(await screen.findByRole('heading', { name: 'Version Copies' })).toBeInTheDocument();
+    expect(screen.getByText('Work by Save Points')).toBeInTheDocument();
     expect(screen.getByText('Idea copies')).toBeInTheDocument();
     expect(screen.getByText('Stable is your safe version. Idea copies are for experiments.')).toBeInTheDocument();
     expect(screen.getAllByText('dark login refresh').length).toBeGreaterThan(0);

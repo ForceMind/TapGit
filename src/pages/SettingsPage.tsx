@@ -1,5 +1,6 @@
 import { Cloud, GitBranch, Info, MonitorCog, Palette, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toCloudAdvice, toCloudStatusText, toCloudTestMessage, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
 import { useAppActions } from '../app/app-context';
 import { BridgeError, getBridge, unwrapResult } from '../services/bridge';
@@ -22,11 +23,28 @@ interface CloudProviderLinks {
   repoPageUrl?: string;
 }
 
+function readSettingsTab(search: string): SettingsTab {
+  const tab = new URLSearchParams(search).get('tab');
+  if (
+    tab === 'general' ||
+    tab === 'git' ||
+    tab === 'appearance' ||
+    tab === 'sync' ||
+    tab === 'safety' ||
+    tab === 'about'
+  ) {
+    return tab;
+  }
+
+  return 'general';
+}
+
 export function SettingsPage() {
   const { project, config, setConfig, setNotice } = useAppStore();
   const { locale, t } = useI18n();
   const { openProjectFolder, enableProtection } = useAppActions();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => readSettingsTab(location.search));
   const [gitEnv, setGitEnv] = useState<GitEnvironment | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus | null>(null);
   const [remoteUrlInput, setRemoteUrlInput] = useState('');
@@ -162,6 +180,10 @@ export function SettingsPage() {
   useEffect(() => {
     void loadGitEnvironment();
   }, []);
+
+  useEffect(() => {
+    setActiveTab(readSettingsTab(location.search));
+  }, [location.search]);
 
   useEffect(() => {
     void loadCloudStatus();
@@ -368,6 +390,7 @@ export function SettingsPage() {
       const status = await unwrapResult(getBridge().loginGitHub(selectedGitHubAccount || undefined));
       setGitHubAuthStatus(status);
       setSelectedGitHubAccount((current) => current || status.activeAccount || status.accounts[0] || '');
+      window.dispatchEvent(new Event('tapgit:github-auth-changed'));
       setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
     } catch (error) {
       setNotice({
@@ -385,6 +408,7 @@ export function SettingsPage() {
       const status = await unwrapResult(getBridge().logoutGitHub(account));
       setGitHubAuthStatus(status);
       setSelectedGitHubAccount(status.activeAccount ?? status.accounts[0] ?? '');
+      window.dispatchEvent(new Event('tapgit:github-auth-changed'));
       setNotice({ type: 'success', text: t('settings_notice_github_logout_success') });
     } catch (error) {
       setNotice({
@@ -581,6 +605,163 @@ export function SettingsPage() {
     );
   }
 
+  function renderSyncModern() {
+    if (!project) {
+      return (
+        <section className="state-card-v2">
+          <h1>{copy('先打开一个项目', 'Open a project first')}</h1>
+          <p>{copy('打开项目后，才能把这个项目连接到云端。', 'Open a project before connecting it to cloud sync.')}</p>
+          <button className="btn btn-primary" onClick={() => void openProjectFolder()}>{t('app_open_project')}</button>
+        </section>
+      );
+    }
+
+    if (!project.isProtected) {
+      return (
+        <section className="state-card-v2">
+          <h1>{copy('先开启版本保护', 'Turn on protection first')}</h1>
+          <p>{copy('同步前先有保存节点，后面才能安全上传和恢复。', 'Create safe save points before uploading or restoring from cloud.')}</p>
+          <button className="btn btn-primary" onClick={() => void enableProtection()}>{t('app_enable_protection')}</button>
+        </section>
+      );
+    }
+
+    const syncSteps = [
+      {
+        number: 1,
+        title: copy('连接账号', 'Connect Account'),
+        detail: activeGitHubAccount
+          ? copy(`正在使用 ${activeGitHubAccount}`, `Using ${activeGitHubAccount}`)
+          : copy('先登录 GitHub，之后拉取和上传都用这个账号。', 'Sign in to GitHub before getting or uploading changes.'),
+        state: activeGitHubAccount ? copy('已完成', 'Done') : copy('需要处理', 'Needed')
+      },
+      {
+        number: 2,
+        title: copy('连接这个项目', 'Connect This Project'),
+        detail: cloudStatus?.connected
+          ? cloudStatus.remoteUrl
+          : copy('填入云端仓库地址，码迹会记住这个项目的同步位置。', 'Enter the repository address TapGit should sync with.'),
+        state: cloudStatus?.connected ? copy('已连接', 'Connected') : copy('未连接', 'Not connected')
+      },
+      {
+        number: 3,
+        title: copy('按保存节点同步', 'Sync Save Points'),
+        detail: cloudStatus?.connected
+          ? toCloudStatusText(cloudStatus, t)
+          : copy('连接后再上传本地保存点，或获取云端最新保存点。', 'After connecting, upload local save points or get the latest cloud save points.'),
+        state: cloudStatus?.connected ? copy('可同步', 'Ready') : copy('等待连接', 'Waiting')
+      }
+    ];
+
+    return (
+      <div className="sync-workflow-v2">
+        <section className="sync-hero-v2">
+          <div>
+            <span>{copy('同步流程', 'Sync Workflow')}</span>
+            <h2>{copy('先账号，再项目，最后同步保存节点', 'Account, project, then save points')}</h2>
+            <p>{copy('普通用户只需要按这三步走：登录账号、连接项目地址、上传或获取保存记录。', 'Follow three steps: sign in, connect the project address, then upload or get saved records.')}</p>
+          </div>
+          <strong>{syncStateText}</strong>
+        </section>
+
+        <section className="sync-step-grid-v2">
+          {syncSteps.map((step) => (
+            <article key={step.number} className={step.number === 3 && cloudStatus?.connected ? 'ready' : ''}>
+              <span>{step.number}</span>
+              <strong>{step.title}</strong>
+              <p>{step.detail}</p>
+              <small>{step.state}</small>
+            </article>
+          ))}
+        </section>
+
+        <section className="sync-panels-v2">
+          <article className="sync-panel-v2">
+            <h2>{copy('1. 账号', '1. Account')}</h2>
+            <div className="settings-status-card-v2">
+              <GitBranch size={24} />
+              <div>
+                <strong>{activeGitHubAccount ?? copy('未登录 GitHub', 'Not signed in to GitHub')}</strong>
+                <span>{githubAuthStatus?.available ? copy('这台电脑可以打开 GitHub 授权。', 'GitHub sign-in is available on this device.') : copy('如果没有弹出网页，请检查系统浏览器或网络。', 'If no browser opens, check the default browser or network.')}</span>
+              </div>
+            </div>
+            {githubAuthStatus?.accounts.length ? (
+              <label className="settings-field-v2">
+                <span>{t('settings_cloud_account_use_for_project')}</span>
+                <select className="input-select" value={selectedGitHubAccount} onChange={(event) => setSelectedGitHubAccount(event.target.value)}>
+                  {githubAuthStatus.accounts.map((account) => (
+                    <option key={account} value={account}>{account}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <div className="actions-row">
+              <button className="btn btn-primary" disabled={authWorking} onClick={() => void handleGitHubLogin()}>
+                {copy('登录 GitHub', 'Sign In to GitHub')}
+              </button>
+              {activeGitHubAccount ? (
+                <button className="btn btn-secondary" disabled={authWorking} onClick={() => void handleGitHubLogout(activeGitHubAccount)}>
+                  {copy('退出当前账号', 'Sign Out')}
+                </button>
+              ) : null}
+            </div>
+          </article>
+
+          <article className="sync-panel-v2">
+            <h2>{copy('2. 项目地址', '2. Project Address')}</h2>
+            <label className="settings-field-v2">
+              <span>{copy('云端平台', 'Cloud provider')}</span>
+              <select className="input-select" value={cloudPlatform} onChange={(event) => setCloudPlatform(event.target.value as CloudPlatform)}>
+                <option value="github">GitHub</option>
+                <option value="gitlab">GitLab</option>
+                <option value="custom">{t('settings_cloud_platform_custom')}</option>
+              </select>
+            </label>
+            {cloudPlatform !== 'custom' ? (
+              <div className="settings-inline-v2">
+                <input className="input-text" value={cloudOwner} onChange={(event) => setCloudOwner(event.target.value)} placeholder={t('settings_cloud_owner_placeholder')} />
+                <input className="input-text" value={cloudRepo} onChange={(event) => setCloudRepo(event.target.value)} placeholder={t('settings_cloud_repo_placeholder')} />
+                <button className="btn btn-secondary" disabled={syncing} onClick={() => applyWizardUrl()}>{copy('生成地址', 'Fill Address')}</button>
+              </div>
+            ) : null}
+            <label className="settings-field-v2">
+              <span>{copy('仓库地址', 'Repository address')}</span>
+              <input className="input-text" value={remoteUrlInput} onChange={(event) => setRemoteUrlInput(event.target.value)} placeholder={t('settings_cloud_url_placeholder')} />
+            </label>
+            <div className="actions-row">
+              <button className="btn btn-primary" disabled={syncing || !remoteUrlInput.trim()} onClick={() => void handleConnectCloud()}>{copy('连接这个项目', 'Connect This Project')}</button>
+              <button className="btn btn-secondary" disabled={syncing || !remoteUrlInput.trim()} onClick={() => void handleTestCloudConnection()}>{copy('测试连接', 'Test Connection')}</button>
+              <button className="btn btn-secondary" disabled={syncing || !providerLinks.createRepoUrl} onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}>{copy('创建仓库', 'Create Repository')}</button>
+              <button className="btn btn-secondary" disabled={syncing || !providerLinks.repoPageUrl} onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}>{copy('打开仓库', 'Open Repository')}</button>
+            </div>
+            <span className="settings-subtle-v2">{providerLabel}</span>
+            {connectionTest ? <p className={connectionTest.reachable ? 'success-text' : 'muted'}>{toCloudTestMessage(connectionTest, t)}</p> : null}
+            {cloudAdvice ? <p className="muted">{cloudAdvice}</p> : null}
+          </article>
+
+          <article className="sync-panel-v2">
+            <h2>{copy('3. 同步保存节点', '3. Sync Save Points')}</h2>
+            <div className="sync-node-summary-v2">
+              <span>{copy('等待上传', 'Pending upload')}<strong>{cloudStatus?.pendingUpload ?? 0}</strong></span>
+              <span>{copy('等待获取', 'Pending download')}<strong>{cloudStatus?.pendingDownload ?? 0}</strong></span>
+              <span>{copy('当前路线', 'Current path')}<strong>{cloudStatus ? toPlanLabel(cloudStatus.currentPlan, cloudStatus.currentPlan === 'main' || cloudStatus.currentPlan === 'master', t) : project.currentPlan}</strong></span>
+            </div>
+            <div className="sync-node-rail-v2">
+              <span>{copy('本地保存节点', 'Local save points')}</span>
+              <i />
+              <span>{copy('云端保存节点', 'Cloud save points')}</span>
+            </div>
+            <div className="actions-row">
+              <button className="btn btn-primary" disabled={syncing || !cloudStatus?.connected} onClick={() => void handleUploadToCloud()}>{t('settings_cloud_upload')}</button>
+              <button className="btn btn-secondary" disabled={syncing || !cloudStatus?.connected} onClick={() => void handleGetCloudLatest()}>{t('settings_cloud_get_latest')}</button>
+              <button className="btn btn-secondary" disabled={syncing} onClick={() => void loadCloudStatus()}>{copy('刷新状态', 'Refresh')}</button>
+            </div>
+          </article>
+        </section>
+      </div>
+    );
+  }
+
   function renderSync() {
     if (!project) {
       return (
@@ -739,7 +920,7 @@ export function SettingsPage() {
       {activeTab === 'general' ? renderGeneral() : null}
       {activeTab === 'git' ? renderGit() : null}
       {activeTab === 'appearance' ? renderAppearance() : null}
-      {activeTab === 'sync' ? renderSync() : null}
+      {activeTab === 'sync' ? renderSyncModern() : null}
       {activeTab === 'safety' ? renderSafety() : null}
       {activeTab === 'about' ? renderAbout() : null}
     </div>

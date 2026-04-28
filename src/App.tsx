@@ -443,6 +443,15 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    function handleGitHubAuthChanged() {
+      void refreshGitHubAuthStatus();
+    }
+
+    window.addEventListener('tapgit:github-auth-changed', handleGitHubAuthChanged);
+    return () => window.removeEventListener('tapgit:github-auth-changed', handleGitHubAuthChanged);
+  }, []);
+
+  useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 2600);
     return () => window.clearTimeout(timer);
@@ -576,16 +585,34 @@ function AppContent() {
   const activeGitHubAccount = githubAuthStatus?.activeAccount ?? githubAuthStatus?.accounts[0] ?? '';
   const brandTitle = copy('\u7801\u8ff9', 'TapGit');
   const brandSubtitle = copy('\u8ba9\u4ee3\u7801\u7ba1\u7406\u66f4\u7b80\u5355', 'Code management made simple');
-  const aiAssistantTitle = copy('AI \u52a9\u624b', 'AI Assistant');
-  const aiAssistantDescription = copy(
-    '\u5e2e\u4f60\u5199\u63d0\u4ea4\u4fe1\u606f\u3001\u89e3\u91ca\u4ee3\u7801\u3001\u89e3\u51b3\u95ee\u9898',
-    'Draft notes, explain changes, and help fix issues'
-  );
-  const aiAssistantStatus = copy('\u6682\u672a\u5f00\u653e', 'Coming soon');
   const accountName = activeGitHubAccount || copy('\u672a\u767b\u5f55', 'Not signed in');
   const accountStatus = activeGitHubAccount
     ? copy('\u5df2\u8fde\u63a5 GitHub', 'GitHub connected')
     : copy('\u672a\u8fde\u63a5 GitHub', 'GitHub not connected');
+
+  async function handleSidebarAccountAction() {
+    if (activeGitHubAccount) {
+      navigate('/settings?tab=sync');
+      return;
+    }
+
+    setGitHubAuthLoading(true);
+    try {
+      const status = await unwrapResult(getBridge().loginGitHub());
+      setGitHubAuthStatus(status);
+      setClonePreferredAccount((current) => current || status.activeAccount || status.accounts[0] || '');
+      window.dispatchEvent(new Event('tapgit:github-auth-changed'));
+      setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
+      navigate('/settings?tab=sync');
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'settings_notice_github_login_failed')
+      });
+    } finally {
+      setGitHubAuthLoading(false);
+    }
+  }
 
   return (
     <AppActionsContext.Provider value={actions}>
@@ -604,17 +631,12 @@ function AppContent() {
             {sidebarItems.map((item) => renderNavItem(item))}
           </nav>
           <div className="sidebar-spacer" />
-          <section className="ai-card" aria-label={aiAssistantTitle}>
-            <div className="ai-card-icon">
-              <Sparkles size={20} />
-            </div>
-            <strong>{aiAssistantTitle}</strong>
-            <span>{aiAssistantDescription}</span>
-            <button type="button" className="ai-card-button" disabled>
-              {aiAssistantStatus}
-            </button>
-          </section>
-          <section className="account-card">
+          <button
+            type="button"
+            className="account-card account-card-button"
+            disabled={githubAuthLoading}
+            onClick={() => void handleSidebarAccountAction()}
+          >
             <UserCircle size={38} />
             <div className="account-card-copy">
               <strong>{accountName}</strong>
@@ -624,7 +646,7 @@ function AppContent() {
               </span>
             </div>
             <ChevronDown size={18} />
-          </section>
+          </button>
         </aside>
 
         <main className="main">

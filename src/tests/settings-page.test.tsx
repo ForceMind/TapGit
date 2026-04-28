@@ -146,7 +146,11 @@ describe('SettingsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Sync' }));
 
-    expect(await screen.findByRole('heading', { name: 'Connect Cloud' })).toBeInTheDocument();
+    expect(await screen.findByText('Sync Workflow')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Account, project, then save points' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '1. Account' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '2. Project Address' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '3. Sync Save Points' })).toBeInTheDocument();
     expect(screen.getByText('https://github.com/force-mind/project-a.git')).toBeInTheDocument();
 
     await waitFor(() => {
