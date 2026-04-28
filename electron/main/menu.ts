@@ -151,12 +151,12 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
     label: label('\u5e2e\u52a9', 'Help'),
     submenu: [
       {
-        label: label('\u5bfc\u51fa\u65e5\u5fd7', 'Export Logs'),
-        click: () => sendMenuCommand('export-logs')
+        label: label('\u5173\u4e8e\u7801\u8ff9', 'About TapGit'),
+        click: () => sendMenuCommand('show-about')
       },
       {
-        role: 'about',
-        label: label('\u5173\u4e8e\u7801\u8ff9', 'About TapGit')
+        label: label('\u5bfc\u51fa\u65e5\u5fd7', 'Export Logs'),
+        click: () => sendMenuCommand('export-logs')
       }
     ]
   };
@@ -167,7 +167,7 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
     template.push({
       label: label('\u7801\u8ff9', 'TapGit'),
       submenu: [
-        { role: 'about', label: label('\u5173\u4e8e\u7801\u8ff9', 'About TapGit') },
+        { label: label('\u5173\u4e8e\u7801\u8ff9', 'About TapGit'), click: () => sendMenuCommand('show-about') },
         { type: 'separator' },
         { role: 'hide', label: label('\u9690\u85cf\u7801\u8ff9', 'Hide TapGit') },
         { role: 'hideOthers', label: label('\u9690\u85cf\u5176\u4ed6', 'Hide Others') },
@@ -180,5 +180,11 @@ export function applyAppMenu(config?: Pick<AppConfig, 'recentProjects' | 'settin
 
   template.push(projectMenu, progressMenu, ideasMenu, cloudMenu, helpMenu);
 
+  app.setAboutPanelOptions({
+    applicationName: label('\u7801\u8ff9', 'TapGit'),
+    applicationVersion: app.getVersion(),
+    version: app.getVersion(),
+    copyright: 'TapGit'
+  });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

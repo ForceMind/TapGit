@@ -82,6 +82,9 @@ function AppContent() {
     { key: 'plans' as const, to: '/plans', label: copy('\u8bd5\u65b0\u60f3\u6cd5', 'Idea Lab'), icon: Sparkles },
     { key: 'settings' as const, to: '/settings', label: t('app_nav_settings'), icon: Settings }
   ];
+  const visibleSidebarItems = project
+    ? sidebarItems
+    : sidebarItems.filter((item) => item.key === 'home' || item.key === 'settings');
   const sourcePlanLabel = useMemo(() => {
     if (!project?.currentPlan) {
       return t('common_main_plan');
@@ -487,8 +490,13 @@ function AppContent() {
           openPageOrRedirect('/plans', true);
           return;
         case 'show-settings':
-        case 'show-cloud':
           navigate('/settings');
+          return;
+        case 'show-cloud':
+          navigate('/settings?tab=sync');
+          return;
+        case 'show-about':
+          navigate('/settings?tab=about');
           return;
         case 'create-idea-copy':
           openIdeaCopyDialog();
@@ -628,7 +636,7 @@ function AppContent() {
             </div>
           </div>
           <nav className="nav">
-            {sidebarItems.map((item) => renderNavItem(item))}
+            {visibleSidebarItems.map((item) => renderNavItem(item))}
           </nav>
           <div className="sidebar-spacer" />
           <button

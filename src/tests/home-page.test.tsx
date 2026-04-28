@@ -108,9 +108,9 @@ describe('HomePage', () => {
 
     renderHomePage('zh-CN');
 
-    expect(screen.getByText('\u9009\u62e9\u4e00\u4e2a\u9879\u76ee\u5f00\u59cb')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '\u6253\u5f00\u672c\u5730\u9879\u76ee' })).toBeInTheDocument();
+    expect(screen.getByText('\u5148\u83b7\u53d6\u6216\u521b\u5efa\u4e00\u4e2a\u9879\u76ee')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '\u4ece GitHub \u83b7\u53d6' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '\u6253\u5f00\u6216\u521b\u5efa\u672c\u5730\u9879\u76ee' })).toBeInTheDocument();
     expect(screen.getByText('\u6700\u8fd1\u9879\u76ee')).toBeInTheDocument();
   });
 

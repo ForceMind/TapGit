@@ -6,8 +6,8 @@
   --text: #1f2328;
   --text-muted: #5a6777;
   --border: #d5dee8;
-  --brand: #0d6e6e;
-  --brand-hover: #0b5f5f;
+  --brand: #1458f5;
+  --brand-hover: #0f48cc;
   --accent: #ff8a3d;
   --danger: #c23934;
   --success: #1f7a1f;
@@ -40,7 +40,7 @@ body {
 }
 
 .sidebar {
-  background: radial-gradient(circle at top left, #0f5f70 0%, #0f4f5f 65%, #0b3e49 100%);
+  background: radial-gradient(circle at top left, #1d4ed8 0%, #1e3a8a 65%, #172554 100%);
   color: #f2f8fd;
   padding: 24px 16px;
   display: flex;
@@ -124,7 +124,7 @@ body {
 }
 
 .topbar-section-label {
-  color: #0d5f6a;
+  color: #1458f5;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -189,7 +189,7 @@ body {
 }
 
 .link-quiet:hover {
-  color: #0b5f5f;
+  color: #0f48cc;
 }
 
 .top-actions {
@@ -246,7 +246,7 @@ body {
 .getting-started-step {
   font-size: 12px;
   font-weight: 700;
-  color: #0d5f6a;
+  color: #1458f5;
   letter-spacing: 0.02em;
 }
 
@@ -521,7 +521,7 @@ body {
 }
 
 .project-primary-label {
-  color: #0d5f6a;
+  color: #1458f5;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -963,7 +963,7 @@ body {
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 999px;
-  color: #0d5564;
+  color: #1458f5;
   background: #d9eef4;
 }
 
@@ -1137,9 +1137,9 @@ pre {
 }
 
 .btn-secondary {
-  color: #123746;
-  background: #eff7fc;
-  border-color: #cee0eb;
+  color: #174ea6;
+  background: #eef4ff;
+  border-color: #dbe7ff;
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -2802,6 +2802,21 @@ pre {
   line-height: 1.7;
 }
 
+.state-card-v2-start {
+  max-width: 840px;
+}
+
+.state-card-v2 .eyebrow {
+  display: inline-flex;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1458f5;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .search-input-v2 {
   min-height: 44px;
   border: 1px solid #dbe5ef;
@@ -3228,9 +3243,7 @@ pre {
 }
 
 .ai-disabled-v2 {
-  color: #7c3aed;
-  background: #f5f0ff;
-  border-color: #eadcff;
+  display: none;
 }
 
 .floating-selection-v2 {
@@ -3300,7 +3313,7 @@ pre {
 .history-list-v2::before {
   content: '';
   position: absolute;
-  left: 9px;
+  left: 10px;
   top: 12px;
   bottom: 12px;
   width: 2px;
@@ -3336,6 +3349,7 @@ pre {
   border-radius: 50%;
   background: #1458f5;
   z-index: 1;
+  justify-self: center;
 }
 
 .history-icon-v2 {

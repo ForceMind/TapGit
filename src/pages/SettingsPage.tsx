@@ -42,7 +42,7 @@ function readSettingsTab(search: string): SettingsTab {
 export function SettingsPage() {
   const { project, config, setConfig, setNotice } = useAppStore();
   const { locale, t } = useI18n();
-  const { openProjectFolder, enableProtection } = useAppActions();
+  const { openProjectFolder, openCloneProjectDialog, enableProtection } = useAppActions();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => readSettingsTab(location.search));
   const [gitEnv, setGitEnv] = useState<GitEnvironment | null>(null);
@@ -608,10 +608,18 @@ export function SettingsPage() {
   function renderSyncModern() {
     if (!project) {
       return (
-        <section className="state-card-v2">
-          <h1>{copy('先打开一个项目', 'Open a project first')}</h1>
-          <p>{copy('打开项目后，才能把这个项目连接到云端。', 'Open a project before connecting it to cloud sync.')}</p>
-          <button className="btn btn-primary" onClick={() => void openProjectFolder()}>{t('app_open_project')}</button>
+        <section className="state-card-v2 state-card-v2-start">
+          <span className="eyebrow">{copy('先选择项目', 'Choose a project first')}</span>
+          <h1>{copy('先拉取或打开一个项目', 'Get or open a project first')}</h1>
+          <p>{copy('同步设置要跟某一个项目绑定。你可以从 GitHub 获取项目，也可以打开这台电脑上的项目文件夹。', 'Sync settings belong to one project. Get a project from GitHub or open a local project folder first.')}</p>
+          <div className="actions-row">
+            <button className="btn btn-primary" onClick={() => void openCloneProjectDialog()}>
+              {copy('从 GitHub 获取', 'Get from GitHub')}
+            </button>
+            <button className="btn btn-secondary" onClick={() => void openProjectFolder()}>
+              {copy('打开本地项目', 'Open Local Project')}
+            </button>
+          </div>
         </section>
       );
     }

@@ -440,9 +440,6 @@ export function ChangesPage() {
           />
         </label>
         <div className="commit-actions-v2">
-          <button className="btn btn-secondary ai-disabled-v2" disabled>
-            {copy('AI 生成提交信息', 'AI Draft Note')}
-          </button>
           <div className="commit-summary-v2">
             <span>{copy(`${changes.length} 个文件变更`, `${changes.length} changed files`)}</span>
             <strong>+{totalAdditions} / -{totalDeletions}</strong>

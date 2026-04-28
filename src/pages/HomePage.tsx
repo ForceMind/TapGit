@@ -226,29 +226,29 @@ export function HomePage() {
         <section className="start-hero-v2">
           <div>
             <span className="eyebrow">{copy('开始', 'Start')}</span>
-            <h1>{copy('选择一个项目开始', 'Choose a project to begin')}</h1>
-            <p>{copy('打开本地项目，或从 GitHub 获取项目到这台电脑。', 'Open a local project, or get one from GitHub onto this computer.')}</p>
+            <h1>{copy('先获取或创建一个项目', 'Get or create a project first')}</h1>
+            <p>{copy('从 GitHub 获取项目，或选择一个本地文件夹作为新项目。打开后，码迹才会进入这个项目的工作台。', 'Get a project from GitHub, or choose a local folder for a new project. TapGit enters the project workspace after that.')}</p>
           </div>
           <div className="start-actions-v2">
             <button
               type="button"
               className="start-tile-v2 primary"
-              aria-label={copy('\u6253\u5f00\u672c\u5730\u9879\u76ee', 'Open Local Project')}
-              onClick={() => void openProjectFolder()}
-            >
-              <FolderOpen size={28} />
-              <strong>{copy('打开本地项目', 'Open Local Project')}</strong>
-              <span>{copy('选择已有文件夹', 'Choose an existing folder')}</span>
-            </button>
-            <button
-              type="button"
-              className="start-tile-v2"
               aria-label={copy('\u4ece GitHub \u83b7\u53d6', 'Get from GitHub')}
               onClick={() => void openCloneProjectDialog()}
             >
               <CloudDownload size={28} />
-              <strong>{copy('从 GitHub 获取', 'Get from GitHub')}</strong>
-              <span>{copy('输入仓库地址后下载', 'Paste a repository URL')}</span>
+              <strong>{copy('从 GitHub 获取项目', 'Get from GitHub')}</strong>
+              <span>{copy('输入仓库地址后下载到本机', 'Paste a repository URL and download it')}</span>
+            </button>
+            <button
+              type="button"
+              className="start-tile-v2"
+              aria-label={copy('\u6253\u5f00\u6216\u521b\u5efa\u672c\u5730\u9879\u76ee', 'Open or Create Local Project')}
+              onClick={() => void openProjectFolder()}
+            >
+              <FolderOpen size={28} />
+              <strong>{copy('打开或创建本地项目', 'Open or Create Local Project')}</strong>
+              <span>{copy('选择已有文件夹，或新建一个空文件夹', 'Choose an existing folder or create an empty one')}</span>
             </button>
           </div>
         </section>
