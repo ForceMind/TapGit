@@ -1,4 +1,4 @@
-import { Cloud, GitBranch, Info, MonitorCog, Palette, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Cloud, GitBranch, Info, MonitorCog, Palette, RefreshCw, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toCloudAdvice, toCloudStatusText, toCloudTestMessage, toLocalizedErrorMessage, toPlanLabel, useI18n } from '../i18n';
@@ -467,15 +467,16 @@ export function SettingsPage() {
               placeholder={t('settings_pref_save_template_placeholder')}
             />
           </label>
-          <div className="settings-radio-row-v2">
-            <label><input type="radio" checked readOnly /> {copy('仅提交', 'Save only')}</label>
-            <label><input type="radio" readOnly /> {copy('提交并推送', 'Save and upload')}</label>
-            <label><input type="radio" readOnly /> {copy('提交并拉取', 'Save and get latest')}</label>
+          <div className="settings-fact-list-v2">
+            <div>
+              <strong>{copy('默认保存方式', 'Default save behavior')}</strong>
+              <span>{copy('只保存到本机时间线；上传和获取最新内容由你手动触发。', 'Save to the local timeline only. Upload and get latest stay manual.')}</span>
+            </div>
+            <div>
+              <strong>{copy('保存确认', 'Save confirmation')}</strong>
+              <span>{copy('在“当前修改”页写说明并点击“保存节点”，不会再展示无法取消的假选项。', 'Write a note on Current Changes and click Save Point. No locked fake options are shown.')}</span>
+            </div>
           </div>
-          <label className="switch-row">
-            <span>{copy('提交前确认', 'Confirm before saving')}</span>
-            <input type="checkbox" checked readOnly />
-          </label>
         </section>
 
         <section className="settings-card-v2">
@@ -902,10 +903,6 @@ export function SettingsPage() {
           <button className="btn btn-secondary" onClick={() => void loadGitEnvironment()}>
             <RefreshCw size={18} />
             {copy('刷新', 'Refresh')}
-          </button>
-          <button className="btn btn-primary project-header-primary" onClick={() => setNotice({ type: 'success', text: t('settings_notice_saved') })}>
-            <Save size={18} />
-            {copy('保存设置', 'Save Settings')}
           </button>
         </div>
       </header>

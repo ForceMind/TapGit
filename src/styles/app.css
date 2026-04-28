@@ -5372,3 +5372,313 @@ pre {
     grid-row: auto;
   }
 }
+
+/* Density pass: keep the app useful in one window instead of spending space on headings. */
+.page-v2,
+.project-v2-page,
+.home-v2-start {
+  padding: 16px 20px;
+}
+
+.changes-page-v2,
+.history-page-v2,
+.backups-page-v2,
+.settings-page-v2,
+.plans-page-v2,
+.project-v2-page,
+.home-start-simple,
+.project-simple-page,
+.timeline-simple-page,
+.changes-simple-page {
+  gap: 12px;
+}
+
+.home-start-simple,
+.project-simple-page {
+  padding: 14px 18px;
+}
+
+.section-header-v2 h1,
+.section-header-v2.compact h1,
+.simple-start-card h1,
+.simple-project-head h1,
+.simple-section-head h1 {
+  margin: 6px 0 4px;
+  font-size: 24px;
+  line-height: 1.12;
+}
+
+.section-header-v2 p,
+.section-header-v2.compact p,
+.simple-start-card p,
+.simple-project-head p,
+.simple-section-head p,
+.simple-flow-head p,
+.simple-status-card p,
+.simple-panel p {
+  line-height: 1.42;
+}
+
+.simple-eyebrow {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.project-simple-page {
+  overflow: hidden;
+}
+
+.simple-project-head p {
+  max-width: 780px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simple-start-card {
+  padding: 22px;
+}
+
+.simple-start-actions {
+  margin-top: 18px;
+  gap: 12px;
+}
+
+.simple-action-card {
+  min-height: 128px;
+  padding: 16px;
+}
+
+.simple-action-card strong {
+  font-size: 18px;
+}
+
+.simple-project-head,
+.simple-section-head {
+  align-items: center;
+  gap: 12px;
+}
+
+.simple-head-actions,
+.header-actions-v2 {
+  gap: 8px;
+}
+
+.simple-status-card {
+  padding: 14px 16px;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.simple-status-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.simple-status-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.simple-status-card h2 {
+  margin: 2px 0 3px;
+  font-size: 19px;
+}
+
+.simple-flow-card,
+.simple-panel,
+.simple-recent-card,
+.settings-card-v2,
+.timeline-route-card,
+.timeline-node-detail,
+.timeline-code-panel,
+.timeline-files-card {
+  padding: 14px;
+}
+
+.simple-flow-head {
+  align-items: center;
+}
+
+.simple-flow-card h2,
+.simple-panel h2,
+.settings-card-v2 h2,
+.timeline-files-card h3 {
+  font-size: 17px;
+}
+
+.simple-node-rail {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.simple-node-rail::before {
+  top: 23px;
+}
+
+.simple-node {
+  border-radius: 14px;
+  padding: 9px 8px;
+  gap: 5px;
+}
+
+.simple-node svg {
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+}
+
+.simple-bottom-grid {
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+}
+
+.simple-recent-list,
+.simple-save-list,
+.simple-command-grid {
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.simple-recent-list button,
+.simple-save-list a {
+  padding: 8px 10px;
+}
+
+.simple-command-grid a,
+.simple-command-grid button {
+  min-height: 40px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.change-flow-strip {
+  padding: 8px;
+  gap: 8px;
+}
+
+.change-flow-strip div {
+  padding: 8px 10px;
+}
+
+.change-flow-strip span {
+  width: 24px;
+  height: 24px;
+}
+
+.commit-bar-v2 {
+  padding: 12px 14px;
+  gap: 12px;
+}
+
+.simple-save-bar textarea {
+  min-height: 44px;
+}
+
+.timeline-overview-card {
+  padding: 10px 14px;
+}
+
+.timeline-route-card {
+  padding: 12px;
+}
+
+.timeline-route-line {
+  gap: 10px;
+}
+
+.timeline-route-line::before {
+  top: 24px;
+}
+
+.timeline-route-node {
+  width: 172px;
+  min-height: 92px;
+  border-radius: 14px;
+  padding: 10px;
+  gap: 5px;
+}
+
+.timeline-route-node span {
+  width: 28px;
+  height: 28px;
+}
+
+.timeline-workbench {
+  gap: 12px;
+}
+
+.timeline-point-hero {
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.timeline-point-hero h2 {
+  margin: 4px 0 6px;
+  font-size: 20px;
+}
+
+.timeline-action-row {
+  margin: 10px 0;
+  gap: 8px;
+}
+
+.timeline-files-summary {
+  margin: 10px 0;
+  padding: 8px 10px;
+}
+
+.timeline-files-summary strong {
+  font-size: 22px;
+}
+
+.timeline-file-change-list {
+  max-height: 220px;
+  gap: 6px;
+}
+
+.timeline-file-change {
+  padding: 8px;
+}
+
+.settings-grid-v2 {
+  gap: 14px;
+}
+
+.settings-card-v2 {
+  gap: 12px;
+}
+
+.settings-tabs-v2 {
+  gap: 14px;
+}
+
+.settings-fact-list-v2 {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-fact-list-v2 div {
+  border: 1px solid #e1e8f0;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 10px 12px;
+}
+
+.settings-fact-list-v2 strong,
+.settings-fact-list-v2 span {
+  display: block;
+}
+
+.settings-fact-list-v2 strong {
+  color: #111827;
+  font-size: 13px;
+}
+
+.settings-fact-list-v2 span {
+  margin-top: 4px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+}

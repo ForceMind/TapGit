@@ -140,6 +140,9 @@ describe('SettingsPage', () => {
     expect(await screen.findByText('Settings')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'General' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Save Settings' })).toBeInTheDocument();
+    expect(screen.getByText('Default save behavior')).toBeInTheDocument();
+    expect(screen.getByText('Save confirmation')).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'User' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('force-mind')).toBeInTheDocument();
     expect(screen.getByText('force-mind <tapgit@local.dev>')).toBeInTheDocument();
