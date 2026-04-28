@@ -109,8 +109,8 @@ describe('HomePage', () => {
     renderHomePage('zh-CN');
 
     expect(screen.getByText('\u5148\u83b7\u53d6\u6216\u521b\u5efa\u4e00\u4e2a\u9879\u76ee')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '\u4ece GitHub \u83b7\u53d6' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '\u6253\u5f00\u6216\u521b\u5efa\u672c\u5730\u9879\u76ee' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\u4ece GitHub \u83b7\u53d6\u9879\u76ee/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\u6253\u5f00\u6216\u521b\u5efa\u672c\u5730\u9879\u76ee/ })).toBeInTheDocument();
     expect(screen.getByText('\u6700\u8fd1\u9879\u76ee')).toBeInTheDocument();
   });
 
@@ -139,7 +139,7 @@ describe('HomePage', () => {
       openCloneProjectDialog
     });
 
-    await user.click(screen.getByRole('button', { name: 'Get from GitHub' }));
+    await user.click(screen.getByRole('button', { name: /Get from GitHub/ }));
 
     expect(openCloneProjectDialog).toHaveBeenCalledTimes(1);
   });
@@ -208,19 +208,23 @@ describe('HomePage', () => {
     renderHomePage('en-US');
 
     expect(screen.getByText('project-a')).toBeInTheDocument();
-    expect(screen.getByText('Local project')).toBeInTheDocument();
-    expect(screen.getByText('Current copy')).toBeInTheDocument();
-    expect(screen.getByText('Saved points')).toBeInTheDocument();
+    expect(screen.getByText('Current Project')).toBeInTheDocument();
+    expect(screen.getByText('Next Step')).toBeInTheDocument();
+    expect(screen.getByText('Changes found. Save a point next')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review Changes' })).toBeInTheDocument();
-    expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getByText('Recent Saves')).toBeInTheDocument();
-    expect(screen.getByText('Quick Actions')).toBeInTheDocument();
+    expect(screen.getByText('Save Timeline')).toBeInTheDocument();
+    expect(screen.getByText('Changes')).toBeInTheDocument();
+    expect(screen.getByText('Save Points')).toBeInTheDocument();
+    expect(screen.getByText('Cloud Sync')).toBeInTheDocument();
+    expect(screen.getByText('Try Ideas')).toBeInTheDocument();
+    expect(screen.getByText('Restore')).toBeInTheDocument();
+    expect(screen.getByText('Recent Save Points')).toBeInTheDocument();
+    expect(screen.getByText('Common Actions')).toBeInTheDocument();
     expect(screen.queryByText('Recent Projects')).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
       expect(bridge.getProjectOverview).toHaveBeenCalledWith('E:/demo/project-a');
-      expect(screen.getByText('README.md')).toBeInTheDocument();
       expect(screen.getAllByText('Test save').length).toBeGreaterThan(0);
     });
   });

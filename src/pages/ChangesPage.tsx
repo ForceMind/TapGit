@@ -1,7 +1,8 @@
 import dayjs from 'dayjs';
-import { FileText, Filter, FolderOpen, GitBranch, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import { CheckCircle2, FileText, FolderOpen, GitBranch, Search, Settings, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { toChangeStatusLabel, toLocalizedDiffText, toLocalizedErrorMessage, useI18n } from '../i18n';
@@ -9,11 +10,11 @@ import { ChangeItem } from '../shared/contracts';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
 
-function statusBadge(status: ChangeItem['changeType']) {
-  if (status === 'added') return 'A';
-  if (status === 'deleted') return 'D';
-  if (status === 'renamed') return 'R';
-  return 'M';
+function statusText(status: ChangeItem['changeType'], locale: string) {
+  if (status === 'added') return locale === 'zh-CN' ? '新增' : 'Added';
+  if (status === 'deleted') return locale === 'zh-CN' ? '删除' : 'Deleted';
+  if (status === 'renamed') return locale === 'zh-CN' ? '改名' : 'Renamed';
+  return locale === 'zh-CN' ? '修改' : 'Modified';
 }
 
 function statusTone(status: ChangeItem['changeType']) {
@@ -24,8 +25,7 @@ function statusTone(status: ChangeItem['changeType']) {
 }
 
 function splitDiffLines(diffText: string) {
-  const lines = diffText.split(/\r?\n/);
-  return lines.slice(0, 220).map((line, index) => {
+  return diffText.split(/\r?\n/).slice(0, 260).map((line, index) => {
     const type = line.startsWith('+') && !line.startsWith('+++')
       ? 'add'
       : line.startsWith('-') && !line.startsWith('---')
@@ -61,15 +61,6 @@ export function ChangesPage() {
     if (!keyword) return changes;
     return changes.filter((item) => item.path.toLowerCase().includes(keyword));
   }, [changes, query]);
-
-  const worktreeChanges = useMemo(
-    () => filteredChanges.filter((item) => item.area !== 'ready'),
-    [filteredChanges]
-  );
-  const readyChanges = useMemo(
-    () => filteredChanges.filter((item) => item.area === 'ready'),
-    [filteredChanges]
-  );
 
   const selectedItem = useMemo(
     () => changes.find((item) => item.path === selectedPath) ?? filteredChanges[0] ?? null,
@@ -132,8 +123,7 @@ export function ChangesPage() {
     }
 
     const autoMessage = t('changes_auto_message', { datetime: dayjs().format('YYYY-MM-DD HH:mm') });
-    const finalMessage =
-      message.trim() || config?.settings.defaultSaveMessageTemplate.trim() || autoMessage;
+    const finalMessage = message.trim() || config?.settings.defaultSaveMessageTemplate.trim() || autoMessage;
 
     setSaving(true);
     try {
@@ -160,9 +150,7 @@ export function ChangesPage() {
   }
 
   async function handleShowInFolder() {
-    if (!project?.path || !selectedItem) {
-      return;
-    }
+    if (!project?.path || !selectedItem) return;
 
     setFileActionBusy(true);
     try {
@@ -178,9 +166,7 @@ export function ChangesPage() {
   }
 
   async function handleStopTracking() {
-    if (!project?.path || !selectedItem) {
-      return;
-    }
+    if (!project?.path || !selectedItem) return;
 
     setFileActionBusy(true);
     try {
@@ -204,16 +190,14 @@ export function ChangesPage() {
   }
 
   async function handleDiscardAll() {
-    if (!project?.path) {
-      return;
-    }
+    if (!project?.path) return;
 
     setDiscarding(true);
     try {
       await unwrapResult(getBridge().discardAllChanges(project.path));
       setNotice({
         type: 'success',
-        text: copy('已清理当前变更，并保留了恢复备份。', 'Changes discarded and a recovery backup was kept.')
+        text: copy('已清理当前修改，并保留了恢复备份。', 'Changes discarded and a recovery backup was kept.')
       });
       setSelectedFiles(new Set());
       setDiscardDialogOpen(false);
@@ -245,131 +229,96 @@ export function ChangesPage() {
     return renderEmptyState(
       copy('先打开一个项目', 'Open a project first'),
       t('common_project_open_help'),
-      <button className="btn btn-primary" onClick={() => void openProjectFolder()}>
-        {t('app_open_project')}
-      </button>
+      <button className="btn btn-primary" onClick={() => void openProjectFolder()}>{t('app_open_project')}</button>
     );
   }
 
   if (!project.isProtected) {
     return renderEmptyState(
-      copy('先开启版本保护', 'Turn on protection first'),
+      copy('先开启保护', 'Turn on protection first'),
       t('common_protection_help'),
-      <button className="btn btn-primary" onClick={() => void enableProtection()}>
-        {t('app_enable_protection')}
-      </button>
-    );
-  }
-
-  function renderChangeGroup(title: string, items: ChangeItem[]) {
-    return (
-      <section className="changes-group-v2">
-        <h3>
-          {title}
-          <span>{items.length}</span>
-        </h3>
-        {items.length === 0 ? (
-          <p className="changes-empty-v2">
-            {copy('这里暂时没有文件。', 'No files here yet.')}
-          </p>
-        ) : (
-          <ul className="change-file-list-v2">
-            {items.map((item) => (
-              <li key={item.path}>
-                <button
-                  type="button"
-                  className={`change-file-row-v2 ${selectedItem?.path === item.path ? 'active' : ''}`}
-                  onClick={() => setSelectedPath(item.path)}
-                >
-                  <span className="change-file-icon-v2">
-                    <FileText size={20} />
-                  </span>
-                  <span className="change-file-copy-v2">
-                    <strong>{item.path}</strong>
-                    <small>
-                      +{item.additions} / -{item.deletions}
-                    </small>
-                  </span>
-                  <span className={`status-chip-v2 ${statusTone(item.changeType)}`}>
-                    {statusBadge(item.changeType)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <button className="btn btn-primary" onClick={() => void enableProtection()}>{t('app_enable_protection')}</button>
     );
   }
 
   return (
-    <div className="page page-v2 changes-page-v2">
-      <header className="section-header-v2">
+    <div className="page page-v2 changes-page-v2 changes-simple-page">
+      <header className="simple-section-head">
         <div>
-          <h1>{copy('变更', 'Changes')}</h1>
-          <p>{copy('查看并管理你的代码变更', 'Review and manage your code changes')}</p>
+          <span className="simple-eyebrow">{copy('当前修改', 'Current Changes')}</span>
+          <h1>{copy('把这次工作保存成一个节点', 'Save this work as a point')}</h1>
+          <p>{copy('流程只有三步：看文件、写一句话、保存。保存后就能从时间线回到这里。', 'Three steps: review files, write one note, save. You can return here from the timeline later.')}</p>
         </div>
         <div className="header-actions-v2">
-          <button
-            className="btn btn-secondary"
-            disabled={changes.length === 0 || discarding}
-            onClick={() => setDiscardDialogOpen(true)}
-          >
+          <button className="btn btn-secondary" disabled={changes.length === 0 || discarding} onClick={() => setDiscardDialogOpen(true)}>
             <Trash2 size={18} />
-            {copy('丢弃所有变更', 'Discard All Changes')}
+            {copy('不要这些修改', 'Discard Changes')}
           </button>
-          <button className="btn btn-primary project-header-primary" disabled={saving} onClick={() => void handleSave('all')}>
+          <button className="btn btn-primary project-header-primary" disabled={saving || changes.length === 0} onClick={() => void handleSave('all')}>
             <GitBranch size={18} />
-            {copy(`提交到 ${project.currentPlan}`, `Save to ${project.currentPlan}`)}
+            {copy('保存为节点', 'Save Point')}
           </button>
         </div>
       </header>
 
-      <div className="changes-tabs-v2">
-        <button className="active">
-          {copy('工作区变更', 'Work Area Changes')}
-          <span>{worktreeChanges.length}</span>
-        </button>
-        <button>
-          {copy('暂存区变更', 'Ready to Save')}
-          <span>{readyChanges.length}</span>
-        </button>
-      </div>
+      <section className="change-flow-strip">
+        <div className="done"><span>1</span><strong>{copy('看改了什么', 'Review')}</strong></div>
+        <div className={message.trim() ? 'done' : ''}><span>2</span><strong>{copy('写一句说明', 'Write note')}</strong></div>
+        <div><span>3</span><strong>{copy('保存成节点', 'Save point')}</strong></div>
+      </section>
 
-      <section className="changes-layout-v2">
+      <section className="changes-layout-v2 changes-layout-simple">
         <aside className="changes-sidebar-v2">
           <div className="changes-search-row-v2">
             <label className="search-input-v2">
               <Search size={18} />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={copy('搜索文件...', 'Search files...')}
-              />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy('搜索文件', 'Search files')} />
             </label>
-            <button className="icon-button-v2" type="button" aria-label={copy('筛选', 'Filter')}>
-              <Filter size={18} />
-            </button>
           </div>
 
           {loading ? (
             <p className="changes-empty-v2">{t('changes_loading')}</p>
           ) : changes.length === 0 ? (
             <div className="changes-clean-v2">
-              <strong>{copy('工作区很干净', 'Everything is clean')}</strong>
+              <CheckCircle2 size={28} />
+              <strong>{copy('没有待保存修改', 'Nothing to save')}</strong>
               <span>{t('changes_empty')}</span>
+              <Link to="/timeline">{copy('查看保存时间线', 'Open timeline')}</Link>
             </div>
           ) : (
-            <>
-              {renderChangeGroup(copy('未暂存的文件', 'Not Ready Yet'), worktreeChanges)}
-              {renderChangeGroup(copy('已暂存的文件', 'Ready Files'), readyChanges)}
-            </>
+            <ul className="change-file-list-v2 simple-change-list">
+              {filteredChanges.map((item) => (
+                <li key={item.path}>
+                  <button
+                    type="button"
+                    className={`change-file-row-v2 ${selectedItem?.path === item.path ? 'active' : ''}`}
+                    onClick={() => setSelectedPath(item.path)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedFiles.has(item.path)}
+                      aria-label={t('changes_toggle_file', { path: item.path })}
+                      onChange={(event) => {
+                        event.stopPropagation();
+                        toggleSelection(item.path);
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                    />
+                    <span className="change-file-icon-v2">
+                      <FileText size={20} />
+                    </span>
+                    <span className="change-file-copy-v2">
+                      <strong>{item.path}</strong>
+                      <small>{statusText(item.changeType, locale)} · +{item.additions} / -{item.deletions}</small>
+                    </span>
+                    <span className={`status-chip-v2 ${statusTone(item.changeType)}`}>
+                      {statusText(item.changeType, locale)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-
-          <div className="drop-card-v2">
-            <Plus size={18} />
-            <span>{copy('拖拽文件到这里以快速查看，或点击打开文件夹处理删除。', 'Drop files here to review, or open the folder to delete files.')}</span>
-          </div>
         </aside>
 
         <main className="changes-detail-v2">
@@ -390,22 +339,16 @@ export function ChangesPage() {
               <div className="panel-actions-v2">
                 <button className="btn btn-secondary" disabled={fileActionBusy} onClick={() => void handleShowInFolder()}>
                   <FolderOpen size={18} />
-                  {t('changes_delete_in_folder')}
+                  {copy('在文件夹里处理', 'Show in Folder')}
                 </button>
                 {selectedItem.changeType !== 'deleted' ? (
                   <button className="btn btn-secondary" disabled={fileActionBusy} onClick={() => void handleStopTracking()}>
                     <Settings size={18} />
-                    {t('changes_stop_tracking')}
+                    {copy('以后不管这个文件', 'Stop Tracking')}
                   </button>
                 ) : null}
               </div>
             ) : null}
-          </div>
-
-          <div className="diff-toolbar-v2">
-            <span>{copy('查看', 'View')}</span>
-            <button className="active">{copy('并排', 'Split')}</button>
-            <button>{copy('内联', 'Inline')}</button>
           </div>
 
           <div className="diff-card-v2">
@@ -429,9 +372,9 @@ export function ChangesPage() {
         </main>
       </section>
 
-      <footer className="commit-bar-v2">
+      <footer className="commit-bar-v2 simple-save-bar">
         <label>
-          <span>{copy('提交信息', 'Save Note')}</span>
+          <span>{copy('给这个保存节点起个名字', 'Name this save point')}</span>
           <textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
@@ -441,50 +384,32 @@ export function ChangesPage() {
         </label>
         <div className="commit-actions-v2">
           <div className="commit-summary-v2">
-            <span>{copy(`${changes.length} 个文件变更`, `${changes.length} changed files`)}</span>
+            <span>{copy(`${changes.length} 个文件改动`, `${changes.length} changed files`)}</span>
             <strong>+{totalAdditions} / -{totalDeletions}</strong>
           </div>
-          <button
-            className="btn btn-secondary"
-            disabled={saving || checkedCount === 0}
-            onClick={() => void handleSave('selected')}
-          >
-            {copy(`只提交选中的 ${checkedCount} 个`, `Save ${checkedCount} checked`)}
+          <button className="btn btn-secondary" disabled={saving || checkedCount === 0} onClick={() => void handleSave('selected')}>
+            {copy(`只保存勾选的 ${checkedCount} 个`, `Save ${checkedCount} checked`)}
           </button>
           <button className="btn btn-primary project-header-primary" disabled={saving || changes.length === 0} onClick={() => void handleSave('all')}>
             <GitBranch size={18} />
-            {copy(`提交到 ${project.currentPlan}`, `Save to ${project.currentPlan}`)}
+            {copy('保存为时间线节点', 'Save Timeline Point')}
           </button>
         </div>
       </footer>
 
-      {selectedItem ? (
-        <div className="floating-selection-v2">
-          <label>
-            <input
-              type="checkbox"
-              checked={selectedFiles.has(selectedItem.path)}
-              aria-label={t('changes_toggle_file', { path: selectedItem.path })}
-              onChange={() => toggleSelection(selectedItem.path)}
-            />
-            <span>{copy('勾选当前文件用于部分提交', 'Check this file for a partial save')}</span>
-          </label>
-        </div>
-      ) : null}
-
       {discardDialogOpen ? (
         <ConfirmDialog
-          title={copy('要丢弃所有当前变更吗？', 'Discard all current changes?')}
+          title={copy('要放弃这次还没保存的修改吗？', 'Discard unsaved changes?')}
           description={copy(
-            '码迹会先为当前内容保留一个安全备份，然后把工作区恢复到最近一次保存。',
-            'TapGit will keep a safety backup first, then return the work area to the latest save.'
+            '码迹会先保留一个安全备份，然后把项目恢复到最近一次保存节点。',
+            'TapGit will keep a safety backup first, then return the project to the latest save point.'
           )}
           details={[
-            copy(`将处理 ${changes.length} 个变更文件`, `${changes.length} changed files will be handled`),
-            copy('完成后可在“备份与恢复”中找回。', 'You can recover it later from Backups.')
+            copy(`将处理 ${changes.length} 个改动文件`, `${changes.length} changed files will be handled`),
+            copy('完成后可以在“备份与恢复”中找回。', 'You can recover it later from Backups.')
           ]}
           cancelLabel={t('common_cancel')}
-          confirmLabel={copy('确认丢弃', 'Discard Changes')}
+          confirmLabel={copy('放弃这些修改', 'Discard Changes')}
           confirmKind="danger"
           busy={discarding}
           onCancel={() => setDiscardDialogOpen(false)}

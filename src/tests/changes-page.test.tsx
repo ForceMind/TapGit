@@ -125,10 +125,12 @@ describe('ChangesPage', () => {
 
     renderChangesPage('en-US');
 
-    expect(await screen.findByText('Changes')).toBeInTheDocument();
-    expect(screen.getByText('Review and manage your code changes')).toBeInTheDocument();
-    expect(screen.getByText('Work Area Changes')).toBeInTheDocument();
-    expect(screen.getByText('Save Note')).toBeInTheDocument();
+    expect(await screen.findByText('Current Changes')).toBeInTheDocument();
+    expect(screen.getByText('Save this work as a point')).toBeInTheDocument();
+    expect(screen.getByText('Review')).toBeInTheDocument();
+    expect(screen.getByText('Write note')).toBeInTheDocument();
+    expect(screen.getByText('Save point')).toBeInTheDocument();
+    expect(screen.getByText('Name this save point')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save 0 checked' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select src/login.tsx for a partial save' }));

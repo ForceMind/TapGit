@@ -1,19 +1,15 @@
 import dayjs from 'dayjs';
 import {
-  ArrowLeft,
   Clock3,
   CloudDownload,
   CloudUpload,
-  Copy,
   FileText,
   Folder,
   FolderOpen,
   GitBranch,
-  HardDrive,
-  MoreHorizontal,
-  Plus,
   RefreshCw,
-  Upload
+  RotateCcw,
+  ShieldCheck
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -22,35 +18,18 @@ import { resolvePrimaryTaskKey } from '../app/primary-task';
 import { useProjectHistoryCount } from '../app/use-project-history-count';
 import { toPlanLabel, useI18n } from '../i18n';
 import { getBridge, unwrapResult } from '../services/bridge';
-import { ProjectFileEntry, ProjectOverview } from '../shared/contracts';
+import { ProjectOverview } from '../shared/contracts';
 import { useAppStore } from '../stores/useAppStore';
-
-function formatBytes(value: number | null | undefined) {
-  if (!value || value <= 0) {
-    return '-';
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = value;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
-}
 
 function formatTime(timestamp: number | null | undefined, locale: 'en-US' | 'zh-CN') {
   if (!timestamp) {
     return locale === 'zh-CN' ? '还没有保存' : 'Not saved yet';
   }
 
-  const now = dayjs();
   const target = dayjs(timestamp * 1000);
-  const minutes = now.diff(target, 'minute');
-  const hours = now.diff(target, 'hour');
-  const days = now.diff(target, 'day');
+  const minutes = dayjs().diff(target, 'minute');
+  const hours = dayjs().diff(target, 'hour');
+  const days = dayjs().diff(target, 'day');
 
   if (minutes < 1) return locale === 'zh-CN' ? '刚刚' : 'Just now';
   if (minutes < 60) return locale === 'zh-CN' ? `${minutes} 分钟前` : `${minutes}m ago`;
@@ -59,16 +38,12 @@ function formatTime(timestamp: number | null | undefined, locale: 'en-US' | 'zh-
   return target.format('YYYY-MM-DD');
 }
 
-function shortHash(id: string) {
-  return id.slice(0, 7);
-}
-
-function fileIcon(entry: ProjectFileEntry) {
-  return entry.type === 'folder' ? <Folder size={20} /> : <FileText size={19} />;
+function recentProjectName(projectPath: string) {
+  return projectPath.split(/[\\/]/).pop() || projectPath;
 }
 
 export function HomePage() {
-  const { project, config, setNotice } = useAppStore();
+  const { project, config } = useAppStore();
   const {
     openProjectFolder,
     openCloneProjectDialog,
@@ -81,6 +56,7 @@ export function HomePage() {
     openIdeaCopyDialog
   } = useAppActions();
   const { locale, t } = useI18n();
+  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
   const recentProjects = config?.recentProjects ?? [];
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -90,7 +66,6 @@ export function HomePage() {
     `${project?.pendingChangeCount ?? 0}:${project?.currentPlan ?? ''}`
   );
   const primaryTaskKey = resolvePrimaryTaskKey(project, historyCount);
-  const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,347 +99,198 @@ export function HomePage() {
     };
   }, [project?.path, project?.pendingChangeCount, project?.currentPlan]);
 
-  const focusAction = useMemo(() => {
+  const nextStep = useMemo(() => {
     switch (primaryTaskKey) {
       case 'open':
         return {
-          title: copy('打开一个项目', 'Open a project'),
-          detail: copy('选择本地文件夹，或从 GitHub 获取。', 'Choose a local folder or get one from GitHub.'),
-          label: copy('打开项目', 'Open Project'),
-          onClick: openProjectFolder,
-          to: ''
+          title: copy('先获取或创建一个项目', 'Get or create a project first'),
+          body: copy('从 GitHub 获取项目，或打开这台电脑上的项目文件夹。', 'Get a project from GitHub or open a local folder.'),
+          action: copy('从 GitHub 获取', 'Get from GitHub'),
+          secondaryAction: copy('打开本地项目', 'Open Local Project')
         };
       case 'protect':
         return {
-          title: copy('开启版本保护', 'Turn on protection'),
-          detail: copy('开启后才能保存、恢复和试新想法。', 'This unlocks saving, restore, and experiments.'),
-          label: copy('开启保护', 'Turn On'),
-          onClick: enableProtection,
-          to: ''
+          title: copy('先开启保护', 'Turn on protection first'),
+          body: copy('开启后，码迹才能帮你保存节点、恢复旧版本、试新想法。', 'This lets TapGit save points, restore older versions, and try ideas safely.'),
+          action: t('app_enable_protection')
         };
       case 'save':
         return {
-          title: copy('先保存这次修改', 'Save these changes'),
-          detail: copy('把当前可用状态留下来。', 'Keep the current working state.'),
-          label: copy('去保存', 'Review Changes'),
-          to: '/changes'
+          title: copy('有修改，先保存成节点', 'Changes found. Save a point next'),
+          body: copy('先看清楚改了哪些文件，再把当前可用状态保存下来。', 'Review what changed, then keep the current working state.'),
+          action: copy('查看修改', 'Review Changes')
         };
       default:
         return {
-          title: copy('项目已就绪', 'Project ready'),
-          detail: copy('可以查看历史、试新想法或同步云端。', 'Review history, try ideas, or sync.'),
-          label: copy('查看历史', 'Open History'),
-          to: '/timeline'
+          title: copy('项目状态清楚，可以继续工作', 'Project is clear. Keep working'),
+          body: copy('所有关键操作都围绕下面的保存时间线进行。', 'Every key action starts from the save timeline below.'),
+          action: copy('查看时间线', 'Open Timeline')
         };
     }
-  }, [copy, enableProtection, openProjectFolder, primaryTaskKey]);
-
-  const projectStats = useMemo(() => {
-    if (!project) return [];
-    return [
-      {
-        key: 'plan',
-        icon: GitBranch,
-        label: copy('当前分支', 'Current copy'),
-        value: toPlanLabel(project.currentPlan, project.currentPlan === 'main' || project.currentPlan === 'master', t),
-        note: project.currentPlan === 'main' || project.currentPlan === 'master'
-          ? copy('默认分支', 'Default copy')
-          : copy('试验副本', 'Idea copy')
-      },
-      {
-        key: 'records',
-        icon: FileText,
-        label: copy('提交', 'Saved points'),
-        value: String(overview?.savedRecordCount ?? historyCount ?? 0),
-        note: copy('总计保存', 'Total saves')
-      },
-      {
-        key: 'last',
-        icon: Clock3,
-        label: copy('最后提交', 'Last save'),
-        value: formatTime(overview?.lastSavedAt, locale),
-        note: overview?.lastSavedMessage || copy('还没有说明', 'No note yet')
-      },
-      {
-        key: 'size',
-        icon: HardDrive,
-        label: copy('项目大小', 'Project size'),
-        value: overviewLoading ? copy('读取中', 'Loading') : formatBytes(overview?.projectSizeBytes),
-        note: copy('本地存储', 'Local storage')
-      }
-    ];
-  }, [copy, historyCount, locale, overview, overviewLoading, project, t]);
-
-  function recentProjectName(projectPath: string) {
-    return projectPath.split(/[\\/]/).pop() || projectPath;
-  }
-
-  function renderFocusButton() {
-    if (focusAction.to) {
-      return (
-        <Link className="btn btn-primary project-header-primary" to={focusAction.to}>
-          {focusAction.label}
-        </Link>
-      );
-    }
-
-    return (
-      <button className="btn btn-primary project-header-primary" onClick={() => void focusAction.onClick?.()}>
-        {focusAction.label}
-      </button>
-    );
-  }
-
-  async function copyRecordId(id: string) {
-    await navigator.clipboard?.writeText(id).catch(() => undefined);
-    setNotice({ type: 'success', text: copy('已复制编号', 'ID copied') });
-  }
+  }, [copy, primaryTaskKey, t]);
 
   if (!project) {
     return (
-      <div className="page home-start-page home-v2-start">
-        <section className="start-hero-v2">
-          <div>
-            <span className="eyebrow">{copy('开始', 'Start')}</span>
-            <h1>{copy('先获取或创建一个项目', 'Get or create a project first')}</h1>
-            <p>{copy('从 GitHub 获取项目，或选择一个本地文件夹作为新项目。打开后，码迹才会进入这个项目的工作台。', 'Get a project from GitHub, or choose a local folder for a new project. TapGit enters the project workspace after that.')}</p>
-          </div>
-          <div className="start-actions-v2">
-            <button
-              type="button"
-              className="start-tile-v2 primary"
-              aria-label={copy('\u4ece GitHub \u83b7\u53d6', 'Get from GitHub')}
-              onClick={() => void openCloneProjectDialog()}
-            >
-              <CloudDownload size={28} />
+      <div className="page home-start-simple">
+        <section className="simple-start-card">
+          <span className="simple-eyebrow">{copy('第一步', 'Step One')}</span>
+          <h1>{nextStep.title}</h1>
+          <p>{nextStep.body}</p>
+          <div className="simple-start-actions">
+            <button className="simple-action-card primary" onClick={() => void openCloneProjectDialog()}>
+              <CloudDownload size={30} />
               <strong>{copy('从 GitHub 获取项目', 'Get from GitHub')}</strong>
-              <span>{copy('输入仓库地址后下载到本机', 'Paste a repository URL and download it')}</span>
+              <span>{copy('适合已有云端仓库，粘贴地址后下载到本机。', 'Use this when the project already exists online.')}</span>
             </button>
-            <button
-              type="button"
-              className="start-tile-v2"
-              aria-label={copy('\u6253\u5f00\u6216\u521b\u5efa\u672c\u5730\u9879\u76ee', 'Open or Create Local Project')}
-              onClick={() => void openProjectFolder()}
-            >
-              <FolderOpen size={28} />
+            <button className="simple-action-card" onClick={() => void openProjectFolder()}>
+              <FolderOpen size={30} />
               <strong>{copy('打开或创建本地项目', 'Open or Create Local Project')}</strong>
-              <span>{copy('选择已有文件夹，或新建一个空文件夹', 'Choose an existing folder or create an empty one')}</span>
+              <span>{copy('适合电脑上已有文件夹，或想从空文件夹开始。', 'Use this for an existing folder or an empty new folder.')}</span>
             </button>
           </div>
         </section>
 
-        <section className="panel recent-panel-v2">
-          <div className="panel-title-row">
-            <h2>{copy('最近项目', 'Recent Projects')}</h2>
-          </div>
+        <section className="simple-recent-card">
+          <h2>{copy('最近项目', 'Recent Projects')}</h2>
           {recentProjects.length === 0 ? (
-            <p className="muted">{copy('还没有最近项目。', 'No recent projects yet.')}</p>
+            <p>{copy('还没有最近项目。先从上面选一个入口开始。', 'No recent projects yet. Start with one option above.')}</p>
           ) : (
-            <ul className="recent-list-v2">
+            <div className="simple-recent-list">
               {recentProjects.map((item) => (
-                <li key={item}>
-                  <button className="recent-row-v2" onClick={() => void openProjectByPath(item)}>
-                    <Folder size={20} />
-                    <span>
-                      <strong>{recentProjectName(item)}</strong>
-                      <small>{item}</small>
-                    </span>
-                  </button>
-                </li>
+                <button key={item} onClick={() => void openProjectByPath(item)}>
+                  <Folder size={20} />
+                  <span>
+                    <strong>{recentProjectName(item)}</strong>
+                    <small>{item}</small>
+                  </span>
+                </button>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       </div>
     );
   }
 
-  const recentRecords = overview?.recentRecords ?? [];
-  const files = overview?.files ?? [];
-  const isClean = project.pendingChangeCount === 0;
+  const isStable = project.currentPlan === 'main' || project.currentPlan === 'master';
+  const planLabel = toPlanLabel(project.currentPlan, isStable, t);
+  const latestRecords = overview?.recentRecords.slice(0, 5) ?? [];
+  const hasChanges = project.pendingChangeCount > 0;
+  const hasSavedPoint = (overview?.savedRecordCount ?? historyCount ?? 0) > 0;
 
   return (
-    <div className="page project-v2-page">
-      <button type="button" className="back-link-v2" onClick={() => window.history.back()}>
-        <ArrowLeft size={18} />
-        {copy('返回', 'Back')}
-      </button>
-
-      <section className="project-header-v2">
-        <div className="project-header-left">
-          <div className="project-avatar-v2">
-            <Folder size={38} />
-          </div>
-          <div className="project-heading-v2">
-            <div className="project-title-line-v2">
-              <h1>{project.name}</h1>
-              <span className="local-badge-v2">{copy('本地项目', 'Local project')}</span>
-            </div>
-            <p>{project.path}</p>
-            <div className="project-meta-row-v2">
-              <span>
-                <CloudUpload size={16} />
-                {overview?.lastSavedMessage || copy('还没有提交', 'No saved note yet')}
-              </span>
-              <span>
-                <Clock3 size={16} />
-                {formatTime(overview?.lastSavedAt, locale)}
-              </span>
-              <span>
-                <GitBranch size={16} />
-                {project.currentPlan}
-              </span>
-            </div>
-          </div>
+    <div className="page project-simple-page">
+      <header className="simple-project-head">
+        <div>
+          <span className="simple-eyebrow">{copy('当前项目', 'Current Project')}</span>
+          <h1>{project.name}</h1>
+          <p>{project.path}</p>
         </div>
-
-        <div className="project-header-actions-v2">
-          {renderFocusButton()}
+        <div className="simple-head-actions">
           <button className="btn btn-secondary" onClick={() => void showProjectInFolder()}>
-            <FolderOpen size={17} />
-            {copy('在文件夹中查看', 'Show in Folder')}
+            <FolderOpen size={18} />
+            {copy('打开文件夹', 'Open Folder')}
           </button>
           <button className="icon-button-v2" onClick={() => void refreshProject()} aria-label={copy('刷新', 'Refresh')}>
             <RefreshCw size={20} />
           </button>
         </div>
-      </section>
+      </header>
 
-      <section className="stats-grid-v2">
-        {projectStats.map((item) => {
-          const Icon = item.icon;
-          return (
-            <article className="stat-card-v2" key={item.key}>
-              <span className={`stat-icon-v2 ${item.key}`}>
-                <Icon size={22} />
-              </span>
-              <div>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-                <small>{item.note}</small>
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="project-content-grid-v2">
-        <div className="project-main-column-v2">
-          <section className="panel file-panel-v2">
-            <div className="panel-title-row">
-              <h2>{copy('文件', 'Files')}</h2>
-              <div className="panel-actions-v2">
-                <button className="btn btn-secondary" onClick={() => void showProjectInFolder()}>
-                  <FolderOpen size={16} />
-                  {copy('打开文件夹', 'Open Folder')}
-                </button>
-                <button className="btn btn-secondary" onClick={() => void refreshProject()}>
-                  <RefreshCw size={16} />
-                  {copy('刷新', 'Refresh')}
-                </button>
-              </div>
-            </div>
-
-            <div className="file-table-v2">
-              <div className="file-table-head-v2">
-                <span>{copy('名称', 'Name')}</span>
-                <span>{copy('最后修改', 'Modified')}</span>
-                <span>{copy('大小', 'Size')}</span>
-              </div>
-              {files.length === 0 ? (
-                <div className="file-empty-v2">{overviewLoading ? copy('正在读取文件...', 'Loading files...') : copy('还没有可显示的文件。', 'No files to show yet.')}</div>
-              ) : (
-                files.map((entry) => (
-                  <div className="file-row-v2" key={entry.path}>
-                    <span className="file-name-v2">
-                      {fileIcon(entry)}
-                      {entry.name}
-                    </span>
-                    <span>{formatTime(entry.modifiedAt, locale)}</span>
-                    <span>{entry.type === 'folder' ? '-' : formatBytes(entry.size)}</span>
-                  </div>
-                ))
-              )}
-            </div>
-            <button className="file-more-v2" onClick={() => void showProjectInFolder()}>
-              {copy('查看全部文件', 'View all files')}
-              <ArrowLeft size={16} className="file-more-arrow-v2" />
+      <section className={`simple-status-card ${hasChanges ? 'attention' : 'ready'}`}>
+        <div className="simple-status-icon">
+          {hasChanges ? <FileText size={32} /> : <ShieldCheck size={34} />}
+        </div>
+        <div>
+          <span>{copy('下一步', 'Next Step')}</span>
+          <h2>{nextStep.title}</h2>
+          <p>{nextStep.body}</p>
+        </div>
+        <div className="simple-status-actions">
+          {!project.isProtected ? (
+            <button className="btn btn-primary project-header-primary" onClick={() => void enableProtection()}>
+              {nextStep.action}
             </button>
-          </section>
+          ) : hasChanges || !hasSavedPoint ? (
+            <Link className="btn btn-primary project-header-primary" to="/changes">
+              {nextStep.action}
+            </Link>
+          ) : (
+            <Link className="btn btn-primary project-header-primary" to="/timeline">
+              {nextStep.action}
+            </Link>
+          )}
+        </div>
+      </section>
+
+      <section className="simple-flow-card">
+        <div className="simple-flow-head">
+          <div>
+            <h2>{copy('保存时间线', 'Save Timeline')}</h2>
+            <p>{copy('不要想 Git 命令。只按节点操作：改了什么、保存到哪里、要不要回到过去。', 'Ignore Git commands. Work with points: what changed, where to save, and whether to return to an older point.')}</p>
+          </div>
+          <strong>{planLabel}</strong>
         </div>
 
-        <aside className="project-side-column-v2">
-          <section className="panel recent-commits-v2">
-            <div className="panel-title-row">
-              <h2>{copy('最近提交', 'Recent Saves')}</h2>
-              <Link to="/timeline">{copy('查看全部', 'View all')}</Link>
-            </div>
-            {recentRecords.length === 0 ? (
-              <p className="muted">{copy('还没有提交。', 'No saved records yet.')}</p>
-            ) : (
-              <ul className="commit-list-v2">
-                {recentRecords.map((record) => (
-                  <li key={record.id}>
-                    <span className="commit-icon-v2">
-                      <SparklesMarker />
-                    </span>
-                    <div>
-                      <strong>{record.message || copy('没有说明', 'No note')}</strong>
-                      <small>{formatTime(record.timestamp, locale)}</small>
-                    </div>
-                    <button className="copy-hash-v2" onClick={() => void copyRecordId(record.id)}>
-                      {shortHash(record.id)}
-                      <Copy size={15} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="panel quick-actions-v2">
-            <h2>{copy('快速操作', 'Quick Actions')}</h2>
-            <div className="quick-grid-v2">
-              <Link to="/changes" className="quick-button-v2">
-                <RefreshCw size={22} />
-                {copy('提交变更', 'Save Changes')}
-              </Link>
-              <Link to="/plans" className="quick-button-v2">
-                <GitBranch size={22} />
-                {copy('切换分支', 'Switch Copy')}
-              </Link>
-              <button className="quick-button-v2" onClick={() => void getLatestFromCloud()}>
-                <CloudDownload size={22} />
-                {copy('拉取更新', 'Get Latest')}
-              </button>
-              <button className="quick-button-v2" onClick={() => void uploadCloud()}>
-                <Upload size={22} />
-                {copy('推送到远端', 'Upload')}
-              </button>
-              <button className="quick-button-v2" onClick={() => openIdeaCopyDialog()}>
-                <Plus size={22} />
-                {copy('新建分支', 'New Idea')}
-              </button>
-              <Link to="/settings" className="quick-button-v2">
-                <MoreHorizontal size={22} />
-                {copy('更多操作', 'More')}
-              </Link>
-            </div>
-          </section>
-        </aside>
+        <div className="simple-node-rail">
+          <Link className={`simple-node ${hasChanges ? 'active' : ''}`} to="/changes">
+            <FileText size={22} />
+            <strong>{copy('当前修改', 'Changes')}</strong>
+            <span>{hasChanges ? copy(`${project.pendingChangeCount} 个文件`, `${project.pendingChangeCount} files`) : copy('没有待保存修改', 'No pending changes')}</span>
+          </Link>
+          <Link className={`simple-node ${hasSavedPoint ? 'done' : ''}`} to="/timeline">
+            <Clock3 size={22} />
+            <strong>{copy('保存节点', 'Save Points')}</strong>
+            <span>{hasSavedPoint ? copy(`${overview?.savedRecordCount ?? historyCount} 个节点`, `${overview?.savedRecordCount ?? historyCount} points`) : copy('先保存一次', 'Save once first')}</span>
+          </Link>
+          <Link className="simple-node" to="/settings?tab=sync">
+            <CloudUpload size={22} />
+            <strong>{copy('云端同步', 'Cloud Sync')}</strong>
+            <span>{copy('上传或获取最新', 'Upload or get latest')}</span>
+          </Link>
+          <button className="simple-node" onClick={() => openIdeaCopyDialog()}>
+            <GitBranch size={22} />
+            <strong>{copy('试新想法', 'Try Ideas')}</strong>
+            <span>{copy('开一条安全路线', 'Create a safe path')}</span>
+          </button>
+          <Link className="simple-node" to="/timeline">
+            <RotateCcw size={22} />
+            <strong>{copy('回到旧节点', 'Restore')}</strong>
+            <span>{copy('从时间线选择', 'Pick from timeline')}</span>
+          </Link>
+        </div>
       </section>
 
-      <footer className="project-footer-v2">
-        <span>{copy('本地仓库：', 'Local repo: ')}{project.path}\\.git</span>
-        <span className="footer-status-v2 ok">{copy('已是最新', 'Up to date')}</span>
-        <span className={`footer-status-v2 ${isClean ? 'ok' : 'attention'}`}>
-          {isClean ? copy('工作区干净', 'Clean workspace') : copy(`${project.pendingChangeCount} 个文件待保存`, `${project.pendingChangeCount} files pending`)}
-        </span>
-      </footer>
+      <section className="simple-bottom-grid">
+        <article className="simple-panel">
+          <h2>{copy('最近保存节点', 'Recent Save Points')}</h2>
+          {overviewLoading ? (
+            <p>{copy('正在读取...', 'Loading...')}</p>
+          ) : latestRecords.length === 0 ? (
+            <p>{copy('还没有保存节点。先去“当前修改”保存一次。', 'No save points yet. Go to Changes and save once.')}</p>
+          ) : (
+            <div className="simple-save-list">
+              {latestRecords.map((record, index) => (
+                <Link key={record.id} to="/timeline">
+                  <span>{index + 1}</span>
+                  <strong>{record.message || copy('没有说明', 'No note')}</strong>
+                  <small>{formatTime(record.timestamp, locale)}</small>
+                </Link>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="simple-panel">
+          <h2>{copy('常用动作', 'Common Actions')}</h2>
+          <div className="simple-command-grid">
+            <Link to="/changes">{copy('查看并保存修改', 'Review and Save')}</Link>
+            <Link to="/timeline">{copy('回到某个保存点', 'Restore a Point')}</Link>
+            <button onClick={() => void uploadCloud()}>{copy('上传到云端', 'Upload')}</button>
+            <button onClick={() => void getLatestFromCloud()}>{copy('获取云端最新', 'Get Latest')}</button>
+          </div>
+        </article>
+      </section>
     </div>
   );
-}
-
-function SparklesMarker() {
-  return <Plus size={16} />;
 }

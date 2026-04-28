@@ -121,10 +121,13 @@ describe('TimelinePage', () => {
 
     renderTimelinePage('en-US');
 
-    expect(await screen.findByText('Save History')).toBeInTheDocument();
+    expect(await screen.findByText('Save Timeline')).toBeInTheDocument();
+    expect(screen.getByText('Every save is a point you can return to')).toBeInTheDocument();
     expect(screen.getAllByText('Fix login save flow').length).toBeGreaterThan(0);
-    expect(screen.getByText('This save changed 3 files')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Restore to This Point' })).toBeInTheDocument();
+    expect(screen.getByText('Files saved in this point')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('files changed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restore This Point' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
