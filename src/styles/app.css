@@ -5130,6 +5130,223 @@ pre {
   gap: 10px;
 }
 
+.timeline-route-card,
+.timeline-node-detail,
+.timeline-code-panel {
+  border: 1px solid #e1e8f0;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(37, 70, 105, 0.06);
+}
+
+.timeline-route-card {
+  flex: 0 0 auto;
+  padding: 18px;
+}
+
+.timeline-route-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
+.timeline-route-line {
+  position: relative;
+  min-width: max-content;
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.timeline-route-line::before {
+  content: '';
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  top: 30px;
+  height: 4px;
+  border-radius: 999px;
+  background: #dbe7ff;
+}
+
+.timeline-route-node {
+  position: relative;
+  z-index: 1;
+  width: 190px;
+  min-height: 116px;
+  border: 1px solid #dbe5ef;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #344054;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.timeline-route-node:hover,
+.timeline-route-node.active {
+  border-color: #bcd4ff;
+  background: linear-gradient(160deg, #f8fbff 0%, #ffffff 100%);
+  box-shadow: 0 12px 26px rgba(20, 88, 245, 0.1);
+}
+
+.timeline-route-node span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1458f5;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+}
+
+.timeline-route-node strong,
+.timeline-route-node small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-route-node small {
+  color: #667085;
+  line-height: 1.45;
+}
+
+.timeline-route-node.new-point {
+  border-style: dashed;
+  background: #f8fbff;
+}
+
+.timeline-route-node.new-point span {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.timeline-empty-route {
+  min-height: 124px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #667085;
+  text-align: center;
+}
+
+.timeline-empty-route strong {
+  color: #111827;
+}
+
+.timeline-workbench {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(330px, 0.42fr) minmax(0, 0.58fr);
+  gap: 18px;
+}
+
+.timeline-node-detail,
+.timeline-code-panel {
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-file-change-list {
+  min-height: 0;
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-file-change {
+  width: 100%;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #344054;
+  text-align: left;
+  font: inherit;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.timeline-file-change:hover,
+.timeline-file-change.active {
+  border-color: #bcd4ff;
+  background: #f8fbff;
+}
+
+.timeline-file-change span,
+.timeline-file-change strong,
+.timeline-file-change small {
+  min-width: 0;
+}
+
+.timeline-file-change strong,
+.timeline-file-change small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-file-change small {
+  color: #667085;
+  margin-top: 3px;
+}
+
+.timeline-file-change em {
+  margin-left: 8px;
+  color: #16a34a;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.timeline-file-change em + em {
+  color: #dc2626;
+}
+
+.timeline-diff-card {
+  border: 1px solid #e1e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.idea-from-node-dialog {
+  max-width: 520px;
+}
+
+.sync-step-grid-v2 article,
+.sync-panel-v2,
+.settings-status-card-v2,
+.settings-status-card-v2 div {
+  min-width: 0;
+}
+
+.sync-step-grid-v2 p,
+.sync-step-grid-v2 small,
+.settings-status-card-v2 span,
+.sync-node-summary-v2 strong,
+.sync-panel-v2 .input-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 @media (max-width: 1260px) {
   .plans-status-grid-v2 {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
@@ -5145,6 +5362,7 @@ pre {
   .simple-node-rail,
   .timeline-overview-card,
   .timeline-layout-simple,
+  .timeline-workbench,
   .collision-grid-v2,
   .collision-actions-v2 {
     grid-template-columns: 1fr;

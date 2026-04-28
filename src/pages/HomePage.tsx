@@ -175,8 +175,9 @@ export function HomePage() {
   const isStable = project.currentPlan === 'main' || project.currentPlan === 'master';
   const planLabel = toPlanLabel(project.currentPlan, isStable, t);
   const latestRecords = overview?.recentRecords.slice(0, 5) ?? [];
+  const savedPointCount = overview?.savedRecordCount ?? historyCount ?? 0;
   const hasChanges = project.pendingChangeCount > 0;
-  const hasSavedPoint = (overview?.savedRecordCount ?? historyCount ?? 0) > 0;
+  const hasSavedPoint = savedPointCount > 0;
 
   return (
     <div className="page project-simple-page">
@@ -272,7 +273,7 @@ export function HomePage() {
             <div className="simple-save-list">
               {latestRecords.map((record, index) => (
                 <Link key={record.id} to="/timeline">
-                  <span>{index + 1}</span>
+                  <span>{Math.max(1, savedPointCount - index)}</span>
                   <strong>{record.message || copy('没有说明', 'No note')}</strong>
                   <small>{formatTime(record.timestamp, locale)}</small>
                 </Link>

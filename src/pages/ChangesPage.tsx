@@ -254,10 +254,6 @@ export function ChangesPage() {
             <Trash2 size={18} />
             {copy('不要这些修改', 'Discard Changes')}
           </button>
-          <button className="btn btn-primary project-header-primary" disabled={saving || changes.length === 0} onClick={() => void handleSave('all')}>
-            <GitBranch size={18} />
-            {copy('保存为节点', 'Save Point')}
-          </button>
         </div>
       </header>
 
@@ -392,7 +388,7 @@ export function ChangesPage() {
           </button>
           <button className="btn btn-primary project-header-primary" disabled={saving || changes.length === 0} onClick={() => void handleSave('all')}>
             <GitBranch size={18} />
-            {copy('保存为时间线节点', 'Save Timeline Point')}
+            {copy('保存节点', 'Save Point')}
           </button>
         </div>
       </footer>

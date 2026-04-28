@@ -66,6 +66,18 @@ export interface HistoryRecord {
   files: string[];
 }
 
+export interface HistoryFileChange {
+  path: string;
+  changeType: ChangeType;
+  additions: number;
+  deletions: number;
+  diffText: string;
+}
+
+export interface HistoryRecordDetails extends HistoryRecord {
+  changes: HistoryFileChange[];
+}
+
 export interface SafetyBackup {
   id: string;
   name: string;
@@ -163,6 +175,7 @@ export interface TapGitBridge {
   discardAllChanges(projectPath: string): Promise<Result<void>>;
   saveProgress(payload: SaveProgressPayload): Promise<Result<SaveProgressResult>>;
   listHistory(projectPath: string): Promise<Result<HistoryRecord[]>>;
+  getHistoryRecordDetails(projectPath: string, recordId: string): Promise<Result<HistoryRecordDetails>>;
   listSafetyBackups(projectPath: string): Promise<Result<SafetyBackup[]>>;
   createSafetyBackup(projectPath: string): Promise<Result<SafetyBackup>>;
   restoreToRecord(projectPath: string, recordId: string): Promise<Result<void>>;
@@ -218,6 +231,7 @@ export const IPC_CHANNELS = {
   DISCARD_ALL_CHANGES: 'tapgit:discard-all-changes',
   SAVE_PROGRESS: 'tapgit:save-progress',
   LIST_HISTORY: 'tapgit:list-history',
+  GET_HISTORY_RECORD_DETAILS: 'tapgit:get-history-record-details',
   LIST_SAFETY_BACKUPS: 'tapgit:list-safety-backups',
   CREATE_SAFETY_BACKUP: 'tapgit:create-safety-backup',
   RESTORE_TO_RECORD: 'tapgit:restore-to-record',

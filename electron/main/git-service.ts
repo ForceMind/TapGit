@@ -10,7 +10,9 @@ import {
   CloudConnectionTestResult,
   CloudSyncStatus,
   GitEnvironment,
+  HistoryFileChange,
   HistoryRecord,
+  HistoryRecordDetails,
   MergeConflict,
   MergeResult,
   PlanInfo,
@@ -333,6 +335,79 @@ function parseLogOutput(raw: string): HistoryRecord[] {
     });
   }
   return records;
+}
+
+function mapHistoryChangeType(statusCode: string): ChangeItem['changeType'] {
+  if (statusCode.startsWith('A')) return 'added';
+  if (statusCode.startsWith('D')) return 'deleted';
+  if (statusCode.startsWith('R')) return 'renamed';
+  return 'modified';
+}
+
+function parseHistoryNameStatus(raw: string) {
+  const result = new Map<string, ChangeItem['changeType']>();
+
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const [statusCode, ...paths] = trimmed.split('\t');
+    const filePath = statusCode.startsWith('R') ? paths[1] || paths[0] : paths[0];
+    if (filePath) {
+      result.set(filePath, mapHistoryChangeType(statusCode));
+    }
+  }
+
+  return result;
+}
+
+function normalizeNumstatPath(filePath: string) {
+  const trimmed = filePath.trim();
+  const arrowIndex = trimmed.lastIndexOf(' => ');
+  if (arrowIndex < 0) return trimmed;
+
+  const suffix = trimmed.slice(arrowIndex + 4).replace(/[{}]/g, '').trim();
+  const prefix = trimmed.slice(0, arrowIndex).replace(/[{}]/g, '').trim();
+  const slashIndex = prefix.lastIndexOf('/');
+  return slashIndex >= 0 ? `${prefix.slice(0, slashIndex + 1)}${suffix}` : suffix;
+}
+
+function parseHistoryNumstat(raw: string) {
+  const result = new Map<string, { additions: number; deletions: number }>();
+
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const [addRaw, delRaw, ...pathParts] = line.split('\t');
+    const filePath = normalizeNumstatPath(pathParts.join('\t'));
+    if (!filePath) continue;
+
+    const additions = Number(addRaw);
+    const deletions = Number(delRaw);
+    result.set(filePath, {
+      additions: Number.isNaN(additions) ? 0 : additions,
+      deletions: Number.isNaN(deletions) ? 0 : deletions
+    });
+  }
+
+  return result;
+}
+
+function countDiffStats(diffText: string) {
+  let additions = 0;
+  let deletions = 0;
+
+  for (const line of diffText.split(/\r?\n/)) {
+    if (line.startsWith('+') && !line.startsWith('+++')) additions += 1;
+    if (line.startsWith('-') && !line.startsWith('---')) deletions += 1;
+  }
+
+  return { additions, deletions };
+}
+
+function limitDiffText(diffText: string) {
+  const lines = diffText.split(/\r?\n/);
+  if (lines.length <= 900) return diffText || '__TAPGIT_NO_DIFF_DETAIL__';
+  return `${lines.slice(0, 900).join('\n')}\n\n# Diff truncated by TapGit for faster preview.`;
 }
 
 function toProjectName(projectPath: string) {
@@ -1029,6 +1104,57 @@ export async function listHistory(projectPath: string): Promise<HistoryRecord[]>
     '120'
   ]);
   return parseLogOutput(raw);
+}
+
+export async function getHistoryRecordDetails(
+  projectPath: string,
+  recordId: string
+): Promise<HistoryRecordDetails> {
+  await ensureProtectedProject(projectPath);
+
+  if (!(await hasCommits(projectPath))) {
+    throw new AppError('NO_HISTORY', '还没有历史记录，暂时无法查看节点详情');
+  }
+
+  const records = await listHistory(projectPath);
+  const record = records.find((item) => item.id === recordId || item.id.startsWith(recordId));
+  if (!record) {
+    throw new AppError('RECORD_NOT_FOUND', '没有找到这个保存节点');
+  }
+
+  const git = createGit(projectPath);
+  const [nameStatusRaw, numstatRaw] = await Promise.all([
+    git.raw(['show', '--format=', '--find-renames', '--name-status', record.id]),
+    git.raw(['show', '--format=', '--find-renames', '--numstat', record.id])
+  ]);
+  const statusByPath = parseHistoryNameStatus(nameStatusRaw);
+  const statsByPath = parseHistoryNumstat(numstatRaw);
+
+  const changes = await Promise.all(
+    record.files.map(async (filePath): Promise<HistoryFileChange> => {
+      const diffText = await git
+        .raw(['show', '--format=', '--find-renames', record.id, '--', filePath])
+        .then(limitDiffText)
+        .catch(() => '__TAPGIT_NO_DIFF_DETAIL__');
+      const fallbackStats = countDiffStats(diffText);
+      const stats = statsByPath.get(filePath) ?? fallbackStats;
+
+      return {
+        path: filePath,
+        changeType: statusByPath.get(filePath) ?? 'modified',
+        additions: stats.additions,
+        deletions: stats.deletions,
+        diffText
+      };
+    })
+  );
+
+  return {
+    ...record,
+    changedFiles: changes.length,
+    files: changes.map((item) => item.path),
+    changes
+  };
 }
 
 export async function listSafetyBackups(projectPath: string): Promise<SafetyBackup[]> {

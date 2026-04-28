@@ -33,6 +33,7 @@ function createBridgeMock() {
     discardAllChanges: vi.fn(),
     saveProgress: vi.fn(),
     listHistory: vi.fn(),
+    getHistoryRecordDetails: vi.fn(),
     listSafetyBackups: vi.fn(),
     createSafetyBackup: vi.fn(),
     restoreToRecord: vi.fn(),
@@ -108,6 +109,13 @@ describe('TimelinePage', () => {
       ok: true,
       data: [
         {
+          id: 'record-2',
+          message: 'Ship dashboard',
+          timestamp: 1712722500,
+          changedFiles: 1,
+          files: ['src/dashboard.tsx']
+        },
+        {
           id: 'record-1',
           message: 'Fix login save flow',
           timestamp: 1712636100,
@@ -116,21 +124,45 @@ describe('TimelinePage', () => {
         }
       ]
     });
+    bridge.getHistoryRecordDetails.mockResolvedValue({
+      ok: true,
+      data: {
+        id: 'record-2',
+        message: 'Ship dashboard',
+        timestamp: 1712722500,
+        changedFiles: 1,
+        files: ['src/dashboard.tsx'],
+        changes: [
+          {
+            path: 'src/dashboard.tsx',
+            changeType: 'modified',
+            additions: 12,
+            deletions: 4,
+            diffText: '@@ -1 +1 @@\n-old\n+new'
+          }
+        ]
+      }
+    });
     bridge.listSafetyBackups.mockResolvedValue({ ok: true, data: [] });
     window.tapgit = bridge as never;
 
     renderTimelinePage('en-US');
 
     expect(await screen.findByText('Save Timeline')).toBeInTheDocument();
-    expect(screen.getByText('Every save is a point you can return to')).toBeInTheDocument();
+    expect(screen.getByText('Work point by point')).toBeInTheDocument();
     expect(screen.getAllByText('Fix login save flow').length).toBeGreaterThan(0);
-    expect(screen.getByText('Files saved in this point')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('files changed')).toBeInTheDocument();
+    expect(screen.getAllByText('Ship dashboard').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /1Fix login save flow/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /2Ship dashboard/ })).toBeInTheDocument();
+    expect(screen.getByText('Changes saved in this point')).toBeInTheDocument();
+    expect((await screen.findAllByText('src/dashboard.tsx')).length).toBeGreaterThan(0);
+    expect(screen.getByText('files with code records')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Restore This Point' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try a New Path Here' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(bridge.listHistory).toHaveBeenCalledWith('E:/demo/project-a');
+      expect(bridge.getHistoryRecordDetails).toHaveBeenCalledWith('E:/demo/project-a', 'record-2');
     });
   });
 });

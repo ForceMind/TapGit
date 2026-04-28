@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppActions } from '../app/app-context';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { toLocalizedErrorMessage, useI18n } from '../i18n';
-import { HistoryRecord } from '../shared/contracts';
+import { toChangeStatusLabel, toLocalizedDiffText, toLocalizedErrorMessage, useI18n } from '../i18n';
+import { HistoryFileChange, HistoryRecord, HistoryRecordDetails } from '../shared/contracts';
 import { getBridge, unwrapResult } from '../services/bridge';
 import { useAppStore } from '../stores/useAppStore';
 
@@ -23,6 +23,24 @@ function formatRelative(timestamp: number | null, locale: string) {
   return locale === 'zh-CN' ? `${days} 天前` : `${days}d ago`;
 }
 
+function splitDiffLines(diffText: string) {
+  return diffText.split(/\r?\n/).slice(0, 360).map((line, index) => {
+    const type = line.startsWith('+') && !line.startsWith('+++')
+      ? 'add'
+      : line.startsWith('-') && !line.startsWith('---')
+        ? 'del'
+        : line.startsWith('@@')
+          ? 'meta'
+          : 'normal';
+
+    return { id: `${index}-${line}`, line, type };
+  });
+}
+
+function defaultIdeaName(record: HistoryRecord) {
+  return `idea-${record.id.slice(0, 7)}`;
+}
+
 export function TimelinePage() {
   const { project, config, setNotice } = useAppStore();
   const { openProjectFolder, enableProtection, refreshProject } = useAppActions();
@@ -31,26 +49,44 @@ export function TimelinePage() {
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [query, setQuery] = useState('');
+  const [details, setDetails] = useState<HistoryRecordDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [selectedFilePath, setSelectedFilePath] = useState('');
   const [restoring, setRestoring] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [ideaDialogOpen, setIdeaDialogOpen] = useState(false);
+  const [ideaName, setIdeaName] = useState('');
+  const [ideaCreating, setIdeaCreating] = useState(false);
 
   const copy = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
+  const chronologicalRecords = useMemo(() => [...records].reverse(), [records]);
+
   const filteredRecords = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return records;
-    return records.filter((item) => {
+    if (!keyword) return chronologicalRecords;
+    return chronologicalRecords.filter((item) => {
       return (
         item.message.toLowerCase().includes(keyword) ||
         item.id.toLowerCase().includes(keyword) ||
         item.files.some((file) => file.toLowerCase().includes(keyword))
       );
     });
-  }, [query, records]);
+  }, [chronologicalRecords, query]);
 
   const selectedRecord = useMemo(
-    () => records.find((item) => item.id === selectedId) ?? filteredRecords[0] ?? null,
+    () => records.find((item) => item.id === selectedId) ?? filteredRecords[filteredRecords.length - 1] ?? null,
     [filteredRecords, records, selectedId]
+  );
+
+  const selectedChange = useMemo(() => {
+    if (!details || details.id !== selectedRecord?.id) return null;
+    return details.changes.find((item) => item.path === selectedFilePath) ?? details.changes[0] ?? null;
+  }, [details, selectedFilePath, selectedRecord?.id]);
+
+  const diffLines = useMemo(
+    () => splitDiffLines(toLocalizedDiffText(selectedChange?.diffText ?? '', t)),
+    [selectedChange?.diffText, t]
   );
 
   async function loadRecords() {
@@ -75,6 +111,49 @@ export function TimelinePage() {
     void loadRecords();
   }, [project?.path, project?.isProtected]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDetails() {
+      if (!project?.path || !selectedRecord) {
+        setDetails(null);
+        return;
+      }
+
+      setDetailsLoading(true);
+      try {
+        const nextDetails = await unwrapResult(
+          getBridge().getHistoryRecordDetails(project.path, selectedRecord.id)
+        );
+        if (!cancelled) {
+          setDetails(nextDetails);
+          setSelectedFilePath((current) =>
+            nextDetails.changes.some((item) => item.path === current)
+              ? current
+              : nextDetails.changes[0]?.path ?? ''
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDetails(null);
+          setNotice({
+            type: 'error',
+            text: toLocalizedErrorMessage(error, t, 'timeline_notice_load_failed')
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setDetailsLoading(false);
+        }
+      }
+    }
+
+    void loadDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.path, selectedRecord?.id]);
+
   async function handleRestoreRecord() {
     if (!project?.path || !selectedRecord) return;
 
@@ -95,9 +174,39 @@ export function TimelinePage() {
     }
   }
 
+  async function handleCreateIdeaFromNode() {
+    if (!project?.path || !selectedRecord) return;
+
+    const finalName = ideaName.trim() || defaultIdeaName(selectedRecord);
+    setIdeaCreating(true);
+    try {
+      await unwrapResult(getBridge().createPlan(project.path, finalName, selectedRecord.id));
+      setNotice({
+        type: 'success',
+        text: copy('已从这个节点拉出一条新路线', 'Created a new path from this point')
+      });
+      setIdeaDialogOpen(false);
+      setIdeaName('');
+      await refreshProject();
+    } catch (error) {
+      setNotice({
+        type: 'error',
+        text: toLocalizedErrorMessage(error, t, 'plans_notice_create_failed')
+      });
+    } finally {
+      setIdeaCreating(false);
+    }
+  }
+
   async function copyRecordId(id: string) {
     await navigator.clipboard?.writeText(id).catch(() => undefined);
     setNotice({ type: 'success', text: copy('已复制节点编号', 'Point ID copied') });
+  }
+
+  function openIdeaDialog() {
+    if (!selectedRecord) return;
+    setIdeaName(defaultIdeaName(selectedRecord));
+    setIdeaDialogOpen(true);
   }
 
   function renderEmptyState(title: string, description: string, action: ReactNode) {
@@ -109,6 +218,32 @@ export function TimelinePage() {
           <div className="actions-row">{action}</div>
         </section>
       </div>
+    );
+  }
+
+  function nodeNumber(record: HistoryRecord) {
+    const index = chronologicalRecords.findIndex((item) => item.id === record.id);
+    return index >= 0 ? index + 1 : 1;
+  }
+
+  function renderChangeRow(change: HistoryFileChange) {
+    return (
+      <button
+        key={change.path}
+        type="button"
+        className={`timeline-file-change ${selectedChange?.path === change.path ? 'active' : ''}`}
+        onClick={() => setSelectedFilePath(change.path)}
+      >
+        <FileText size={17} />
+        <span>
+          <strong>{change.path}</strong>
+          <small>
+            {toChangeStatusLabel(change.changeType, t)}
+            <em>+{change.additions}</em>
+            <em>-{change.deletions}</em>
+          </small>
+        </span>
+      </button>
     );
   }
 
@@ -130,16 +265,16 @@ export function TimelinePage() {
 
   return (
     <div className="page page-v2 history-page-v2 timeline-simple-page">
-      <header className="simple-section-head">
+      <header className="simple-section-head compact">
         <div>
           <span className="simple-eyebrow">{copy('保存时间线', 'Save Timeline')}</span>
-          <h1>{copy('每次保存都是一个可以回去的节点', 'Every save is a point you can return to')}</h1>
-          <p>{copy('选择一个节点，就能查看当时保存了什么；需要时可以安全回到那里。', 'Pick a point to see what was saved there. Restore when needed.')}</p>
+          <h1>{copy('按节点推进项目', 'Work point by point')}</h1>
+          <p>{copy('先保存当前修改；需要试错时，选中一个节点，从那里拉出新路线。', 'Save changes first. When you need to experiment, pick a point and branch a new path from it.')}</p>
         </div>
         <div className="header-actions-v2">
           <Link className="btn btn-secondary" to="/changes">
             <FileText size={18} />
-            {copy('查看当前修改', 'Current Changes')}
+            {copy('当前修改', 'Current Changes')}
           </Link>
         </div>
       </header>
@@ -158,45 +293,48 @@ export function TimelinePage() {
         </label>
       </section>
 
-      <section className="history-layout-v2 timeline-layout-simple">
-        <aside className="history-list-panel-v2 timeline-list-simple">
-          {loading ? (
-            <p className="history-empty-v2">{t('timeline_loading')}</p>
-          ) : filteredRecords.length === 0 ? (
-            <div className="history-empty-v2">
-              <strong>{copy('还没有保存节点', 'No save points yet')}</strong>
-              <span>{t('timeline_empty')}</span>
-              <Link className="btn btn-primary" to="/changes">{t('timeline_empty_action')}</Link>
-            </div>
-          ) : (
-            <ol className="timeline-node-list">
-              {filteredRecords.map((record, index) => (
-                <li key={record.id}>
-                  <button
-                    type="button"
-                    className={`timeline-node-row ${selectedRecord?.id === record.id ? 'active' : ''}`}
-                    onClick={() => setSelectedId(record.id)}
-                  >
-                    <span className="timeline-node-dot">{index + 1}</span>
-                    <span className="timeline-node-copy">
-                      <strong>{record.message || copy('没有说明', 'No note')}</strong>
-                      <small>{formatRelative(record.timestamp, locale)} · {record.changedFiles} {copy('个文件', 'files')}</small>
-                    </span>
-                    <code>{record.id.slice(0, 7)}</code>
-                  </button>
-                </li>
+      <section className="timeline-route-card">
+        {loading ? (
+          <p className="history-empty-v2">{t('timeline_loading')}</p>
+        ) : filteredRecords.length === 0 ? (
+          <div className="timeline-empty-route">
+            <strong>{copy('还没有保存节点', 'No save points yet')}</strong>
+            <span>{t('timeline_empty')}</span>
+            <Link className="btn btn-primary" to="/changes">{t('timeline_empty_action')}</Link>
+          </div>
+        ) : (
+          <div className="timeline-route-scroll">
+            <div className="timeline-route-line">
+              {filteredRecords.map((record) => (
+                <button
+                  key={record.id}
+                  type="button"
+                  className={`timeline-route-node ${selectedRecord?.id === record.id ? 'active' : ''}`}
+                  onClick={() => setSelectedId(record.id)}
+                >
+                  <span>{nodeNumber(record)}</span>
+                  <strong>{record.message || copy('没有说明', 'No note')}</strong>
+                  <small>{formatRelative(record.timestamp, locale)} · {record.changedFiles} {copy('个文件', 'files')}</small>
+                </button>
               ))}
-            </ol>
-          )}
-        </aside>
+              <Link className="timeline-route-node new-point" to="/changes">
+                <span>+</span>
+                <strong>{copy('保存新节点', 'Save New Point')}</strong>
+                <small>{project.pendingChangeCount > 0 ? copy(`${project.pendingChangeCount} 个修改待保存`, `${project.pendingChangeCount} changes waiting`) : copy('有修改时从这里保存', 'Save here when changes exist')}</small>
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
 
-        <main className="history-detail-panel-v2 timeline-detail-simple">
+      <section className="timeline-workbench">
+        <aside className="timeline-node-detail">
           {!selectedRecord ? (
             <div className="history-empty-v2">{t('timeline_select_record')}</div>
           ) : (
             <>
               <div className="timeline-point-hero">
-                <span>{records[0]?.id === selectedRecord.id ? copy('最新节点', 'Latest point') : copy('历史节点', 'Saved point')}</span>
+                <span>{records[0]?.id === selectedRecord.id ? copy('最新节点', 'Latest point') : copy(`节点 ${nodeNumber(selectedRecord)}`, `Point ${nodeNumber(selectedRecord)}`)}</span>
                 <h2>{selectedRecord.message || copy('没有说明', 'No note')}</h2>
                 <p>
                   <Clock3 size={18} />
@@ -205,33 +343,74 @@ export function TimelinePage() {
               </div>
 
               <div className="timeline-action-row">
-                <button className="btn btn-primary project-header-primary" onClick={() => setRestoreDialogOpen(true)}>
+                <button className="btn btn-primary project-header-primary" onClick={() => openIdeaDialog()}>
+                  <GitBranch size={18} />
+                  {copy('从这里试新路线', 'Try a New Path Here')}
+                </button>
+                <button className="btn btn-secondary" onClick={() => setRestoreDialogOpen(true)}>
                   <RotateCcw size={18} />
                   {copy('回到这个节点', 'Restore This Point')}
                 </button>
                 <button className="btn btn-secondary" onClick={() => void copyRecordId(selectedRecord.id)}>
                   <Copy size={18} />
-                  {copy('复制节点编号', 'Copy Point ID')}
+                  {copy('复制编号', 'Copy ID')}
                 </button>
               </div>
 
               <section className="timeline-files-card">
-                <h3>{copy('这个节点保存了哪些文件', 'Files saved in this point')}</h3>
+                <h3>{copy('这个节点保存了哪些修改', 'Changes saved in this point')}</h3>
                 <div className="timeline-files-summary">
-                  <strong>{selectedRecord.changedFiles}</strong>
-                  <span>{copy('个文件有变化', 'files changed')}</span>
+                  <strong>{details?.changes.length ?? selectedRecord.changedFiles}</strong>
+                  <span>{copy('个文件有代码记录', 'files with code records')}</span>
                 </div>
-                <ul>
-                  {selectedRecord.files.slice(0, 28).map((file) => (
-                    <li key={file}>
-                      <FileText size={17} />
-                      {file}
-                    </li>
-                  ))}
-                </ul>
+                <div className="timeline-file-change-list">
+                  {detailsLoading ? (
+                    <p className="history-empty-v2">{copy('正在读取修改记录...', 'Loading code changes...')}</p>
+                  ) : details?.changes.length ? (
+                    details.changes.map(renderChangeRow)
+                  ) : (
+                    <p className="history-empty-v2">{copy('暂无可展示的代码记录', 'No code records to show')}</p>
+                  )}
+                </div>
               </section>
             </>
           )}
+        </aside>
+
+        <main className="timeline-code-panel">
+          <div className="change-detail-head-v2">
+            <div>
+              <h2>{selectedChange?.path ?? copy('选择一个文件', 'Select a file')}</h2>
+              {selectedChange ? (
+                <p>
+                  {toChangeStatusLabel(selectedChange.changeType, t)}
+                  <span>+{selectedChange.additions}</span>
+                  <span>-{selectedChange.deletions}</span>
+                </p>
+              ) : (
+                <p>{copy('点击左侧文件，查看这个节点里的代码修改。', 'Click a file on the left to inspect the code change in this point.')}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="diff-card-v2 timeline-diff-card">
+            <div className="diff-columns-head-v2">
+              <strong>{copy('修改前', 'Before')}</strong>
+              <strong>{copy('修改后', 'After')}</strong>
+            </div>
+            {selectedChange ? (
+              <div className="diff-lines-v2">
+                {diffLines.map((line, index) => (
+                  <div key={line.id} className={`diff-line-v2 ${line.type}`}>
+                    <span>{index + 1}</span>
+                    <code>{line.line || ' '}</code>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="diff-empty-v2">{copy('选择一个文件后，这里显示代码修改。', 'Select a file to show code changes here.')}</div>
+            )}
+          </div>
         </main>
       </section>
 
@@ -258,6 +437,41 @@ export function TimelinePage() {
           onCancel={() => setRestoreDialogOpen(false)}
           onConfirm={() => void handleRestoreRecord()}
         />
+      ) : null}
+
+      {ideaDialogOpen && selectedRecord ? (
+        <div className="dialog-backdrop" role="presentation" onClick={ideaCreating ? undefined : () => setIdeaDialogOpen(false)}>
+          <div
+            className="dialog-card idea-from-node-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="idea-from-node-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dialog-eyebrow">{copy(`从节点 ${nodeNumber(selectedRecord)} 开始`, `From point ${nodeNumber(selectedRecord)}`)}</div>
+            <h3 id="idea-from-node-title">{copy('试一条新路线', 'Try a new path')}</h3>
+            <p className="dialog-description">
+              {copy('码迹会从你选中的保存节点拉出一条新路线。原来的路线不会被破坏。', 'TapGit creates a new path from the selected save point. The original path stays safe.')}
+            </p>
+            <label className="field-stack">
+              <span className="field-label">{copy('新路线名称', 'New path name')}</span>
+              <input
+                className="input-text"
+                value={ideaName}
+                onChange={(event) => setIdeaName(event.target.value)}
+                placeholder={defaultIdeaName(selectedRecord)}
+              />
+            </label>
+            <div className="dialog-actions">
+              <button className="btn btn-secondary" disabled={ideaCreating} onClick={() => setIdeaDialogOpen(false)}>
+                {t('common_cancel')}
+              </button>
+              <button className="btn btn-primary" disabled={ideaCreating} onClick={() => void handleCreateIdeaFromNode()}>
+                {copy('创建新路线', 'Create New Path')}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

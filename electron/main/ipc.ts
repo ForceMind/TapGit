@@ -17,6 +17,7 @@ import {
   getCloudLatest,
   getCloudSyncStatus,
   getCurrentChanges,
+  getHistoryRecordDetails,
   getProjectOverview,
   listHistory,
   listSafetyBackups,
@@ -155,6 +156,10 @@ export function registerIpcHandlers() {
     saveProgress
   );
   register<[string], Awaited<ReturnType<typeof listHistory>>>(IPC_CHANNELS.LIST_HISTORY, listHistory);
+  register<[string, string], Awaited<ReturnType<typeof getHistoryRecordDetails>>>(
+    IPC_CHANNELS.GET_HISTORY_RECORD_DETAILS,
+    getHistoryRecordDetails
+  );
   register<[string], Awaited<ReturnType<typeof listSafetyBackups>>>(
     IPC_CHANNELS.LIST_SAFETY_BACKUPS,
     listSafetyBackups
