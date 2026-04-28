@@ -162,4 +162,59 @@ describe('SettingsPage', () => {
       expect(bridge.getGitHubAuthStatus).toHaveBeenCalledTimes(1);
     });
   });
+
+  it('explains browser-based GitHub sign-in instead of showing a false success', async () => {
+    const bridge = createBridgeMock();
+    bridge.checkGitEnvironment.mockResolvedValue({
+      ok: true,
+      data: {
+        available: true,
+        version: '2.48.1'
+      }
+    });
+    bridge.getCloudSyncStatus.mockResolvedValue({
+      ok: true,
+      data: {
+        connected: false,
+        remoteLabel: '',
+        remoteUrl: '',
+        currentPlan: 'main',
+        hasTracking: false,
+        pendingUpload: 0,
+        pendingDownload: 0,
+        statusText: 'not connected'
+      }
+    });
+    bridge.getGitHubAuthStatus.mockResolvedValue({
+      ok: true,
+      data: {
+        available: false,
+        accounts: [],
+        activeAccount: null
+      }
+    });
+    bridge.loginGitHub.mockResolvedValue({
+      ok: true,
+      data: {
+        available: false,
+        accounts: [],
+        activeAccount: null,
+        browserLoginOpened: true,
+        helpUrl: 'https://github.com/login'
+      }
+    });
+    window.tapgit = bridge as never;
+
+    renderSettingsPage('en-US');
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign In to GitHub' }));
+
+    await waitFor(() => {
+      expect(bridge.loginGitHub).toHaveBeenCalledTimes(1);
+      expect(useAppStore.getState().notice).toEqual({
+        type: 'info',
+        text: 'GitHub sign-in page opened. Finish sign-in in the browser, then return to TapGit and refresh or sign in again.'
+      });
+    });
+  });
 });

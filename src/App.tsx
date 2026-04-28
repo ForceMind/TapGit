@@ -146,6 +146,16 @@ function AppContent() {
     setClonePreferredAccount(status?.activeAccount ?? status?.accounts[0] ?? '');
   }
 
+  function showGitHubLoginNotice(status: GitHubAuthStatus) {
+    const needsBrowserCompletion = status.browserLoginOpened && !status.activeAccount;
+    setNotice({
+      type: needsBrowserCompletion ? 'info' : 'success',
+      text: needsBrowserCompletion
+        ? t('settings_notice_github_browser_opened')
+        : t('settings_notice_github_login_success')
+    });
+  }
+
   async function chooseCloneDestination() {
     try {
       const selectedPath = await unwrapResult(getBridge().chooseCloneDestination());
@@ -164,7 +174,7 @@ function AppContent() {
       const status = await unwrapResult(getBridge().loginGitHub(clonePreferredAccount || undefined));
       setGitHubAuthStatus(status);
       setClonePreferredAccount((current) => current || status.activeAccount || status.accounts[0] || '');
-      setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
+      showGitHubLoginNotice(status);
     } catch (error) {
       setNotice({
         type: 'error',
@@ -610,7 +620,7 @@ function AppContent() {
       setGitHubAuthStatus(status);
       setClonePreferredAccount((current) => current || status.activeAccount || status.accounts[0] || '');
       window.dispatchEvent(new Event('tapgit:github-auth-changed'));
-      setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
+      showGitHubLoginNotice(status);
       navigate('/settings?tab=sync');
     } catch (error) {
       setNotice({

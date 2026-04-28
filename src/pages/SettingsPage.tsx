@@ -391,7 +391,13 @@ export function SettingsPage() {
       setGitHubAuthStatus(status);
       setSelectedGitHubAccount((current) => current || status.activeAccount || status.accounts[0] || '');
       window.dispatchEvent(new Event('tapgit:github-auth-changed'));
-      setNotice({ type: 'success', text: t('settings_notice_github_login_success') });
+      const needsBrowserCompletion = status.browserLoginOpened && !status.activeAccount;
+      setNotice({
+        type: needsBrowserCompletion ? 'info' : 'success',
+        text: needsBrowserCompletion
+          ? t('settings_notice_github_browser_opened')
+          : t('settings_notice_github_login_success')
+      });
     } catch (error) {
       setNotice({
         type: 'error',
@@ -431,12 +437,12 @@ export function SettingsPage() {
       <div className="settings-grid-v2">
         <section className="settings-card-v2">
           <h2>{copy('常规设置', 'General')}</h2>
-          <label className="settings-field-v2">
-            <span>{copy('启动时打开', 'Open on launch')}</span>
-            <select className="input-select" value="projects" disabled>
-              <option value="projects">{copy('我的项目', 'My Projects')}</option>
-            </select>
-          </label>
+          <div className="settings-fact-list-v2">
+            <div>
+              <strong>{copy('启动时打开', 'Open on launch')}</strong>
+              <span>{copy('默认进入“我的项目”。这个入口固定保留，避免启动时迷路。', 'TapGit opens My Projects by default so the start point stays predictable.')}</span>
+            </div>
+          </div>
           <label className="settings-field-v2">
             <span>{copy('默认项目路径', 'Default project path')}</span>
             <div className="settings-inline-v2">
@@ -495,12 +501,12 @@ export function SettingsPage() {
 
         <section className="settings-card-v2">
           <h2>{copy('其他设置', 'Other Settings')}</h2>
-          <label className="settings-field-v2">
-            <span>{copy('默认文本编辑器', 'Default editor')}</span>
-            <select className="input-select" disabled>
-              <option>{copy('内置编辑器', 'Built-in editor')}</option>
-            </select>
-          </label>
+          <div className="settings-fact-list-v2">
+            <div>
+              <strong>{copy('文件查看', 'File viewer')}</strong>
+              <span>{copy('当前使用内置查看器展示修改内容；需要编辑时请用你熟悉的代码编辑器打开项目。', 'TapGit shows changes with the built-in viewer. Edit files in your preferred code editor.')}</span>
+            </div>
+          </div>
           <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>
             {copy('导出设置与日志', 'Export Settings and Logs')}
           </button>
@@ -771,85 +777,6 @@ export function SettingsPage() {
     );
   }
 
-  function renderSync() {
-    if (!project) {
-      return (
-        <section className="state-card-v2">
-          <h1>{copy('先打开一个项目', 'Open a project first')}</h1>
-          <p>{copy('打开项目后才能配置云端同步。', 'Open a project before configuring cloud sync.')}</p>
-          <button className="btn btn-primary" onClick={() => void openProjectFolder()}>{t('app_open_project')}</button>
-        </section>
-      );
-    }
-
-    if (!project.isProtected) {
-      return (
-        <section className="state-card-v2">
-          <h1>{copy('先开启版本保护', 'Turn on protection first')}</h1>
-          <p>{copy('开启保护后才能安全上传和获取云端内容。', 'Protection is required before safe cloud sync.')}</p>
-          <button className="btn btn-primary" onClick={() => void enableProtection()}>{t('app_enable_protection')}</button>
-        </section>
-      );
-    }
-
-    return (
-      <div className="settings-grid-v2">
-        <section className="settings-card-v2 wide">
-          <h2>{copy('连接云端', 'Connect Cloud')}</h2>
-          <div className="settings-status-card-v2">
-            <Cloud size={24} />
-            <div>
-              <strong>{syncStateText}</strong>
-              <span>{cloudStatus?.remoteUrl || copy('尚未连接仓库地址。', 'No repository address connected yet.')}</span>
-            </div>
-          </div>
-          <label className="settings-field-v2">
-            <span>{copy('云端平台', 'Cloud provider')}</span>
-            <select className="input-select" value={cloudPlatform} onChange={(event) => setCloudPlatform(event.target.value as CloudPlatform)}>
-              <option value="github">GitHub</option>
-              <option value="gitlab">GitLab</option>
-              <option value="custom">{t('settings_cloud_platform_custom')}</option>
-            </select>
-          </label>
-          {cloudPlatform !== 'custom' ? (
-            <div className="settings-inline-v2">
-              <input className="input-text" value={cloudOwner} onChange={(event) => setCloudOwner(event.target.value)} placeholder={t('settings_cloud_owner_placeholder')} />
-              <input className="input-text" value={cloudRepo} onChange={(event) => setCloudRepo(event.target.value)} placeholder={t('settings_cloud_repo_placeholder')} />
-              <button className="btn btn-secondary" disabled={syncing} onClick={() => applyWizardUrl()}>{copy('生成地址', 'Fill Address')}</button>
-            </div>
-          ) : null}
-          <label className="settings-field-v2">
-            <span>{copy('仓库地址', 'Repository address')}</span>
-            <input className="input-text" value={remoteUrlInput} onChange={(event) => setRemoteUrlInput(event.target.value)} placeholder={t('settings_cloud_url_placeholder')} />
-          </label>
-          <div className="actions-row">
-            <button className="btn btn-primary" disabled={syncing || !remoteUrlInput.trim()} onClick={() => void handleConnectCloud()}>{copy('连接这个项目', 'Connect This Project')}</button>
-            <button className="btn btn-secondary" disabled={syncing || !remoteUrlInput.trim()} onClick={() => void handleTestCloudConnection()}>{copy('测试连接', 'Test Connection')}</button>
-            <button className="btn btn-secondary" disabled={syncing || !providerLinks.createRepoUrl} onClick={() => void openExternalUrl(providerLinks.createRepoUrl)}>{copy('创建仓库', 'Create Repository')}</button>
-            <button className="btn btn-secondary" disabled={syncing || !providerLinks.repoPageUrl} onClick={() => void openExternalUrl(providerLinks.repoPageUrl)}>{copy('打开仓库', 'Open Repository')}</button>
-          </div>
-          <span className="settings-subtle-v2">{providerLabel}</span>
-          {connectionTest ? <p className={connectionTest.reachable ? 'success-text' : 'muted'}>{toCloudTestMessage(connectionTest, t)}</p> : null}
-          {cloudAdvice ? <p className="muted">{cloudAdvice}</p> : null}
-        </section>
-
-        <section className="settings-card-v2">
-          <h2>{copy('现在同步', 'Sync Now')}</h2>
-          <div className="settings-mini-stats-v2">
-            <span>{copy('等待上传', 'Pending upload')} <strong>{cloudStatus?.pendingUpload ?? 0}</strong></span>
-            <span>{copy('等待获取', 'Pending download')} <strong>{cloudStatus?.pendingDownload ?? 0}</strong></span>
-            <span>{copy('当前分支', 'Current copy')} <strong>{cloudStatus ? toPlanLabel(cloudStatus.currentPlan, cloudStatus.currentPlan === 'main' || cloudStatus.currentPlan === 'master', t) : project.currentPlan}</strong></span>
-          </div>
-          <div className="actions-row">
-            <button className="btn btn-primary" disabled={syncing || !cloudStatus?.connected} onClick={() => void handleUploadToCloud()}>{t('settings_cloud_upload')}</button>
-            <button className="btn btn-secondary" disabled={syncing || !cloudStatus?.connected} onClick={() => void handleGetCloudLatest()}>{t('settings_cloud_get_latest')}</button>
-            <button className="btn btn-secondary" disabled={syncing} onClick={() => void loadCloudStatus()}>{copy('刷新状态', 'Refresh')}</button>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   function renderSafety() {
     return (
       <div className="settings-grid-v2">
@@ -875,7 +802,6 @@ export function SettingsPage() {
         <section className="settings-card-v2">
           <h2>{copy('支持', 'Support')}</h2>
           <button className="btn btn-secondary" onClick={() => void handleExportLogs()}>{t('settings_trouble_export_logs')}</button>
-          <button className="btn btn-secondary" disabled>{copy('清理本地缓存', 'Clear Local Cache')}</button>
         </section>
       </div>
     );

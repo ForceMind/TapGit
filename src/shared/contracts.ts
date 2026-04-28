@@ -132,6 +132,8 @@ export interface GitHubAuthStatus {
   available: boolean;
   accounts: string[];
   activeAccount: string | null;
+  browserLoginOpened?: boolean;
+  helpUrl?: string;
 }
 
 export interface CloudSyncStatus {

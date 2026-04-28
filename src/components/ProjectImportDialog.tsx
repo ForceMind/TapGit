@@ -99,7 +99,7 @@ export function ProjectImportDialog({
                       : t('home_import_auth_none')}
                 </p>
               </div>
-              <button className="btn btn-secondary" type="button" onClick={onLoginGitHub}>
+              <button className="btn btn-secondary" type="button" disabled={authLoading} onClick={onLoginGitHub}>
                 {t('home_import_auth_action')}
               </button>
             </div>

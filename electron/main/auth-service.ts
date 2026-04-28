@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { shell } from 'electron';
 import { GitHubAuthStatus } from '../../src/shared/contracts';
 import { AppError } from './app-error';
 
 const execFileAsync = promisify(execFile);
+const GITHUB_LOGIN_URL = 'https://github.com/login';
 
 function parseAccounts(stdout: string) {
   return stdout
@@ -20,6 +22,49 @@ async function runGitHubCredentialManager(args: string[]) {
       GCM_INTERACTIVE: 'always'
     }
   });
+}
+
+function shouldOpenBrowserFallback(error: unknown) {
+  const details = String(error);
+  return (
+    process.platform === 'darwin' ||
+    details.includes('not a git command') ||
+    details.includes('ENOENT') ||
+    details.includes('not found') ||
+    details.includes('Unknown option') ||
+    details.includes('unknown option')
+  );
+}
+
+async function runGitHubLogin(username?: string) {
+  const baseArgs = username?.trim() ? ['--username', username.trim()] : [];
+  const attempts = [
+    ['login', '--browser', '--force', ...baseArgs],
+    ['login', '--browser', ...baseArgs],
+    ['login', ...baseArgs]
+  ];
+  let lastError: unknown = null;
+
+  for (const args of attempts) {
+    try {
+      await runGitHubCredentialManager(args);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
+async function openGitHubLoginFallback(): Promise<GitHubAuthStatus> {
+  await shell.openExternal(GITHUB_LOGIN_URL);
+  const status = await getGitHubAuthStatus();
+  return {
+    ...status,
+    browserLoginOpened: true,
+    helpUrl: GITHUB_LOGIN_URL
+  };
 }
 
 export async function getGitHubAuthStatus(): Promise<GitHubAuthStatus> {
@@ -42,13 +87,12 @@ export async function getGitHubAuthStatus(): Promise<GitHubAuthStatus> {
 
 export async function loginGitHub(username?: string): Promise<GitHubAuthStatus> {
   try {
-    const args = ['login', '--browser', '--force'];
-    if (username?.trim()) {
-      args.push('--username', username.trim());
-    }
-    await runGitHubCredentialManager(args);
+    await runGitHubLogin(username);
     return getGitHubAuthStatus();
   } catch (error) {
+    if (shouldOpenBrowserFallback(error)) {
+      return openGitHubLoginFallback();
+    }
     throw new AppError('GITHUB_LOGIN_FAILED', 'GitHub sign-in failed.', String(error));
   }
 }
